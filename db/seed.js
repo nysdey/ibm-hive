@@ -71,11 +71,11 @@ function seed() {
   const lastId = () => db.prepare('SELECT last_insert_rowid() as id').get().id;
 
   const seedPeople = db.transaction(() => {
-    // ── Chris Kennedy — Manager (account switch target) ──
+    // ── Chris Kennedy — BTSS Manager (Infrastructure)  ──
     insertPerson.run({
       first_name:'Chris', last_name:'Kennedy', initials:'CK',
-      role:'Sales Manager', role_type:'manager',
-      market_id:mkt['Enterprise'], comb_id:combMap['Data & AI Colony'],
+      role:'BTSS Manager', role_type:'manager',
+      market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'],
       manager_id:null,
       email:'chris.kennedy@ibm.com', slack:'@chris.kennedy', location:'New York, NY',
       color:'#6c63ff', is_current_user:0, joined_date:'2017-06-01'
@@ -86,10 +86,10 @@ function seed() {
     insertPerson.run({
       first_name:'Sydney', last_name:'Chin', initials:'SC',
       role:'BTSS Intern', role_type:'intern',
-      market_id:mkt['Enterprise'], comb_id:combMap['Data & AI Colony'],
+      market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'],
       manager_id:chris,
       email:'sydney.chin@ibm.com', slack:'@sydney.chin', location:'New York, NY',
-      color:'#4d7bff', is_current_user:1, joined_date:'2021-06-01'
+      color:'#4d7bff', is_current_user:1, joined_date:'2024-06-01'
     });
     const sydney = lastId();
 
@@ -168,6 +168,26 @@ function seed() {
     insertPerson.run({ first_name:'Fatima', last_name:'Hassan', initials:'FH', role:'Brand Sales Specialist (BSS)', role_type:'bss', market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'], manager_id:victor, email:'fatima.hassan@ibm.com', slack:'@fatima.h', location:'Toronto, ON', color:'#60a5fa', is_current_user:0, joined_date:'2022-04-01' });
 
     insertPerson.run({ first_name:'Jin', last_name:'Park', initials:'JP', role:'Customer Success Manager (CSM)', role_type:'csm', market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'], manager_id:victor, email:'jin.park@ibm.com', slack:'@jin.p', location:'Seattle, WA', color:'#4338ca', is_current_user:0, joined_date:'2021-08-01' });
+
+    // ── Sydney's actual Infrastructure team ──────────────────────
+    // Move Chris Kennedy to Infrastructure Colony, update manager chain
+    // Rob Hanes — TSS Manager
+    insertPerson.run({ first_name:'Rob', last_name:'Hanes', initials:'RH', role:'TSS Manager', role_type:'manager', market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'], manager_id:victor, email:'rob.hanes@ibm.com', slack:'@rob.hanes', location:'New York, NY', color:'#6c63ff', is_current_user:0, joined_date:'2016-03-01' });
+    const rob = lastId();
+
+    // Mark Hoffman — BTSS (Brand Technical Sales Specialist)
+    insertPerson.run({ first_name:'Mark', last_name:'Hoffman', initials:'MH', role:'Brand Technical Sales Specialist (BTSS)', role_type:'bts', market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'], manager_id:chris, email:'mark.hoffman@ibm.com', slack:'@mark.hoffman', location:'New York, NY', color:'#a78bfa', is_current_user:0, joined_date:'2019-08-01' });
+    const markH = lastId();
+
+    // Armada Veraepalli — BTSS
+    insertPerson.run({ first_name:'Armada', last_name:'Veraepalli', initials:'AV', role:'Brand Technical Sales Specialist (BTSS)', role_type:'bts', market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'], manager_id:chris, email:'armada.veraepalli@ibm.com', slack:'@armada.v', location:'New York, NY', color:'#a855f7', is_current_user:0, joined_date:'2020-04-01' });
+    const armada = lastId();
+
+    // Ross Holley — TSS (counterpart to Mark Hoffman)
+    insertPerson.run({ first_name:'Ross', last_name:'Holley', initials:'RH2', role:'Territory Sales Specialist (TSS)', role_type:'bss', market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'], manager_id:rob, email:'ross.holley@ibm.com', slack:'@ross.holley', location:'New York, NY', color:'#60a5fa', is_current_user:0, joined_date:'2018-11-01' });
+
+    // Patrick McBride — TSS (counterpart to Armada Veraepalli)
+    insertPerson.run({ first_name:'Patrick', last_name:'McBride', initials:'PM', role:'Territory Sales Specialist (TSS)', role_type:'bss', market_id:mkt['Horizon'], comb_id:combMap['Infrastructure Colony'], manager_id:rob, email:'patrick.mcbride@ibm.com', slack:'@patrick.m', location:'New York, NY', color:'#60a5fa', is_current_user:0, joined_date:'2019-02-01' });
 
     // ── HYBRID CLOUD COLONY ───────────────────────────────────────
     insertPerson.run({ first_name:'Alexis', last_name:'Morgan', initials:'AM', role:'VP, Hybrid Cloud', role_type:'exec', market_id:mkt['Horizon'], comb_id:combMap['Hybrid Cloud Colony'], manager_id:null, email:'alexis.morgan@ibm.com', slack:'@alexis.m', location:'New York, NY', color:'#c026d3', is_current_user:0, joined_date:'2016-09-01' });

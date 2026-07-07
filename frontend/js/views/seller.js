@@ -1,215 +1,275 @@
 /**
- * seller.js — Management Hierarchy + My Cell views
+ * seller.js — Cell view: Structure (hex team grid) + Connections (network)
+ *
+ * Structure: renders Sydney's actual team as hexagons arranged in rows.
+ * Connections: the existing network/connections view re-used inline.
  */
-import { getPeople, getPerson } from '../api.js';
+import { getPeople }  from '../api.js';
 import { openPerson } from '../panel.js';
 
-const ROLE_COLORS = {
-  exec:     'var(--c-exec)',
-  director: 'var(--c-director)',
-  manager:  'var(--c-manager)',
-  ae:       'var(--c-peer)',
-  tse:      'var(--c-tech)',
-  csm:      'var(--c-csm)',
-  sdr:      'var(--c-sdr)',
-  partner:  'var(--c-partner)',
-  other:    'var(--c-other)',
+// Role → fill color for hex cells
+const ROLE_COLOR = {
+  exec:     '#7c3aed',
+  director: '#9333ea',
+  manager:  '#6c63ff',
+  bss:      '#2563eb',
+  bts:      '#0e7490',
+  intern:   '#4d7bff',
+  csm:      '#0f766e',
+  sdr:      '#1d4ed8',
+  partner:  '#7e22ce',
+  other:    '#1a1a1a',
 };
 
-// Role taxonomy — which function each role complements (mirrors the
-// Sales / Technical / Ecosystem hex-map role architecture)
-const ROLE_CATEGORY = {
-  exec:     'cat-sales',
-  director: 'cat-sales',
-  manager:  'cat-sales',
-  ae:       'cat-sales',
-  sdr:      'cat-sales',
-  tse:      'cat-tech',
-  csm:      'cat-tech',
-  partner:  'cat-support',
-  other:    'cat-support',
+const ROLE_LABEL = {
+  exec:'VP/Exec', director:'Director', manager:'Manager',
+  bss:'TSS', bts:'BTSS', intern:'Intern', csm:'CSM',
+  sdr:'SDR', partner:'Partner', other:'—',
 };
+
+// HEX SIZE for the Cell view (smaller than Org)
+const HR = 46;
+const HW = Math.round(Math.sqrt(3) * HR);
+
+function hexPoints(cx, cy, r) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = Math.PI / 180 * (60 * i - 30);
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+}
+
+let _activeTab = 'structure';
 
 export async function renderSeller(container) {
   container.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Job View</div>
-      <div class="page-sub">Your management chain and the complementary roles in your cell</div>
-    </div>
-    <div class="tab-bar">
-      <div class="tab active" data-tab="hier">Management Hierarchy</div>
-      <div class="tab" data-tab="cell">My Cell</div>
-    </div>
-    <div class="content">
-      <div id="seller-tab-hier" class="seller-tab active"></div>
-      <div id="seller-tab-cell" class="seller-tab" style="display:none"></div>
+    <div class="cell-page">
+      <div class="tab-bar" style="padding:0 24px;border-bottom:1px solid rgba(255,255,255,0.07)">
+        <div class="tab active" data-tab="structure">Structure</div>
+        <div class="tab" data-tab="connections">Connections</div>
+      </div>
+      <div id="cell-tab-structure" class="cell-tab-content" style="display:flex;flex:1;overflow-y:auto"></div>
+      <div id="cell-tab-connections" class="cell-tab-content" style="display:none;flex:1;overflow-y:auto"></div>
     </div>
   `;
 
-  // Tab switching
   container.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      container.querySelectorAll('.seller-tab').forEach(t => t.style.display = 'none');
-      document.getElementById(`seller-tab-${tab.dataset.tab}`).style.display = 'block';
+      container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
+      document.getElementById(`cell-tab-${tab.dataset.tab}`).style.display = 'flex';
+      _activeTab = tab.dataset.tab;
     });
   });
 
-  // Load data
-  const [me, allEnterprise] = await Promise.all([
-    getPeople({ role_type: 'ae' }).then(p => p.find(x => x.is_current_user) || p[0]),
-    getPeople({ market: 'Enterprise' }),
-  ]);
+  // Also listen for sidebar filter
+  document.addEventListener('sidebar:filter', e => {
+    const { value } = e.detail;
+    if (value === 'structure') {
+      container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'structure'));
+      container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
+      document.getElementById('cell-tab-structure').style.display = 'flex';
+    } else if (value === 'connections') {
+      container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'connections'));
+      container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
+      document.getElementById('cell-tab-connections').style.display = 'flex';
+    }
+  });
 
-  await Promise.all([
-    renderHierarchy(me, allEnterprise),
-    renderCell(me, allEnterprise),
-  ]);
+  const allPeople = await getPeople();
+  renderStructure(allPeople);
+  renderConnections(allPeople);
 }
 
-async function renderHierarchy(me, people) {
-  const container = document.getElementById('seller-tab-hier');
+// ── Structure: hex grid of Sydney's actual team ───────────────────
+function renderStructure(allPeople) {
+  const container = document.getElementById('cell-tab-structure');
+  if (!container) return;
 
-  // Build levels: chain up from current user to root
-  const byId = {};
-  people.forEach(p => { byId[p.id] = p; });
+  const me      = allPeople.find(p => p.is_current_user) || allPeople[0];
+  const manager = allPeople.find(p => p.id === me?.manager_id);
 
-  const chain = [me];
-  let cur = me;
-  while (cur.manager_id && byId[cur.manager_id]) {
-    cur = byId[cur.manager_id];
-    chain.unshift(cur);
-  }
-
-  // Direct peers (same manager)
-  const peers = people.filter(p =>
-    p.manager_id === me.manager_id && !p.is_current_user
+  // Find Sydney's actual named teammates by name
+  const teamNames = [
+    'Mark Hoffman', 'Armada Veraepalli', 'Ross Holley',
+    'Patrick McBride', 'Rob Hanes',
+  ];
+  const teammates = allPeople.filter(p =>
+    !p.is_current_user &&
+    teamNames.includes(p.first_name + ' ' + p.last_name)
   );
 
-  const legend = `
-    <div class="role-legend">
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-exec)"></div>VP / Exec</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-director)"></div>Director</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-manager)"></div>Manager</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-you)"></div>You</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-peer)"></div>Peer</div>
-    </div>
-  `;
+  // Build rows:
+  //  Row 0 (centered): manager
+  //  Row 1 (centered): Rob Hanes + Chris Kennedy  (TSS Mgr + BTSS Mgr)  — but Chris is manager so skip
+  //  Row 2: Mark Hoffman, Armada Veraepalli (BTSS peers)
+  //  Row 3 (offset): Ross Holley, [You], Patrick McBride
+  const robHanes   = teammates.find(p => p.last_name === 'Hanes');
+  const markH      = teammates.find(p => p.last_name === 'Hoffman' && p.first_name === 'Mark');
+  const armada     = teammates.find(p => p.first_name === 'Armada');
+  const rossH      = teammates.find(p => p.last_name === 'Holley');
+  const patrickM   = teammates.find(p => p.last_name === 'McBride');
 
-  // Render chain (above current user and above the "Your Manager" card, which is rendered separately below)
-  const chainHtml = chain.slice(0, -2).map(p => `
-    <div class="org-level">
-      ${orgCard(p, '')}
-    </div>
-    <div class="org-connector"><div class="org-connector-line"></div></div>
-  `).join('');
+  const rows = [
+    manager          ? [manager]                              : [],
+    robHanes         ? [robHanes]                             : [],
+    [markH, armada].filter(Boolean),
+    [rossH, me, patrickM].filter(Boolean),
+  ].filter(r => r.length > 0);
 
-  // Render my manager (last in chain before me)
-  const manager = chain.length > 1 ? chain[chain.length - 2] : null;
+  const rowsHtml = rows.map((row, ri) => {
+    const cells = row.map(p => hexCell(p)).join('');
+    return `<div class="cell-hex-row" style="${ri % 2 === 1 ? `margin-left:${HW/2 + 3}px` : ''}">${cells}</div>`;
+  }).join('');
 
-  // Peer row including "you"
-  const peerRow = `
-    <div class="org-level" style="gap:12px">
-      ${peers.slice(0, 2).map(p => orgCard(p, 'peer')).join('')}
-      ${orgCard(me, 'you')}
-      ${peers.slice(2).map(p => orgCard(p, 'peer')).join('')}
-    </div>
-  `;
+  // Relationship guide
+  const guideRows = [
+    { color: '#6c63ff', label: 'Manager (Chris Kennedy — BTSS Manager)' },
+    { color: '#6c63ff', label: 'TSS Manager (Rob Hanes — TSS Manager)' },
+    { color: '#0e7490', label: 'BTSS — Brand Technical Sales Specialist' },
+    { color: '#2563eb', label: 'TSS — Territory Sales Specialist' },
+    { color: '#4d7bff', label: 'You — BTSS Intern' },
+  ];
 
-  container.innerHTML = legend + `
-    <div class="org-tree">
-      ${chainHtml}
-      <div class="org-level">${orgCard(chain[chain.length - (chain.length > 1 ? 2 : 1)], 'highlight')}</div>
-      <div class="org-connector"><div class="org-connector-line"></div></div>
-      ${peerRow}
-    </div>
-  `;
+  container.innerHTML = `
+    <div style="flex:1;overflow-y:auto;padding:28px 32px">
+      <div style="font-size:12px;color:#525252;margin-bottom:24px;line-height:1.6">
+        Infrastructure Colony · US All Market · PowerVS · FlashSystems · Fusion
+      </div>
 
-  // Wire clicks
-  container.querySelectorAll('[data-person-id]').forEach(el => {
-    el.addEventListener('click', () => openPerson(el.dataset.personId));
-  });
-}
+      <div class="cell-hex-grid" style="padding:0 0 32px">
+        ${rowsHtml}
+      </div>
 
-async function renderCell(me, people) {
-  const container = document.getElementById('seller-tab-cell');
-
-  const cellMembers = people.filter(p =>
-    p.manager_id === me.manager_id || p.id === me.manager_id
-  );
-
-  const legend = `
-    <div class="role-legend">
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-manager)"></div>Manager</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-you)"></div>You</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-peer)"></div>Peer AE</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--c-tech)"></div>Technical</div>
-    </div>
-  `;
-
-  // Build rows: manager on top, then grid of peers
-  const manager = people.find(p => p.id === me.manager_id);
-  const others  = cellMembers.filter(p => p.id !== me.manager_id);
-  const withMe  = [me, ...others];
-
-  // Chunk into rows of 3
-  const rows = [];
-  if (manager) rows.push([manager]);
-  for (let i = 0; i < withMe.length; i += 3) {
-    rows.push(withMe.slice(i, i + 3));
-  }
-
-  const hexRows = rows.map(row => `
-    <div class="hex-row">
-      ${row.map(p => `
-        <div class="hex-wrap" data-person-id="${p.id}">
-          <div class="hex ${ROLE_CATEGORY[p.role_type] || ''}" style="background:${p.is_current_user ? 'var(--c-you)' : ROLE_COLORS[p.role_type] || 'var(--c-other)'}">
-            <div class="hex-name">${p.first_name} ${p.last_name.charAt(0)}.</div>
-            <div class="hex-role">${p.role_type.toUpperCase()}</div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
-
-  const catLegend = `
-    <div class="cat-legend">
-      <div class="cat-legend-item"><div class="cat-legend-marker cat-sales"></div>Sales Roles</div>
-      <div class="cat-legend-item"><div class="cat-legend-marker cat-tech"></div>Technical Roles</div>
-      <div class="cat-legend-item"><div class="cat-legend-marker cat-support"></div>Ecosystem Roles</div>
-    </div>
-  `;
-
-  container.innerHTML = legend + `<div class="hive-container">${hexRows}</div>` + catLegend;
-
-  container.querySelectorAll('[data-person-id]').forEach(el => {
-    el.addEventListener('click', () => openPerson(el.dataset.personId));
-  });
-}
-
-// ── Helper: single org card ────────────────────────────────────
-function orgCard(person, variant) {
-  const color = person.is_current_user ? 'var(--c-you)' : ROLE_COLORS[person.role_type] || 'var(--c-other)';
-  const badge = {
-    you:       `<div class="org-badge" style="background:rgba(77,123,255,0.16);color:var(--c-you)">You</div>`,
-    highlight: `<div class="org-badge">Your Manager</div>`,
-    peer:      `<div class="org-badge">Peer</div>`,
-    '':        `<div class="org-badge">${capitalize(person.role_type)}</div>`,
-  }[variant] ?? `<div class="org-badge">${capitalize(person.role_type)}</div>`;
-
-  return `
-    <div class="org-card ${variant}" data-person-id="${person.id}">
-      <div class="org-avatar" style="background:${color}">${person.initials}</div>
-      <div class="org-info">
-        <div class="org-name">${person.first_name} ${person.last_name}</div>
-        <div class="org-role">${person.role}</div>
-        ${badge}
+      <div style="margin-top:32px;border-top:1px solid rgba(255,255,255,0.07);padding-top:20px">
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.6px;color:#525252;margin-bottom:14px">Key relationships</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;color:#525252;font-weight:400;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.07)">BTSS</th>
+              <th style="text-align:left;color:#525252;font-weight:400;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.07)">TSS counterpart</th>
+              <th style="text-align:left;color:#525252;font-weight:400;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.07)">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#f4f4f4">Mark Hoffman</td>
+              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#60a5fa">Ross Holley</td>
+              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#525252">Paired coverage</td>
+            </tr>
+            <tr>
+              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#f4f4f4">Armada Veraepalli</td>
+              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#60a5fa">Patrick McBride</td>
+              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#525252">Paired coverage</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:9px 0;color:#525252">TSS Manager: Rob Hanes · BTSS Manager: Chris Kennedy</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   `;
+
+  // Wire click → person panel
+  container.querySelectorAll('[data-person-id]').forEach(el => {
+    el.addEventListener('click', () => openPerson(el.dataset.personId));
+  });
 }
 
-function capitalize(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+function hexCell(person) {
+  if (!person) return '';
+  const isMe    = person.is_current_user;
+  const color   = isMe ? '#1a2e5e' : (ROLE_COLOR[person.role_type] || ROLE_COLOR.other);
+  const stroke  = isMe ? '#4d7bff' : 'rgba(255,255,255,0.18)';
+  const sw      = isMe ? 1.5 : 0.8;
+  const textCol = 'rgba(255,255,255,0.9)';
+  const cx = HR + 2, cy = HR + 2;
+  const size = HR * 2 + 4;
+
+  const name  = person.first_name + ' ' + person.last_name;
+  const role  = ROLE_LABEL[person.role_type] || '';
+  const parts = name.split(' ');
+  const line1 = parts[0];
+  const line2 = parts.slice(1).join(' ');
+
+  return `
+    <div class="cell-hex-item" data-person-id="${person.id}" title="${name}">
+      <svg class="cell-hex-svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <polygon points="${hexPoints(cx, cy, HR - 1)}"
+                 fill="${color}" stroke="${stroke}" stroke-width="${sw}"/>
+        ${isMe ? `<polygon points="${hexPoints(cx, cy, HR - 4)}" fill="none" stroke="rgba(77,123,255,0.5)" stroke-width="1"/>` : ''}
+        <text x="${cx}" y="${cy - 7}" text-anchor="middle" dominant-baseline="middle"
+              fill="${textCol}" font-size="9.5" font-weight="500"
+              font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${line1}</text>
+        <text x="${cx}" y="${cy + 5}" text-anchor="middle" dominant-baseline="middle"
+              fill="${textCol}" font-size="9.5" font-weight="500"
+              font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${line2}</text>
+        <text x="${cx}" y="${cy + 17}" text-anchor="middle" dominant-baseline="middle"
+              fill="rgba(255,255,255,0.38)" font-size="7.5"
+              font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${role}</text>
+      </svg>
+    </div>
+  `;
+}
+
+// ── Connections: network cards ─────────────────────────────────────
+async function renderConnections(allPeople) {
+  const container = document.getElementById('cell-tab-connections');
+  if (!container) return;
+
+  try {
+    const { getNetwork } = await import('../api.js');
+    const conns = await getNetwork();
+
+    const REL_LABELS = {
+      close_ally: 'Close ally', partner: 'Partner', cross_brand: 'Cross-brand',
+      client: 'Client', peer: 'Peer',
+    };
+    const REL_CSS = {
+      close_ally: 'tag-close', partner: 'tag-partner', cross_brand: 'tag-cross',
+      client: 'tag-client', peer: 'tag-peer',
+    };
+
+    if (!conns || conns.length === 0) {
+      container.innerHTML = `<div class="content" style="color:var(--muted);font-size:13px">No connections yet. Add them from the People tab.</div>`;
+      return;
+    }
+
+    const cards = conns.map(c => {
+      const p = allPeople.find(x => x.id === c.person_id) || {};
+      const name = p.first_name ? p.first_name + ' ' + p.last_name : '—';
+      const tag  = REL_CSS[c.relationship] || 'tag-peer';
+      const lbl  = REL_LABELS[c.relationship] || c.relationship;
+      return `
+        <div class="network-card" data-person-id="${c.person_id}">
+          <div class="nc-top">
+            <div class="nc-avatar" style="background:${p.color || '#333'}">${p.first_name ? p.first_name[0] : '?'}</div>
+            <div>
+              <div class="nc-name">${name}</div>
+              <div class="nc-role">${p.role || '—'}</div>
+            </div>
+          </div>
+          <div class="nc-tag ${tag}">${lbl}</div>
+          ${c.notes ? `<div class="nc-note">${c.notes}</div>` : ''}
+          ${c.needs_followup ? `<div class="nc-followup">⚑ Follow up</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="flex:1;overflow-y:auto">
+        <div style="padding:20px 24px 8px;font-size:12px;color:#525252">${conns.length} connection${conns.length !== 1 ? 's' : ''}</div>
+        <div class="network-grid" style="padding:0 24px 24px">${cards}</div>
+      </div>
+    `;
+
+    container.querySelectorAll('[data-person-id]').forEach(el => {
+      el.addEventListener('click', () => openPerson(el.dataset.personId));
+    });
+
+  } catch (err) {
+    container.innerHTML = `<div class="content" style="color:var(--muted);font-size:13px">Could not load connections.</div>`;
+  }
 }

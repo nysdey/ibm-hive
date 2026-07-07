@@ -2,8 +2,7 @@
  * app.js — boot, navigation, and view orchestration
  */
 import { getPeople }       from './api.js';
-import { renderHive }      from './views/hive.js';
-import { renderOrg }       from './views/colony.js';
+import { renderOrg }       from './views/org.js';
 import { renderSeller }    from './views/seller.js';
 import { renderNetwork }   from './views/network.js';
 import { renderAccounts }  from './views/accounts.js';
@@ -11,12 +10,12 @@ import { renderResources } from './views/resources.js';
 
 // ── Per-view sidebar definitions ────────────────────────────────
 const SIDEBAR_DEFS = {
-  hive: {
+  org: {
     sections: [
       {
         label: null,
         items: [
-          { id: 'portfolios', label: 'Portfolios', expandable: true, children: [
+          { id: 'colonies', label: 'Colonies', expandable: true, children: [
             { id: 'data-ai',        label: 'Data & AI' },
             { id: 'automation',     label: 'Automation' },
             { id: 'sustainability', label: 'Sustainability' },
@@ -33,6 +32,7 @@ const SIDEBAR_DEFS = {
             { id: 'exec',     label: 'VP / Executive' },
             { id: 'partner',  label: 'Partner' },
             { id: 'sdr',      label: 'SDR' },
+            { id: 'intern',   label: 'Intern' },
           ]},
           { id: 'markets', label: 'Markets', expandable: true, children: [
             { id: 'enterprise', label: 'Enterprise' },
@@ -45,34 +45,13 @@ const SIDEBAR_DEFS = {
     ],
   },
 
-  org: {
-    sections: [
-      {
-        label: 'Views',
-        items: [
-          { id: 'org-colonies', label: 'Colonies',   active: true },
-          { id: 'org-markets',  label: 'Markets' },
-          { id: 'org-chart',    label: 'Org chart' },
-        ],
-      },
-    ],
-  },
-
   cell: {
     sections: [
       {
         label: 'My cell',
         items: [
-          { id: 'cell-work',       label: 'Work structure', active: true },
-          { id: 'cell-mgmt',       label: 'Management chain' },
-          { id: 'cell-peers',      label: 'My peers' },
-        ],
-      },
-      {
-        label: 'Relationships',
-        items: [
-          { id: 'cell-connections', label: 'My connections' },
-          { id: 'cell-network',     label: 'Network map' },
+          { id: 'structure',    label: 'Structure',    active: true },
+          { id: 'connections',  label: 'Connections' },
         ],
       },
     ],
@@ -110,12 +89,18 @@ const SIDEBAR_DEFS = {
   resources: {
     sections: [
       {
-        label: 'My resources',
+        label: 'Resources',
         items: [
-          { id: 'res-all',      label: 'All resources', active: true },
-          { id: 'res-go-to',    label: 'Go-to links' },
-          { id: 'res-playbooks', label: 'Playbooks' },
-          { id: 'res-contacts', label: 'Key contacts' },
+          { id: 'all',         label: 'All',              active: true },
+          { id: 'quick-start', label: 'Quick start' },
+          { id: 'tools',       label: 'Go-to tools' },
+          { id: 'products',    label: 'Focus products' },
+          { id: 'plays',       label: 'Sales plays' },
+          { id: 'motions',     label: 'Core motions' },
+          { id: 'gtm',         label: 'GTM workflow' },
+          { id: 'rhythm',      label: 'Operating rhythm' },
+          { id: 'roles',       label: 'Role guide' },
+          { id: 'team',        label: 'My team' },
         ],
       },
     ],
@@ -187,7 +172,6 @@ function renderSidebar(viewName) {
     el.addEventListener('click', () => {
       sidebar.querySelectorAll('.sb-child.active, .sb-item.active').forEach(a => a.classList.remove('active'));
       el.classList.add('active');
-      // Fire a custom event the active view can listen to
       document.dispatchEvent(new CustomEvent('sidebar:filter', {
         detail: { group: el.dataset.filter || el.dataset.sbItem, value: el.dataset.value || el.dataset.sbItem }
       }));
@@ -228,7 +212,7 @@ function wireProfileDropdown() {
       dropdown.querySelectorAll('.user-dropdown-item').forEach(i => i.classList.remove('active'));
       item.classList.add('active');
       const nameEl = document.getElementById('currentUserName');
-      if (item.dataset.profile === 'sydney')  nameEl.textContent = 'Sydney Chin';
+      if (item.dataset.profile === 'sydney')       nameEl.textContent = 'Sydney Chin';
       else if (item.dataset.profile === 'manager') nameEl.textContent = 'Chris Kennedy';
       else if (item.dataset.profile === 'admin')   nameEl.textContent = 'Admin';
       dropdown.classList.remove('open');
@@ -238,7 +222,6 @@ function wireProfileDropdown() {
 
 // ── View registry ────────────────────────────────────────────────
 const VIEW_RENDERERS = {
-  hive:      renderHive,
   org:       renderOrg,
   cell:      renderSeller,
   people:    renderNetwork,
@@ -292,4 +275,4 @@ document.querySelectorAll('.topnav-link[data-view-link]').forEach(item => {
 // ── Init ──────────────────────────────────────────────────────────
 boot();
 wireProfileDropdown();
-activateView('hive');
+activateView('org');
