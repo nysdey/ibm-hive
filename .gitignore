@@ -1,0 +1,12 @@
+.claude/
+
+# Dependencies — reproduced via `npm install`
+node_modules/
+
+# SQLite database — reproduced via `npm run seed`
+db/hive.db
+db/hive.db-shm
+db/hive.db-wal
+
+# OS
+.DS_Store

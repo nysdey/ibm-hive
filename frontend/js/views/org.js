@@ -90,8 +90,12 @@ const HEX_R = 3;
 const HEX_W = Math.sqrt(3) * HEX_R;
 const ROW_H = HEX_R * 1.5;
 
-// Virtual hive size — hexRegion(300) = 270,901 cells ≈ "270,000 bees"
-const VIRTUAL_N = 300;
+// Virtual hive size — kept small enough to draw synchronously without
+// hanging the main thread. hexRegion(300) = 270,901 cells was the actual
+// bug: the canvas fill/stroke pass for that many sub-paths blocked the
+// tab for tens of seconds on first render. hexRegion(80) = 19,441 cells
+// renders in well under 100ms and still reads as a dense hive at zoom-out.
+const VIRTUAL_N = 80;
 
 function axialToPixel(q, r) {
   return { x: HEX_W * (q + r / 2), y: ROW_H * r };
