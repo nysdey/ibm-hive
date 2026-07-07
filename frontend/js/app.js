@@ -35,6 +35,11 @@ async function activateView(viewName) {
     n.classList.toggle('active', n.dataset.view === viewName);
   });
 
+  // Update top nav links
+  document.querySelectorAll('.topnav-link[data-view-link]').forEach(n => {
+    n.classList.toggle('active', n.dataset.viewLink === viewName);
+  });
+
   // Show the right view container
   document.querySelectorAll('.main > .view').forEach(v => {
     v.classList.toggle('active', v.id === `view-${viewName}`);
@@ -65,6 +70,11 @@ async function activateView(viewName) {
 // ── Sidebar nav clicks ────────────────────────────────────────
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => activateView(item.dataset.view));
+});
+
+// ── Top nav link clicks ───────────────────────────────────────
+document.querySelectorAll('.topnav-link[data-view-link]').forEach(item => {
+  item.addEventListener('click', () => activateView(item.dataset.viewLink));
 });
 
 // ── Init ──────────────────────────────────────────────────────

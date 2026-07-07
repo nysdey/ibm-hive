@@ -5,6 +5,12 @@ const path = require('path');
 
 const DB_PATH = path.join(__dirname, '..', 'db', 'hive.db');
 
+// Ensure the db directory exists (useful in CI/fresh clones before seed runs)
+const fs = require('fs');
+if (!fs.existsSync(path.join(__dirname, '..', 'db'))) {
+  fs.mkdirSync(path.join(__dirname, '..', 'db'), { recursive: true });
+}
+
 let _db;
 
 function getDb() {

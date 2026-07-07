@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IBM Hive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&display=swap">
   <link rel="stylesheet" href="/css/hive.css"/>
 </head>
 <body>
@@ -11,12 +13,21 @@
 <!-- TOP NAV -->
 <nav class="topnav">
   <div class="topnav-brand">
-    <!-- Logo placeholder: drop your own square image at public/img/logo.png.
-         Until that file exists, this renders as a blue→purple gradient swatch. -->
-    <span class="logo-slot">
-      <img src="/img/logo.png" alt="" class="logo-img" onerror="this.remove()"/>
-    </span>
+    <img src="/img/logo.svg" alt="IBM Hive logo" class="logo-img"/>
     IBM Hive
+  </div>
+  <div class="topnav-links">
+    <div class="topnav-link active">My Hive</div>
+    <div class="topnav-link" data-view-link="seller">Job View</div>
+    <div class="topnav-link" data-view-link="network">Connections</div>
+    <div class="topnav-link" data-view-link="accounts">Accounts</div>
+  </div>
+  <div class="topnav-search">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="#8d8d8d" stroke-width="1.5"/>
+      <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="#8d8d8d" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <input type="text" placeholder="Search IBM Hive…" id="globalSearch"/>
   </div>
   <div class="topnav-user">
     <span id="currentUserName">Loading…</span>
@@ -44,8 +55,8 @@
 
   <!-- MAIN CONTENT (views are injected here by JS) -->
   <main class="main" id="main">
-    <div id="view-seller" class="view active"></div>
-    <div id="view-network" class="view"></div>
+    <div id="view-seller"   class="view active"></div>
+    <div id="view-network"  class="view"></div>
     <div id="view-accounts" class="view"></div>
   </main>
 
@@ -78,7 +89,7 @@
       <div class="dp-section">
         <div class="dp-section-title">Relationship</div>
         <div class="dp-tag-row" id="dpTags"></div>
-        <div class="dp-row" style="margin-top:6px">
+        <div class="dp-row" style="margin-top:8px">
           <span class="dp-label">How we met</span>
           <span class="dp-value" id="dpMet">—</span>
         </div>
@@ -86,9 +97,11 @@
       <div class="dp-section">
         <div class="dp-section-title">Notes</div>
         <div id="dpNotesList"></div>
-        <form id="dpNoteForm" style="margin-top:8px;display:flex;gap:6px">
-          <input id="dpNoteInput" type="text" placeholder="Add a note…" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--bg)"/>
-          <button type="submit" style="padding:6px 12px;background:var(--ibm-blue);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer">Add</button>
+        <form id="dpNoteForm" style="margin-top:10px;display:flex;gap:6px">
+          <input id="dpNoteInput" type="text" placeholder="Add a note…"
+            style="flex:1;padding:7px 10px;border:none;border-bottom:2px solid var(--border);background:var(--surface-2);color:var(--text);font-size:13px;font-family:inherit;outline:none;border-radius:0"/>
+          <button type="submit"
+            style="padding:7px 14px;background:var(--ibm-blue-60);color:#fff;border:none;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:0.16px">Add</button>
         </form>
       </div>
     </div>

@@ -2,10 +2,10 @@
   "name": "ibm-hive",
   "version": "1.0.0",
   "description": "IBM Hive — internal org visualization and relationship tool",
-  "main": "server/index.js",
+  "main": "backend/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "nodemon server/index.js",
+    "start": "node backend/index.js",
+    "dev": "nodemon backend/index.js",
     "seed": "node db/seed.js",
     "setup": "npm install && npm run seed"
   },

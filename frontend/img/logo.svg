@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="hiveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#2563ff"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Black background -->
+  <rect width="200" height="200" fill="#000"/>
+
+  <!-- Beehive stacked rings — widths taper top to bottom then back in -->
+  <!-- Ring 1 (top, narrowest) -->
+  <rect x="66" y="22"  width="68"  height="22" rx="11" fill="url(#hiveGrad)"/>
+  <!-- Ring 2 -->
+  <rect x="48" y="50"  width="104" height="24" rx="12" fill="url(#hiveGrad)"/>
+  <!-- Ring 3 -->
+  <rect x="38" y="80"  width="124" height="24" rx="12" fill="url(#hiveGrad)"/>
+  <!-- Ring 4 -->
+  <rect x="44" y="110" width="112" height="24" rx="12" fill="url(#hiveGrad)"/>
+  <!-- Ring 5 (bottom, curves back in) -->
+  <rect x="60" y="140" width="80"  height="22" rx="11" fill="url(#hiveGrad)"/>
+</svg>
