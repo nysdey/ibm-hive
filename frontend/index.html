@@ -13,58 +13,77 @@
 <!-- TOP NAV -->
 <nav class="topnav">
   <div class="topnav-brand">
-    <img src="/img/logo.svg" alt="IBM Hive logo" class="logo-img"/>
+    <img src="/img/logo.svg" alt="IBM Hive" class="logo-img"/>
     IBM Hive
   </div>
   <div class="topnav-links">
-    <div class="topnav-link active">My Hive</div>
-    <div class="topnav-link" data-view-link="seller">Job View</div>
-    <div class="topnav-link" data-view-link="network">Connections</div>
+    <div class="topnav-link active" data-view-link="hive">The Hive</div>
+    <div class="topnav-link" data-view-link="org">Organization</div>
+    <div class="topnav-link" data-view-link="cell">Cell</div>
+    <div class="topnav-link" data-view-link="people">People</div>
     <div class="topnav-link" data-view-link="accounts">Accounts</div>
+    <div class="topnav-link" data-view-link="resources">Resources</div>
   </div>
   <div class="topnav-search">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="6.5" cy="6.5" r="5" stroke="#8d8d8d" stroke-width="1.5"/>
-      <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="#8d8d8d" stroke-width="1.5" stroke-linecap="round"/>
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="#6f6f6f" stroke-width="1.5"/>
+      <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="#6f6f6f" stroke-width="1.5" stroke-linecap="round"/>
     </svg>
-    <input type="text" placeholder="Search IBM Hive…" id="globalSearch"/>
+    <input type="text" placeholder="Search…" id="globalSearch"/>
   </div>
-  <div class="topnav-user">
+  <div class="topnav-user" id="topnavUser">
     <span id="currentUserName">Loading…</span>
-    <div class="avatar" id="currentUserAvatar">??</div>
+    <div class="user-dropdown" id="userDropdown">
+      <div class="user-dropdown-header">Switch view</div>
+      <div class="user-dropdown-item active" data-profile="sydney">
+        <div class="user-dropdown-avatar"></div>
+        <div class="user-dropdown-info">
+          <div class="user-dropdown-name">Sydney Chin</div>
+          <div class="user-dropdown-role">BTSS Intern</div>
+        </div>
+      </div>
+      <div class="user-dropdown-item" data-profile="manager">
+        <div class="user-dropdown-avatar"></div>
+        <div class="user-dropdown-info">
+          <div class="user-dropdown-name">Chris Kennedy</div>
+          <div class="user-dropdown-role">Manager</div>
+        </div>
+      </div>
+      <div class="user-dropdown-item" data-profile="admin">
+        <div class="user-dropdown-avatar"></div>
+        <div class="user-dropdown-info">
+          <div class="user-dropdown-name">Admin</div>
+          <div class="user-dropdown-role">All access</div>
+        </div>
+      </div>
+    </div>
   </div>
 </nav>
 
 <div class="shell">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-label">My Hive</div>
-      <div class="nav-item active" data-view="seller">
-        <span class="nav-icon">⬡</span> Job View
-      </div>
-      <div class="nav-item" data-view="network">
-        <span class="nav-icon">◎</span> Connections
-      </div>
-      <div class="nav-item" data-view="accounts">
-        <span class="nav-icon">◈</span> Accounts
-      </div>
-    </div>
+  <!-- SIDEBAR — content swapped by JS per active view -->
+  <aside class="sidebar" id="appSidebar">
+    <!-- Populated dynamically by app.js -->
   </aside>
 
-  <!-- MAIN CONTENT (views are injected here by JS) -->
+  <!-- MAIN CONTENT -->
   <main class="main" id="main">
-    <div id="view-seller"   class="view active"></div>
-    <div id="view-network"  class="view"></div>
-    <div id="view-accounts" class="view"></div>
+    <div id="view-hive"      class="view active"></div>
+    <div id="view-org"       class="view"></div>
+    <div id="view-cell"      class="view"></div>
+    <div id="view-people"    class="view"></div>
+    <div id="view-accounts"  class="view"></div>
+    <div id="view-resources" class="view"></div>
   </main>
 
 </div>
 
 <!-- FOOTER -->
 <footer class="app-footer">
-  Built by <strong>Sydney Chin</strong> for Intern Bobathon 2026
+  <span class="app-footer-left">IBM Hive · Internal Tool</span>
+  <span class="app-footer-center">Built by <strong>Sydney Chin</strong> · Intern Bobathon 2026</span>
+  <span class="app-footer-right">IBM Confidential</span>
 </footer>
 
 <!-- DETAIL SLIDE-OVER PANEL -->
@@ -101,7 +120,7 @@
           <input id="dpNoteInput" type="text" placeholder="Add a note…"
             style="flex:1;padding:7px 10px;border:none;border-bottom:2px solid var(--border);background:var(--surface-2);color:var(--text);font-size:13px;font-family:inherit;outline:none;border-radius:0"/>
           <button type="submit"
-            style="padding:7px 14px;background:var(--ibm-blue-60);color:#fff;border:none;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:0.16px">Add</button>
+            style="padding:7px 14px;background:var(--ibm-blue-60);color:#fff;border:none;font-size:13px;cursor:pointer;font-family:inherit;">Add</button>
         </form>
       </div>
     </div>
@@ -112,7 +131,7 @@
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal" id="connectionModal">
     <div class="modal-header">
-      <div class="modal-title" id="modalTitle">Add Connection</div>
+      <div class="modal-title" id="modalTitle">Add connection</div>
       <div class="modal-close" id="modalClose">✕</div>
     </div>
     <form id="connectionForm" class="modal-body">
@@ -123,7 +142,7 @@
       <label>
         Relationship
         <select id="cfRelationship">
-          <option value="close_ally">Close Ally</option>
+          <option value="close_ally">Close ally</option>
           <option value="partner">Partner</option>
           <option value="cross_brand">Cross-brand</option>
           <option value="client">Client</option>

@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS people (
   last_name  TEXT NOT NULL,
   initials   TEXT NOT NULL,
   role       TEXT NOT NULL,
-  role_type  TEXT NOT NULL CHECK(role_type IN ('exec','director','manager','ae','tse','csm','sdr','partner','other')),
+  role_type  TEXT NOT NULL CHECK(role_type IN ('exec','director','manager','ae','bss','bts','tse','csm','sdr','partner','intern','other')),
   market_id  INTEGER REFERENCES markets(id),
   comb_id    INTEGER REFERENCES combs(id),
   manager_id INTEGER REFERENCES people(id),
