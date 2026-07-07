@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IBM Hive</title>
+  <link rel="stylesheet" href="/css/hive.css"/>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <svg class="logo-hex" viewBox="0 0 28 32" fill="none">
+      <polygon points="14,1 27,8 27,24 14,31 1,24 1,8" fill="#f1a21b" stroke="#f7c96e" stroke-width="1"/>
+      <text x="14" y="21" text-anchor="middle" font-size="12" font-weight="700" fill="#161616">H</text>
+    </svg>
+    IBM Hive
+  </div>
+  <div class="topnav-user">
+    <span id="currentUserName">Loading…</span>
+    <div class="avatar" id="currentUserAvatar">??</div>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">My Hive</div>
+      <div class="nav-item active" data-view="seller">
+        <span class="nav-icon">⬡</span> Hive View
+      </div>
+      <div class="nav-item" data-view="network">
+        <span class="nav-icon">◎</span> My Network
+      </div>
+      <div class="nav-item" data-view="accounts">
+        <span class="nav-icon">◈</span> Accounts
+      </div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Organization</div>
+      <div class="nav-item" data-view="exec">
+        <span class="nav-icon">⬡</span> Exec View
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT (views are injected here by JS) -->
+  <main class="main" id="main">
+    <div id="view-seller" class="view active"></div>
+    <div id="view-network" class="view"></div>
+    <div id="view-accounts" class="view"></div>
+    <div id="view-exec" class="view"></div>
+  </main>
+
+</div>
+
+<!-- DETAIL SLIDE-OVER PANEL -->
+<div class="panel-overlay" id="panelOverlay">
+  <div class="detail-panel" id="detailPanel">
+    <div class="dp-header">
+      <div class="dp-avatar" id="dpAvatar">--</div>
+      <div style="flex:1;min-width:0">
+        <div class="dp-name"   id="dpName">—</div>
+        <div class="dp-role"   id="dpRole">—</div>
+        <div class="dp-market" id="dpMarket">—</div>
+      </div>
+      <div class="dp-close" id="dpClose">✕</div>
+    </div>
+    <div class="dp-body">
+      <div class="dp-section">
+        <div class="dp-section-title">Contact</div>
+        <div class="dp-row"><span class="dp-label">Email</span><a class="dp-link" id="dpEmail" href="#">—</a></div>
+        <div class="dp-row"><span class="dp-label">Slack</span><span class="dp-value" id="dpSlack">—</span></div>
+        <div class="dp-row"><span class="dp-label">Location</span><span class="dp-value" id="dpLocation">—</span></div>
+      </div>
+      <div class="dp-section">
+        <div class="dp-section-title">Relationship</div>
+        <div class="dp-tag-row" id="dpTags"></div>
+        <div class="dp-row" style="margin-top:6px">
+          <span class="dp-label">How we met</span>
+          <span class="dp-value" id="dpMet">—</span>
+        </div>
+      </div>
+      <div class="dp-section">
+        <div class="dp-section-title">Notes</div>
+        <div id="dpNotesList"></div>
+        <form id="dpNoteForm" style="margin-top:8px;display:flex;gap:6px">
+          <input id="dpNoteInput" type="text" placeholder="Add a note…" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--bg)"/>
+          <button type="submit" style="padding:6px 12px;background:var(--ibm-blue);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer">Add</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>
