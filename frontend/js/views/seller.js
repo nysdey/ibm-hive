@@ -1,54 +1,46 @@
 /**
- * seller.js — Cell view: Structure (hex team grid) + Connections (network)
+ * seller.js — Cell view
  *
- * Structure: renders Sydney's actual team as hexagons arranged in rows.
- * Connections: the existing network/connections view re-used inline.
+ * The most important relationship on Sydney's team is NOT reporting structure.
+ * It's the BTSS ↔ TSS pairing.
+ *
+ * Layout:
+ *   - Two columns: BTSS | TSS
+ *   - SVG lines connecting paired people
+ *   - Managers at top, members below
+ *   - Reporting lines (dashed) vs pairing lines (solid colored)
+ *   - "You are here" glow on Sydney's node
+ *   - Connections tab: personal CRM
+ *
+ * Team:
+ *   BTSS Manager: Chris Kennedy
+ *   BTSS: Sydney Chin, Mark Hoffman, Armada Veraepalli
+ *   TSS Manager: Rob Hanes
+ *   TSS: Ross Holley, Patrick McBride
+ *   Pairs: Mark ↔ Ross, Armada ↔ Patrick
  */
 import { getPeople }  from '../api.js';
+import { getNetwork } from '../api.js';
 import { openPerson } from '../panel.js';
 
-// Role → fill color for hex cells
 const ROLE_COLOR = {
-  exec:     '#7c3aed',
-  director: '#9333ea',
-  manager:  '#6c63ff',
-  bss:      '#2563eb',
-  bts:      '#0e7490',
-  intern:   '#4d7bff',
-  csm:      '#0f766e',
-  sdr:      '#1d4ed8',
-  partner:  '#7e22ce',
-  other:    '#1a1a1a',
+  manager: '#6c63ff', bts: '#4589ff', bss: '#0ea5e9',
+  intern: '#60a5fa', other: '#525252',
 };
 
 const ROLE_LABEL = {
-  exec:'VP/Exec', director:'Director', manager:'Manager',
-  bss:'TSS', bts:'BTSS', intern:'Intern', csm:'CSM',
-  sdr:'SDR', partner:'Partner', other:'—',
+  manager:'Manager', bts:'BTSS', bss:'TSS', intern:'Intern', other:'—',
 };
-
-// HEX SIZE for the Cell view (smaller than Org)
-const HR = 46;
-const HW = Math.round(Math.sqrt(3) * HR);
-
-function hexPoints(cx, cy, r) {
-  return Array.from({ length: 6 }, (_, i) => {
-    const a = Math.PI / 180 * (60 * i - 30);
-    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
-  }).join(' ');
-}
-
-let _activeTab = 'structure';
 
 export async function renderSeller(container) {
   container.innerHTML = `
     <div class="cell-page">
-      <div class="tab-bar" style="padding:0 24px;border-bottom:1px solid rgba(255,255,255,0.07)">
-        <div class="tab active" data-tab="structure">Structure</div>
+      <div class="tab-bar" style="padding:0 24px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0">
+        <div class="tab active" data-tab="structure">My Cell</div>
         <div class="tab" data-tab="connections">Connections</div>
       </div>
-      <div id="cell-tab-structure" class="cell-tab-content" style="display:flex;flex:1;overflow-y:auto"></div>
-      <div id="cell-tab-connections" class="cell-tab-content" style="display:none;flex:1;overflow-y:auto"></div>
+      <div id="cell-tab-structure" class="cell-tab-content" style="display:flex;flex:1;min-height:0;overflow-y:auto"></div>
+      <div id="cell-tab-connections" class="cell-tab-content" style="display:none;flex:1;min-height:0;overflow-y:auto"></div>
     </div>
   `;
 
@@ -58,21 +50,15 @@ export async function renderSeller(container) {
       tab.classList.add('active');
       container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
       document.getElementById(`cell-tab-${tab.dataset.tab}`).style.display = 'flex';
-      _activeTab = tab.dataset.tab;
     });
   });
 
-  // Also listen for sidebar filter
   document.addEventListener('sidebar:filter', e => {
     const { value } = e.detail;
-    if (value === 'structure') {
-      container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'structure'));
+    if (value === 'structure' || value === 'connections') {
+      container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === value));
       container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
-      document.getElementById('cell-tab-structure').style.display = 'flex';
-    } else if (value === 'connections') {
-      container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'connections'));
-      container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
-      document.getElementById('cell-tab-connections').style.display = 'flex';
+      document.getElementById(`cell-tab-${value}`).style.display = 'flex';
     }
   });
 
@@ -81,90 +67,190 @@ export async function renderSeller(container) {
   renderConnections(allPeople);
 }
 
-// ── Structure: hex grid of Sydney's actual team ───────────────────
+// ── Structure: BTSS↔TSS pairing diagram ──────────────────────────
 function renderStructure(allPeople) {
-  const container = document.getElementById('cell-tab-structure');
-  if (!container) return;
+  const pane = document.getElementById('cell-tab-structure');
+  if (!pane) return;
 
-  const me      = allPeople.find(p => p.is_current_user) || allPeople[0];
-  const manager = allPeople.find(p => p.id === me?.manager_id);
+  const me = allPeople.find(p => p.is_current_user) || allPeople[0];
 
-  // Find Sydney's actual named teammates by name
-  const teamNames = [
-    'Mark Hoffman', 'Armada Veraepalli', 'Ross Holley',
-    'Patrick McBride', 'Rob Hanes',
-  ];
-  const teammates = allPeople.filter(p =>
-    !p.is_current_user &&
-    teamNames.includes(p.first_name + ' ' + p.last_name)
-  );
+  // Resolve team members by name (static team for Sydney)
+  const find = (fn, ln) => allPeople.find(p => p.first_name === fn && p.last_name === ln);
+  const chrisK  = find('Chris', 'Kennedy');
+  const robH    = find('Rob', 'Hanes');
+  const markH   = find('Mark', 'Hoffman');
+  const armada  = find('Armada', 'Veraepalli');
+  const rossH   = find('Ross', 'Holley');
+  const patrickM= find('Patrick', 'McBride');
 
-  // Build rows:
-  //  Row 0 (centered): manager
-  //  Row 1 (centered): Rob Hanes + Chris Kennedy  (TSS Mgr + BTSS Mgr)  — but Chris is manager so skip
-  //  Row 2: Mark Hoffman, Armada Veraepalli (BTSS peers)
-  //  Row 3 (offset): Ross Holley, [You], Patrick McBride
-  const robHanes   = teammates.find(p => p.last_name === 'Hanes');
-  const markH      = teammates.find(p => p.last_name === 'Hoffman' && p.first_name === 'Mark');
-  const armada     = teammates.find(p => p.first_name === 'Armada');
-  const rossH      = teammates.find(p => p.last_name === 'Holley');
-  const patrickM   = teammates.find(p => p.last_name === 'McBride');
+  // Fallback to manager from data
+  const mgr = chrisK || allPeople.find(p => p.id === me?.manager_id);
 
-  const rows = [
-    manager          ? [manager]                              : [],
-    robHanes         ? [robHanes]                             : [],
-    [markH, armada].filter(Boolean),
-    [rossH, me, patrickM].filter(Boolean),
-  ].filter(r => r.length > 0);
+  // BTSS column (left): Chris Kennedy (mgr), Sydney, Mark, Armada
+  const btssCol = [chrisK, me, markH, armada].filter(Boolean);
+  // TSS column (right): Rob Hanes (mgr), Ross, Patrick
+  const tssCol  = [robH, rossH, patrickM].filter(Boolean);
 
-  const rowsHtml = rows.map((row, ri) => {
-    const cells = row.map(p => hexCell(p)).join('');
-    return `<div class="cell-hex-row" style="${ri % 2 === 1 ? `margin-left:${HW/2 + 3}px` : ''}">${cells}</div>`;
-  }).join('');
-
-  // Relationship guide
-  const guideRows = [
-    { color: '#6c63ff', label: 'Manager (Chris Kennedy — BTSS Manager)' },
-    { color: '#6c63ff', label: 'TSS Manager (Rob Hanes — TSS Manager)' },
-    { color: '#0e7490', label: 'BTSS — Brand Technical Sales Specialist' },
-    { color: '#2563eb', label: 'TSS — Territory Sales Specialist' },
-    { color: '#4d7bff', label: 'You — BTSS Intern' },
+  // Pairings: [btss, tss]
+  const pairs = [
+    [markH, rossH],
+    [armada, patrickM],
   ];
 
-  container.innerHTML = `
-    <div style="flex:1;overflow-y:auto;padding:28px 32px">
-      <div style="font-size:12px;color:#525252;margin-bottom:24px;line-height:1.6">
-        Infrastructure Colony · US All Market · PowerVS · FlashSystems · Fusion
+  // Node layout constants
+  const NODE_W = 140, NODE_H = 64, V_GAP = 20, H_GAP = 200;
+  const BTSS_X = 60, TSS_X = BTSS_X + NODE_W + H_GAP;
+  const START_Y = 120;
+
+  // Compute Y positions for each person
+  const yPos = {};
+  btssCol.forEach((p, i) => { if (p) yPos[p.id] = START_Y + i * (NODE_H + V_GAP); });
+  tssCol.forEach((p, i)  => { if (p) yPos[p.id] = START_Y + i * (NODE_H + V_GAP); });
+
+  const totalH = Math.max(btssCol.length, tssCol.length) * (NODE_H + V_GAP) + START_Y + 60;
+  const SVG_W  = TSS_X + NODE_W + 60;
+
+  // Build SVG
+  let svgHtml = `<svg width="${SVG_W}" height="${totalH}" viewBox="0 0 ${SVG_W} ${totalH}"
+    xmlns="http://www.w3.org/2000/svg" style="overflow:visible">`;
+
+  // Column labels
+  svgHtml += `
+    <text x="${BTSS_X + NODE_W/2}" y="30" text-anchor="middle"
+      fill="#6c63ff" font-size="11" font-weight="600" letter-spacing="1"
+      font-family="IBM Plex Sans, system-ui, sans-serif">BTSS</text>
+    <text x="${BTSS_X + NODE_W/2}" y="46" text-anchor="middle"
+      fill="#525252" font-size="10"
+      font-family="IBM Plex Sans, system-ui, sans-serif">Brand Technical Sales</text>
+    <text x="${TSS_X + NODE_W/2}" y="30" text-anchor="middle"
+      fill="#0ea5e9" font-size="11" font-weight="600" letter-spacing="1"
+      font-family="IBM Plex Sans, system-ui, sans-serif">TSS</text>
+    <text x="${TSS_X + NODE_W/2}" y="46" text-anchor="middle"
+      fill="#525252" font-size="10"
+      font-family="IBM Plex Sans, system-ui, sans-serif">Territory Sales</text>`;
+
+  // Column divider
+  const midX = (BTSS_X + NODE_W + TSS_X) / 2;
+  svgHtml += `<line x1="${midX}" y1="60" x2="${midX}" y2="${totalH - 40}"
+    stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="4,4"/>`;
+
+  // Manager ↔ Manager reporting line (dashed)
+  if (chrisK && robH && yPos[chrisK.id] !== undefined && yPos[robH.id] !== undefined) {
+    const y1 = yPos[chrisK.id] + NODE_H / 2;
+    const y2 = yPos[robH.id]   + NODE_H / 2;
+    svgHtml += `<line
+      x1="${BTSS_X + NODE_W}" y1="${y1}"
+      x2="${TSS_X}" y2="${y2}"
+      stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.5"/>
+    <text x="${midX}" y="${(y1 + y2)/2 - 6}" text-anchor="middle"
+      fill="#444" font-size="9" font-family="IBM Plex Sans, system-ui, sans-serif">reporting</text>`;
+  }
+
+  // Pairing lines (solid, colored, labeled)
+  pairs.forEach(([btss, tss], i) => {
+    if (!btss || !tss || yPos[btss.id] === undefined || yPos[tss.id] === undefined) return;
+    const y1 = yPos[btss.id] + NODE_H / 2;
+    const y2 = yPos[tss.id]  + NODE_H / 2;
+    const cx1 = BTSS_X + NODE_W;
+    const cx2 = TSS_X;
+    // Bezier curve for elegance
+    svgHtml += `<path
+      d="M ${cx1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${cx2} ${y2}"
+      stroke="#0ea5e9" stroke-width="2" fill="none" opacity="0.7"/>
+    <circle cx="${midX}" cy="${(y1+y2)/2}" r="3" fill="#0ea5e9" opacity="0.7"/>
+    <text x="${midX + 6}" y="${(y1+y2)/2 + 4}" text-anchor="middle"
+      fill="#0ea5e9" font-size="9" opacity="0.8"
+      font-family="IBM Plex Sans, system-ui, sans-serif">paired</text>`;
+  });
+
+  // Draw nodes
+  [...btssCol.map(p => ({p, x: BTSS_X})), ...tssCol.map(p => ({p, x: TSS_X}))].forEach(({p, x}) => {
+    if (!p || yPos[p.id] === undefined) return;
+    const y = yPos[p.id];
+    const isMe_ = p.is_current_user;
+    const isMgr = p.role_type === 'manager';
+    const col   = isMgr ? '#6c63ff' : (x === BTSS_X ? '#4589ff' : '#0ea5e9');
+    const fill  = isMe_ ? '#0d1f4c' : (isMgr ? '#1a183a' : '#161b2e');
+    const stroke = isMe_ ? '#4589ff' : col;
+    const sw = isMe_ ? 2 : 1;
+
+    svgHtml += `
+      <g class="cell-node" data-person-id="${p.id}" style="cursor:pointer">
+        <rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}" rx="6"
+          fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
+        ${isMe_ ? `<rect x="${x-2}" y="${y-2}" width="${NODE_W+4}" height="${NODE_H+4}" rx="8"
+          fill="none" stroke="#4589ff" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>` : ''}
+        <text x="${x + NODE_W/2}" y="${y + 22}" text-anchor="middle"
+          fill="${isMe_ ? '#a0c4ff' : '#e0e0e0'}" font-size="12" font-weight="500"
+          font-family="IBM Plex Sans, system-ui, sans-serif">${p.first_name} ${p.last_name}</text>
+        <text x="${x + NODE_W/2}" y="${y + 38}" text-anchor="middle"
+          fill="${col}" font-size="10"
+          font-family="IBM Plex Sans, system-ui, sans-serif">${p.role || ROLE_LABEL[p.role_type] || '—'}</text>
+        ${isMe_ ? `<text x="${x + NODE_W/2}" y="${y + 54}" text-anchor="middle"
+          fill="#4589ff" font-size="9" font-weight="600" letter-spacing="1"
+          font-family="IBM Plex Sans, system-ui, sans-serif">YOU</text>` : ''}
+      </g>`;
+  });
+
+  svgHtml += `</svg>`;
+
+  // Products supported
+  const products = ['IBM PowerVS', 'IBM FlashSystem', 'IBM Fusion', 'IBM z16', 'IBM LinuxONE'];
+
+  pane.innerHTML = `
+    <div class="cell-structure-wrap">
+      <div class="cell-structure-header">
+        <div class="cell-header-breadcrumb">
+          <span class="cell-bc">Horizon Colony</span>
+          <span class="cell-bc-sep">›</span>
+          <span class="cell-bc">Infrastructure Org</span>
+          <span class="cell-bc-sep">›</span>
+          <span class="cell-bc cell-bc-active">My Cell</span>
+        </div>
+        <div class="cell-header-sub">
+          BTSS Manager: Chris Kennedy · TSS Manager: Rob Hanes
+        </div>
       </div>
 
-      <div class="cell-hex-grid" style="padding:0 0 32px">
-        ${rowsHtml}
+      <div class="cell-diagram-wrap">
+        ${svgHtml}
       </div>
 
-      <div style="margin-top:32px;border-top:1px solid rgba(255,255,255,0.07);padding-top:20px">
-        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.6px;color:#525252;margin-bottom:14px">Key relationships</div>
-        <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <div class="cell-legend">
+        <span class="cell-leg-item"><span class="cell-leg-line cell-leg-solid"></span> BTSS↔TSS pair</span>
+        <span class="cell-leg-item"><span class="cell-leg-line cell-leg-dashed"></span> Reporting structure</span>
+        <span class="cell-leg-item"><span class="cell-leg-dot" style="background:#4589ff"></span> You</span>
+        <span class="cell-leg-item"><span class="cell-leg-dot" style="background:#6c63ff"></span> BTSS Manager</span>
+        <span class="cell-leg-item"><span class="cell-leg-dot" style="background:#0ea5e9"></span> TSS</span>
+      </div>
+
+      <div class="cell-products">
+        <div class="cell-products-label">Products this team supports</div>
+        <div class="cell-products-list">
+          ${products.map(pr => `<span class="cell-product-tag">${pr}</span>`).join('')}
+        </div>
+      </div>
+
+      <div class="cell-pairs-table">
+        <div class="cell-pairs-title">Coverage pairs</div>
+        <table class="cell-table">
           <thead>
             <tr>
-              <th style="text-align:left;color:#525252;font-weight:400;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.07)">BTSS</th>
-              <th style="text-align:left;color:#525252;font-weight:400;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.07)">TSS counterpart</th>
-              <th style="text-align:left;color:#525252;font-weight:400;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.07)">Notes</th>
+              <th>BTSS</th>
+              <th>TSS Partner</th>
+              <th>Coverage</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#f4f4f4">Mark Hoffman</td>
-              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#60a5fa">Ross Holley</td>
-              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#525252">Paired coverage</td>
+              <td>${markH ? markH.first_name + ' ' + markH.last_name : 'Mark Hoffman'}</td>
+              <td style="color:#0ea5e9">${rossH ? rossH.first_name + ' ' + rossH.last_name : 'Ross Holley'}</td>
+              <td>Paired coverage · PowerVS + FlashSystem</td>
             </tr>
             <tr>
-              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#f4f4f4">Armada Veraepalli</td>
-              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#60a5fa">Patrick McBride</td>
-              <td style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#525252">Paired coverage</td>
-            </tr>
-            <tr>
-              <td colspan="2" style="padding:9px 0;color:#525252">TSS Manager: Rob Hanes · BTSS Manager: Chris Kennedy</td>
-              <td></td>
+              <td>${armada ? armada.first_name + ' ' + armada.last_name : 'Armada Veraepalli'}</td>
+              <td style="color:#0ea5e9">${patrickM ? patrickM.first_name + ' ' + patrickM.last_name : 'Patrick McBride'}</td>
+              <td>Paired coverage · Fusion + z16</td>
             </tr>
           </tbody>
         </table>
@@ -172,104 +258,61 @@ function renderStructure(allPeople) {
     </div>
   `;
 
-  // Wire click → person panel
-  container.querySelectorAll('[data-person-id]').forEach(el => {
+  // Wire clicks → panel
+  pane.querySelectorAll('.cell-node').forEach(el => {
     el.addEventListener('click', () => openPerson(el.dataset.personId));
   });
 }
 
-function hexCell(person) {
-  if (!person) return '';
-  const isMe    = person.is_current_user;
-  const color   = isMe ? '#1a2e5e' : (ROLE_COLOR[person.role_type] || ROLE_COLOR.other);
-  const stroke  = isMe ? '#4d7bff' : 'rgba(255,255,255,0.18)';
-  const sw      = isMe ? 1.5 : 0.8;
-  const textCol = 'rgba(255,255,255,0.9)';
-  const cx = HR + 2, cy = HR + 2;
-  const size = HR * 2 + 4;
-
-  const name  = person.first_name + ' ' + person.last_name;
-  const role  = ROLE_LABEL[person.role_type] || '';
-  const parts = name.split(' ');
-  const line1 = parts[0];
-  const line2 = parts.slice(1).join(' ');
-
-  return `
-    <div class="cell-hex-item" data-person-id="${person.id}" title="${name}">
-      <svg class="cell-hex-svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <polygon points="${hexPoints(cx, cy, HR - 1)}"
-                 fill="${color}" stroke="${stroke}" stroke-width="${sw}"/>
-        ${isMe ? `<polygon points="${hexPoints(cx, cy, HR - 4)}" fill="none" stroke="rgba(77,123,255,0.5)" stroke-width="1"/>` : ''}
-        <text x="${cx}" y="${cy - 7}" text-anchor="middle" dominant-baseline="middle"
-              fill="${textCol}" font-size="9.5" font-weight="500"
-              font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${line1}</text>
-        <text x="${cx}" y="${cy + 5}" text-anchor="middle" dominant-baseline="middle"
-              fill="${textCol}" font-size="9.5" font-weight="500"
-              font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${line2}</text>
-        <text x="${cx}" y="${cy + 17}" text-anchor="middle" dominant-baseline="middle"
-              fill="rgba(255,255,255,0.38)" font-size="7.5"
-              font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${role}</text>
-      </svg>
-    </div>
-  `;
-}
-
-// ── Connections: network cards ─────────────────────────────────────
+// ── Connections tab ───────────────────────────────────────────────
 async function renderConnections(allPeople) {
-  const container = document.getElementById('cell-tab-connections');
-  if (!container) return;
+  const pane = document.getElementById('cell-tab-connections');
+  if (!pane) return;
+
+  const REL_LABELS = {
+    close_ally:'Close ally', partner:'Partner', cross_brand:'Cross-brand',
+    client:'Client', peer:'Peer',
+  };
+  const REL_CSS = {
+    close_ally:'tag-close', partner:'tag-partner', cross_brand:'tag-cross',
+    client:'tag-client', peer:'tag-peer',
+  };
 
   try {
-    const { getNetwork } = await import('../api.js');
     const conns = await getNetwork();
-
-    const REL_LABELS = {
-      close_ally: 'Close ally', partner: 'Partner', cross_brand: 'Cross-brand',
-      client: 'Client', peer: 'Peer',
-    };
-    const REL_CSS = {
-      close_ally: 'tag-close', partner: 'tag-partner', cross_brand: 'tag-cross',
-      client: 'tag-client', peer: 'tag-peer',
-    };
-
-    if (!conns || conns.length === 0) {
-      container.innerHTML = `<div class="content" style="color:var(--muted);font-size:13px">No connections yet. Add them from the People tab.</div>`;
+    if (!conns?.length) {
+      pane.innerHTML = `<div style="padding:32px 24px;color:var(--muted);font-size:14px">No connections yet.</div>`;
       return;
     }
 
     const cards = conns.map(c => {
-      const p = allPeople.find(x => x.id === c.person_id) || {};
-      const name = p.first_name ? p.first_name + ' ' + p.last_name : '—';
-      const tag  = REL_CSS[c.relationship] || 'tag-peer';
-      const lbl  = REL_LABELS[c.relationship] || c.relationship;
+      const p   = allPeople.find(x => x.id === c.person_id) || {};
+      const name = p.first_name ? `${p.first_name} ${p.last_name}` : '—';
       return `
         <div class="network-card" data-person-id="${c.person_id}">
           <div class="nc-top">
-            <div class="nc-avatar" style="background:${p.color || '#333'}">${p.first_name ? p.first_name[0] : '?'}</div>
+            <div class="nc-avatar" style="background:${p.color||'#333'}"></div>
             <div>
               <div class="nc-name">${name}</div>
               <div class="nc-role">${p.role || '—'}</div>
             </div>
           </div>
-          <div class="nc-tag ${tag}">${lbl}</div>
+          <div class="nc-tag ${REL_CSS[c.relationship]||'tag-peer'}">${REL_LABELS[c.relationship]||c.relationship}</div>
           ${c.notes ? `<div class="nc-note">${c.notes}</div>` : ''}
           ${c.needs_followup ? `<div class="nc-followup">⚑ Follow up</div>` : ''}
-        </div>
-      `;
+        </div>`;
     }).join('');
 
-    container.innerHTML = `
+    pane.innerHTML = `
       <div style="flex:1;overflow-y:auto">
-        <div style="padding:20px 24px 8px;font-size:12px;color:#525252">${conns.length} connection${conns.length !== 1 ? 's' : ''}</div>
+        <div style="padding:16px 24px 8px;font-size:13px;color:var(--muted)">${conns.length} connection${conns.length!==1?'s':''}</div>
         <div class="network-grid" style="padding:0 24px 24px">${cards}</div>
-      </div>
-    `;
+      </div>`;
 
-    container.querySelectorAll('[data-person-id]').forEach(el => {
+    pane.querySelectorAll('[data-person-id]').forEach(el => {
       el.addEventListener('click', () => openPerson(el.dataset.personId));
     });
-
   } catch (err) {
-    container.innerHTML = `<div class="content" style="color:var(--muted);font-size:13px">Could not load connections.</div>`;
+    pane.innerHTML = `<div style="padding:32px 24px;color:var(--muted)">Could not load connections.</div>`;
   }
 }

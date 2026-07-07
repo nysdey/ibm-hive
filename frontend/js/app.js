@@ -4,46 +4,15 @@
 import { getPeople }       from './api.js';
 import { renderOrg }       from './views/org.js';
 import { renderSeller }    from './views/seller.js';
-import { renderNetwork }   from './views/network.js';
+import { renderPeople }    from './views/people.js';
 import { renderAccounts }  from './views/accounts.js';
 import { renderResources } from './views/resources.js';
+import { renderMyHive }    from './views/myhive.js';
 
 // ── Per-view sidebar definitions ────────────────────────────────
 const SIDEBAR_DEFS = {
-  org: {
-    sections: [
-      {
-        label: null,
-        items: [
-          { id: 'colonies', label: 'Colonies', expandable: true, children: [
-            { id: 'data-ai',        label: 'Data & AI' },
-            { id: 'automation',     label: 'Automation' },
-            { id: 'sustainability', label: 'Sustainability' },
-            { id: 'security',       label: 'Security' },
-            { id: 'infrastructure', label: 'Infrastructure' },
-            { id: 'hybrid-cloud',   label: 'Hybrid Cloud' },
-          ]},
-          { id: 'jobs', label: 'Job roles', expandable: true, children: [
-            { id: 'bss',      label: 'BSS — Brand Sales Specialist' },
-            { id: 'bts',      label: 'BTS — Brand Technical Sales' },
-            { id: 'csm',      label: 'CSM — Customer Success' },
-            { id: 'manager',  label: 'Manager' },
-            { id: 'director', label: 'Director' },
-            { id: 'exec',     label: 'VP / Executive' },
-            { id: 'partner',  label: 'Partner' },
-            { id: 'sdr',      label: 'SDR' },
-            { id: 'intern',   label: 'Intern' },
-          ]},
-          { id: 'markets', label: 'Markets', expandable: true, children: [
-            { id: 'enterprise', label: 'Enterprise' },
-            { id: 'strategic',  label: 'Strategic' },
-            { id: 'horizon',    label: 'Horizon' },
-            { id: 'territory',  label: 'Territory' },
-          ]},
-        ],
-      },
-    ],
-  },
+  // Org view: no sidebar — the map is self-navigating
+  org: { sections: [] },
 
   cell: {
     sections: [
@@ -108,12 +77,16 @@ const SIDEBAR_DEFS = {
 };
 
 // ── Sidebar rendering ────────────────────────────────────────────
+// For the org view, groups support multi-select (toggle active).
+// For other views, items are single-select as before.
 function renderSidebar(viewName) {
   const sidebar = document.getElementById('appSidebar');
   if (!sidebar) return;
 
   const def = SIDEBAR_DEFS[viewName];
   if (!def) { sidebar.innerHTML = ''; return; }
+
+  const isOrgView = viewName === 'org';
 
   let html = '';
   def.sections.forEach(section => {
@@ -130,8 +103,9 @@ function renderSidebar(viewName) {
             </div>
             <div class="sb-group-body" id="sbg-${item.id}">
               <input class="sb-search" type="text" placeholder="Search…" data-group="${item.id}"/>
+              ${isOrgView ? `<div class="sb-clear-group" data-clear-group="${item.id}">Clear</div>` : ''}
               ${item.children.map(c => `
-                <div class="sb-child" data-filter="${item.id}" data-value="${c.id}">${c.label}</div>
+                <div class="sb-child${isOrgView ? ' sb-multi' : ''}" data-filter="${item.id}" data-value="${c.id}">${c.label}</div>
               `).join('')}
             </div>
           </div>
@@ -150,6 +124,8 @@ function renderSidebar(viewName) {
   sidebar.querySelectorAll('.sb-group-header').forEach(header => {
     const id   = header.dataset.toggle;
     const body = document.getElementById(`sbg-${id}`);
+    // Open by default in org view
+    if (isOrgView) { body.classList.add('open'); header.querySelector('.sb-caret').textContent = '⌄'; }
     header.addEventListener('click', () => {
       const open = body.classList.toggle('open');
       header.querySelector('.sb-caret').textContent = open ? '⌄' : '›';
@@ -167,14 +143,35 @@ function renderSidebar(viewName) {
     });
   });
 
-  // Wire filter items — broadcast to active view
+  // Wire "Clear" per group (org view only)
+  sidebar.querySelectorAll('.sb-clear-group').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const grp = btn.dataset.clearGroup;
+      sidebar.querySelectorAll(`.sb-child[data-filter="${grp}"]`).forEach(c => c.classList.remove('active'));
+      document.dispatchEvent(new CustomEvent('sidebar:filter', {
+        detail: { group: grp, action: 'clear' }
+      }));
+    });
+  });
+
+  // Wire filter items
   sidebar.querySelectorAll('.sb-child, .sb-item').forEach(el => {
     el.addEventListener('click', () => {
-      sidebar.querySelectorAll('.sb-child.active, .sb-item.active').forEach(a => a.classList.remove('active'));
-      el.classList.add('active');
-      document.dispatchEvent(new CustomEvent('sidebar:filter', {
-        detail: { group: el.dataset.filter || el.dataset.sbItem, value: el.dataset.value || el.dataset.sbItem }
-      }));
+      if (isOrgView && el.classList.contains('sb-multi')) {
+        // Multi-select: toggle this item, keep others
+        el.classList.toggle('active');
+        document.dispatchEvent(new CustomEvent('sidebar:filter', {
+          detail: { group: el.dataset.filter, value: el.dataset.value }
+        }));
+      } else {
+        // Single-select (non-org views)
+        sidebar.querySelectorAll('.sb-child.active, .sb-item.active').forEach(a => a.classList.remove('active'));
+        el.classList.add('active');
+        document.dispatchEvent(new CustomEvent('sidebar:filter', {
+          detail: { group: el.dataset.filter || el.dataset.sbItem, value: el.dataset.value || el.dataset.sbItem }
+        }));
+      }
     });
   });
 }
@@ -224,9 +221,10 @@ function wireProfileDropdown() {
 const VIEW_RENDERERS = {
   org:       renderOrg,
   cell:      renderSeller,
-  people:    renderNetwork,
+  people:    renderPeople,
   accounts:  renderAccounts,
   resources: renderResources,
+  myhive:    renderMyHive,
 };
 
 const rendered = new Set();

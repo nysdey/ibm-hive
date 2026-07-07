@@ -110,7 +110,7 @@ function renderLoading() {
 
 function setHeader(initials, color, name, role, market, marketColor) {
   const av = document.getElementById('dpAvatar');
-  av.textContent        = initials;
+  av.textContent        = '';   // no initials — hex shape conveys identity
   av.style.background   = color;
   document.getElementById('dpName').textContent   = name;
   document.getElementById('dpRole').textContent   = role;

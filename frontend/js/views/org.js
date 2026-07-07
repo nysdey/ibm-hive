@@ -1,585 +1,730 @@
 /**
- * org.js — Organization: a huge virtual hexagon hive of ~270,000 bees.
+ * org.js — IBM Hive: zoomable organizational map
  *
- * Architecture:
- *  • Background: <canvas> with HEX_R=3 cells → ~4700×2700px canvas (48 MB) — fast
- *  • Overlay: <svg> with real person hexes at same HEX_R=3 coordinate system
- *  • Both layers get the same CSS transform (translate + scale) for pan/zoom
+ * Hierarchy (correct):
+ *   IBM Hive
+ *   └── Market (Colony)         — Enterprise / Strategic / Horizon / Territory
+ *       └── Organization (Comb) — Infrastructure / Data & AI / Security …
+ *           └── Team (Cell)     — manager-led group
+ *               └── Person (Bee)
  *
- * At the default zoom-out (scale≈0.12) the hive looks like a small dense grid.
- * Zoom in to see person cells clearly; names appear at scale>5.
- * Colony section labels (huge SVG text) only appear when zoomed way out.
+ * Behaviour — Google Maps metaphor:
+ *   Zoom out  → see Markets
+ *   Zoom in   → see Organizations within a Market
+ *   Zoom more → see Teams within an Org
+ *   Zoom full → see People within a Team
+ *
+ *   Click any node → expand it / select it / show detail panel
+ *   Breadcrumb always shows current position
+ *   "You are here" node always highlighted
  */
 import { getPeople } from '../api.js';
 
-const COLONY_ORDER = [
-  'Data & AI Colony',
-  'Automation Colony',
-  'Sustainability Colony',
-  'Security Colony',
-  'Infrastructure Colony',
-  'Hybrid Cloud Colony',
-];
-
-const COLONY_INFO = {
-  'Data & AI Colony': {
-    label: 'Data & AI',
-    color: '#0f62fe',
-    desc: 'watsonx, data platforms, analytics, and AI governance. The largest colony — driving AI adoption across enterprise accounts.',
-    headcount: '~47,000',
-    products: ['watsonx.ai', 'watsonx.data', 'watsonx.governance', 'IBM Db2', 'IBM Cognos'],
-  },
-  'Automation Colony': {
-    label: 'Automation',
-    color: '#6c63ff',
-    desc: 'Business automation, workflow intelligence, and RPA. Reduces operational overhead and accelerates decision-making.',
-    headcount: '~38,000',
-    products: ['IBM Business Automation Workflow', 'IBM RPA', 'IBM Datacap', 'IBM FileNet'],
-  },
-  'Sustainability Colony': {
-    label: 'Sustainability',
-    color: '#24a148',
-    desc: 'Environmental intelligence and sustainability reporting. Enables organizations to measure, manage, and improve their environmental footprint.',
-    headcount: '~29,000',
-    products: ['IBM Envizi', 'IBM TRIRIGA', 'IBM Maximo'],
-  },
-  'Security Colony': {
-    label: 'Security',
-    color: '#da1e28',
-    desc: 'Threat intelligence, SOC operations, identity, and data security. Protects the world\'s critical infrastructure and enterprise data.',
-    headcount: '~44,000',
-    products: ['IBM QRadar', 'IBM Guardium', 'IBM Verify', 'IBM Security X-Force'],
-  },
-  'Infrastructure Colony': {
-    label: 'Infrastructure',
-    color: '#a855f7',
-    desc: 'IBM Power, Storage, and z Systems. Sells IBM PowerVS, IBM FlashSystems, and IBM Fusion to all US enterprise accounts.',
-    headcount: '~61,000',
-    products: ['IBM PowerVS', 'IBM FlashSystem', 'IBM Fusion', 'IBM z16', 'IBM LinuxONE'],
-  },
-  'Hybrid Cloud Colony': {
-    label: 'Hybrid Cloud',
-    color: '#ee5396',
-    desc: 'Red Hat OpenShift, IBM Cloud, and hybrid multi-cloud strategy. Bridges on-premises and cloud-native workloads.',
-    headcount: '~51,000',
-    products: ['Red Hat OpenShift', 'IBM Cloud', 'IBM Cloud Paks', 'Red Hat Ansible'],
-  },
+// ── Org metadata (comb → org name, products) ─────────────────────
+const ORG_META = {
+  'Infrastructure Colony':  { name: 'Infrastructure',  products: ['IBM PowerVS', 'IBM FlashSystem', 'IBM Fusion', 'IBM z16', 'IBM LinuxONE'] },
+  'Data & AI Colony':       { name: 'Data & AI',       products: ['watsonx.ai', 'watsonx.data', 'IBM Db2', 'IBM Cognos'] },
+  'Automation Colony':      { name: 'Automation',      products: ['IBM BAW', 'IBM RPA', 'IBM FileNet'] },
+  'Security Colony':        { name: 'Security',        products: ['IBM QRadar', 'IBM Guardium', 'IBM Verify'] },
+  'Sustainability Colony':  { name: 'Sustainability',  products: ['IBM Envizi', 'IBM TRIRIGA', 'IBM Maximo'] },
+  'Hybrid Cloud Colony':    { name: 'Hybrid Cloud',    products: ['Red Hat OpenShift', 'IBM Cloud', 'IBM Cloud Paks'] },
 };
 
-const COLONY_MAP = {
-  'data-ai':        'Data & AI Colony',
-  'automation':     'Automation Colony',
-  'sustainability': 'Sustainability Colony',
-  'security':       'Security Colony',
-  'infrastructure': 'Infrastructure Colony',
-  'hybrid-cloud':   'Hybrid Cloud Colony',
+const ROLE_LABEL = {
+  exec:'VP / Executive', director:'Director', manager:'Manager',
+  bss:'Brand Sales Spec.', bts:'Brand Tech. Sales', csm:'Customer Success',
+  sdr:'SDR', partner:'Partner', intern:'Intern', other:'—',
 };
 
-const MARKET_MAP = {
-  enterprise: 'Enterprise', strategic: 'Strategic',
-  horizon:    'Horizon',    territory: 'Territory',
+// Market color palette
+const MKT_COLOR = {
+  'Enterprise': '#4589ff',
+  'Strategic':  '#a855f7',
+  'Horizon':    '#6c63ff',
+  'Territory':  '#d946ef',
 };
 
-const ROLE_ORDER = {
-  exec:0, director:1, manager:2, bss:3, bts:4, csm:5, sdr:6, partner:7, intern:8, other:9,
+const ORG_COLOR = {
+  'Infrastructure Colony':  '#a855f7',
+  'Data & AI Colony':       '#4589ff',
+  'Automation Colony':      '#6c63ff',
+  'Security Colony':        '#ef4444',
+  'Sustainability Colony':  '#22c55e',
+  'Hybrid Cloud Colony':    '#ec4899',
 };
 
-// ── Hex geometry (single coordinate system for canvas + SVG) ─────
-// HEX_R=3 → ~4700×2700 canvas, browser-safe
-const HEX_R = 3;
-const HEX_W = Math.sqrt(3) * HEX_R;
-const ROW_H = HEX_R * 1.5;
+// ── View state ────────────────────────────────────────────────────
+let _all      = [];
+let _me       = null;
+let _sel      = null;   // selected node { type:'market'|'org'|'team'|'person', id }
+let _expanded = new Set(); // expanded node keys (e.g. "market:Horizon", "org:Infrastructure Colony")
+let _zoom     = 1;
+let _tx = 0, _ty = 0;
+let _svgW = 0, _svgH = 0;
+let _container = null;
 
-// Virtual hive size — kept small enough to draw synchronously without
-// hanging the main thread. hexRegion(300) = 270,901 cells was the actual
-// bug: the canvas fill/stroke pass for that many sub-paths blocked the
-// tab for tens of seconds on first render. hexRegion(80) = 19,441 cells
-// renders in well under 100ms and still reads as a dense hive at zoom-out.
-const VIRTUAL_N = 80;
+// ── Entry ─────────────────────────────────────────────────────────
+export async function renderOrg(container) {
+  _container = container;
+  container.innerHTML = `
+    <div class="hmap-shell">
+      <div class="hmap-topbar">
+        <div class="hmap-breadcrumb" id="hmapBreadcrumb"></div>
+        <div class="hmap-you-here" id="hmapYouHere"></div>
+        <div class="hmap-zoom-btns">
+          <button class="hmap-zbtn" id="hmapZoomIn" title="Zoom in">+</button>
+          <button class="hmap-zbtn" id="hmapZoomOut" title="Zoom out">−</button>
+          <button class="hmap-zbtn hmap-zbtn-fit" id="hmapFit" title="Fit to screen">Fit</button>
+        </div>
+      </div>
+      <div class="hmap-stage" id="hmapStage">
+        <svg id="hmapSvg" class="hmap-svg"></svg>
+      </div>
+      <div class="hmap-detail" id="hmapDetail" style="display:none">
+        <button class="hmap-detail-close" id="hmapDetailClose">✕</button>
+        <div id="hmapDetailBody"></div>
+      </div>
+    </div>
+  `;
 
-function axialToPixel(q, r) {
-  return { x: HEX_W * (q + r / 2), y: ROW_H * r };
-}
+  _all = await getPeople();
+  _me  = _all.find(p => p.is_current_user) || _all[0];
 
-function hexPath(ctx, cx, cy, r) {
-  // pointy-top (matches svgHexPoints)
-  for (let i = 0; i < 6; i++) {
-    const a = Math.PI / 180 * (60 * i - 30);
-    const x = cx + r * Math.cos(a);
-    const y = cy + r * Math.sin(a);
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  // Auto-expand me's market and org
+  if (_me) {
+    _expanded.add(`market:${_me.market}`);
+    _expanded.add(`org:${_me.comb}`);
+    // auto-expand my team (find manager)
+    const teamKey = teamId(_me);
+    if (teamKey) _expanded.add(`team:${teamKey}`);
   }
-  ctx.closePath();
+
+  wireZoom();
+  wireDetailClose();
+  buildMap();
+  updateBreadcrumb();
+  updateYouHere();
 }
 
-function svgHexPoints(cx, cy, r) {
-  // pointy-top
+// ── Team key: "managerName" used as team identifier ───────────────
+function teamId(person) {
+  // A "team" is all people sharing the same manager within the same org
+  // Key = manager_id + comb
+  if (!person?.manager_id) return null;
+  return `${person.manager_id}:${person.comb}`;
+}
+
+function teamLabel(mgrId, comb) {
+  const mgr = _all.find(p => p.id === mgrId);
+  if (!mgr) return 'Team';
+  const orgName = ORG_META[comb]?.name || comb.replace(' Colony','');
+  return `${mgr.first_name} ${mgr.last_name}'s team`;
+}
+
+// ── Build and render the full SVG map ─────────────────────────────
+function buildMap() {
+  const svg = document.getElementById('hmapSvg');
+  const stage = document.getElementById('hmapStage');
+  if (!svg || !stage) return;
+
+  // --- Layout constants ---
+  const MARKET_R  = 64;   // market bubble radius
+  const ORG_R     = 44;   // org node radius
+  const TEAM_R    = 34;   // team node radius
+  const PERSON_R  = 26;   // person node radius
+  const PAD       = 40;
+
+  // --- Group people by market → org → team ---
+  const markets = [...new Set(_all.map(p => p.market).filter(Boolean))];
+  const byMarket = {};
+  markets.forEach(m => { byMarket[m] = _all.filter(p => p.market === m); });
+
+  // --- Position markets in a horizontal row, centered ---
+  const MARKET_STEP = 260;
+  const totalW = markets.length * MARKET_STEP;
+
+  // Node positions stored for line drawing
+  const positions = {}; // key → {x,y}
+
+  let nodes = ''; // SVG markup accumulator
+  let lines = ''; // connection lines (drawn under nodes)
+
+  const marketY = 120;
+
+  markets.forEach((mkt, mi) => {
+    const mx = PAD + mi * MARKET_STEP + MARKET_STEP / 2;
+    const my = marketY;
+    const mkey = `market:${mkt}`;
+    const color = MKT_COLOR[mkt] || '#525252';
+    const isMyMkt = _me?.market === mkt;
+    const isExpanded = _expanded.has(mkey);
+    const isSel = _sel?.type === 'market' && _sel.id === mkt;
+
+    positions[mkey] = { x: mx, y: my };
+
+    // Market bubble
+    nodes += marketNode(mx, my, MARKET_R, mkt, color, isMyMkt, isSel, isExpanded,
+      byMarket[mkt].length);
+
+    if (!isExpanded) return;
+
+    // --- Orgs within this market ---
+    const orgs = [...new Set(byMarket[mkt].map(p => p.comb).filter(Boolean))];
+    const orgStep = Math.max(180, MARKET_STEP / Math.max(orgs.length, 1));
+    const orgY = my + MARKET_R + 100;
+    const orgStartX = mx - ((orgs.length - 1) * orgStep) / 2;
+
+    orgs.forEach((org, oi) => {
+      const ox = orgStartX + oi * orgStep;
+      const oy = orgY;
+      const okey = `org:${org}`;
+      const ocolor = ORG_COLOR[org] || '#525252';
+      const inOrg = byMarket[mkt].filter(p => p.comb === org);
+      const isMyOrg = _me?.comb === org;
+      const isOrgExp = _expanded.has(okey);
+      const isOrgSel = _sel?.type === 'org' && _sel.id === org;
+
+      positions[okey] = { x: ox, y: oy };
+
+      // Line: market → org
+      lines += connLine(mx, my + MARKET_R, ox, oy - ORG_R, color, 0.4);
+
+      nodes += orgNode(ox, oy, ORG_R, org, ocolor, isMyOrg, isOrgSel, isOrgExp, inOrg.length);
+
+      if (!isOrgExp) return;
+
+      // --- Teams within this org ---
+      // A team = all people sharing the same manager_id within this org
+      const teamMap = {};
+      inOrg.forEach(p => {
+        const tid = teamId(p);
+        if (!teamMap[tid]) teamMap[tid] = [];
+        teamMap[tid].push(p);
+      });
+      // Also include managers themselves in "their own" team display
+      const teamKeys = Object.keys(teamMap).filter(k => k !== 'null:' + org);
+
+      const teamStep = Math.max(160, orgStep);
+      const teamY = oy + ORG_R + 90;
+      const teamStartX = ox - ((teamKeys.length - 1) * teamStep) / 2;
+
+      teamKeys.forEach((tk, ti) => {
+        const [mgrId, tcomb] = tk.split(':');
+        if (tcomb !== org) return;
+        const tx_ = teamStartX + ti * teamStep;
+        const ty_ = teamY;
+        const tkey = `team:${tk}`;
+        const members = teamMap[tk] || [];
+        const mgr = _all.find(p => p.id === parseInt(mgrId));
+        const label = mgr ? `${mgr.first_name} ${mgr.last_name}` : 'Team';
+        const isMyTeam = _me && teamId(_me) === tk;
+        const isTeamExp = _expanded.has(tkey);
+        const isTeamSel = _sel?.type === 'team' && _sel.id === tk;
+
+        positions[tkey] = { x: tx_, y: ty_ };
+
+        // Line: org → team
+        lines += connLine(ox, oy + ORG_R, tx_, ty_ - TEAM_R, ocolor, 0.35);
+
+        nodes += teamNode(tx_, ty_, TEAM_R, tk, label, ocolor, isMyTeam, isTeamSel, isTeamExp, members.length);
+
+        if (!isTeamExp) return;
+
+        // --- People within this team ---
+        const allTeamMembers = [...members];
+        // Include the manager too if not already in members
+        if (mgr && !allTeamMembers.find(p => p.id === mgr.id)) {
+          allTeamMembers.unshift(mgr);
+        }
+
+        const personStep = Math.max(70, teamStep / Math.max(allTeamMembers.length, 1));
+        const personY = ty_ + TEAM_R + 80;
+        const personStartX = tx_ - ((allTeamMembers.length - 1) * personStep) / 2;
+
+        allTeamMembers.forEach((person, pi) => {
+          const px_ = personStartX + pi * personStep;
+          const py_ = personY;
+          const pkey = `person:${person.id}`;
+          const isMe_ = person.is_current_user;
+          const pSel  = _sel?.type === 'person' && _sel.id === person.id;
+
+          positions[pkey] = { x: px_, y: py_ };
+
+          // Line: team → person
+          lines += connLine(tx_, ty_ + TEAM_R, px_, py_ - PERSON_R, ocolor, 0.25);
+
+          nodes += personNode(px_, py_, PERSON_R, person, isMe_, pSel);
+        });
+      });
+    });
+  });
+
+  // Calculate total SVG dimensions from positions
+  let maxX = 800, maxY = 600;
+  Object.values(positions).forEach(({ x, y }) => {
+    if (x + 120 > maxX) maxX = x + 120;
+    if (y + 120 > maxY) maxY = y + 120;
+  });
+  _svgW = maxX + PAD;
+  _svgH = maxY + PAD;
+
+  svg.setAttribute('width',   _svgW);
+  svg.setAttribute('height',  _svgH);
+  svg.setAttribute('viewBox', `0 0 ${_svgW} ${_svgH}`);
+  svg.innerHTML = `<g id="hmapLines">${lines}</g><g id="hmapNodes">${nodes}</g>`;
+
+  // Wire all node clicks
+  svg.querySelectorAll('[data-node-key]').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      handleNodeClick(el.dataset.nodeKey, el.dataset.nodeType, el.dataset.nodeId);
+    });
+  });
+
+  applyTransform();
+}
+
+// ── Node click handler ────────────────────────────────────────────
+function handleNodeClick(key, type, id) {
+  const wasExpanded = _expanded.has(key);
+
+  // Toggle expand
+  if (['market','org','team'].includes(type)) {
+    if (wasExpanded) _expanded.delete(key);
+    else _expanded.add(key);
+  }
+
+  // Set selection
+  _sel = { type, id: type === 'person' ? parseInt(id) : id };
+
+  buildMap();
+  showDetail(type, id);
+  updateBreadcrumb();
+}
+
+// ── SVG node generators ───────────────────────────────────────────
+
+function marketNode(cx, cy, r, label, color, isMine, isSel, isExp, count) {
+  const key  = `market:${label}`;
+  const ring = isMine ? `<circle cx="${cx}" cy="${cy}" r="${r + 8}" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5" pointer-events="none"/>` : '';
+  const selRing = isSel ? `<circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
+  const chevron = isExp ? '▾' : '▸';
+
+  return `
+    <g data-node-key="${key}" data-node-type="market" data-node-id="${label}">
+      ${ring}${selRing}
+      <circle cx="${cx}" cy="${cy}" r="${r}"
+        fill="${isMine ? color + '2a' : '#1a1a1a'}"
+        stroke="${color}"
+        stroke-width="${isSel ? 2.5 : 1.5}"
+      />
+      <text x="${cx}" y="${cy - 10}" text-anchor="middle" dominant-baseline="middle"
+        fill="${color}" font-size="13" font-weight="600"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${label}</text>
+      <text x="${cx}" y="${cy + 8}" text-anchor="middle" dominant-baseline="middle"
+        fill="${color}99" font-size="11"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">Colony</text>
+      <text x="${cx}" y="${cy + 24}" text-anchor="middle" dominant-baseline="middle"
+        fill="${color}66" font-size="10"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${count} people  ${chevron}</text>
+      ${isMine ? `<text x="${cx}" y="${cy - r - 12}" text-anchor="middle"
+        fill="${color}" font-size="10" font-weight="600"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">YOUR COLONY</text>` : ''}
+    </g>`;
+}
+
+function orgNode(cx, cy, r, comb, color, isMine, isSel, isExp, count) {
+  const key   = `org:${comb}`;
+  const label = ORG_META[comb]?.name || comb.replace(' Colony','');
+  const selRing = isSel ? `<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
+  const chevron = isExp ? '▾' : '▸';
+
+  return `
+    <g data-node-key="${key}" data-node-type="org" data-node-id="${comb}">
+      ${selRing}
+      <circle cx="${cx}" cy="${cy}" r="${r}"
+        fill="${isMine ? color + '28' : '#202020'}"
+        stroke="${color}"
+        stroke-width="${isSel ? 2.5 : 1.2}"
+      />
+      <text x="${cx}" y="${cy - 4}" text-anchor="middle" dominant-baseline="middle"
+        fill="${isMine ? color : '#e0e0e0'}" font-size="11" font-weight="600"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${label}</text>
+      <text x="${cx}" y="${cy + 10}" text-anchor="middle" dominant-baseline="middle"
+        fill="#666" font-size="9"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${count}  ${chevron}</text>
+    </g>`;
+}
+
+function teamNode(cx, cy, r, tk, label, color, isMine, isSel, isExp, count) {
+  const key = `team:${tk}`;
+  const selRing = isSel ? `<rect x="${cx - r - 5}" y="${cy - r - 5}" width="${(r + 5) * 2}" height="${(r + 5) * 2}" rx="${r + 2}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
+  const chevron = isExp ? '▾' : '▸';
+  // Team node is a rounded rect
+  const w = r * 2 + 20, h = r * 2;
+  const rx2 = 6;
+  return `
+    <g data-node-key="${key}" data-node-type="team" data-node-id="${tk}">
+      ${selRing}
+      <rect x="${cx - w/2}" y="${cy - h/2}" width="${w}" height="${h}" rx="${rx2}"
+        fill="${isMine ? color + '22' : '#1e1e1e'}"
+        stroke="${color}"
+        stroke-width="${isSel ? 2.2 : 1}"
+      />
+      <text x="${cx}" y="${cy - 5}" text-anchor="middle" dominant-baseline="middle"
+        fill="${isMine ? '#fff' : '#d4d4d4'}" font-size="9.5" font-weight="500"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${label}</text>
+      <text x="${cx}" y="${cy + 8}" text-anchor="middle" dominant-baseline="middle"
+        fill="#555" font-size="9"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${count} members  ${chevron}</text>
+    </g>`;
+}
+
+function personNode(cx, cy, r, person, isMe, isSel) {
+  const key   = `person:${person.id}`;
+  const fname = person.first_name;
+  const lname = person.last_name;
+  const color = isMe ? '#4589ff' : '#525252';
+  const fill  = isMe ? '#0d1f4c' : '#1c1c1c';
+  const selRing = isSel ? `<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
+  const youLabel = isMe ? `<text x="${cx}" y="${cy - r - 10}" text-anchor="middle"
+    fill="#4589ff" font-size="9" font-weight="600"
+    font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">YOU</text>` : '';
+
+  // Pointy-top hexagon for people
+  const pts = hexPts(cx, cy, r);
+
+  return `
+    <g data-node-key="${key}" data-node-type="person" data-node-id="${person.id}">
+      ${selRing}${youLabel}
+      <polygon points="${pts}"
+        fill="${fill}" stroke="${color}"
+        stroke-width="${isMe ? 1.8 : 1}"
+      />
+      <text x="${cx}" y="${cy - 4}" text-anchor="middle" dominant-baseline="middle"
+        fill="${isMe ? '#a0c4ff' : '#d4d4d4'}" font-size="8" font-weight="500"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${fname}</text>
+      <text x="${cx}" y="${cy + 6}" text-anchor="middle" dominant-baseline="middle"
+        fill="${isMe ? '#7aabff' : '#888'}" font-size="7.5"
+        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${lname}</text>
+    </g>`;
+}
+
+function connLine(x1, y1, x2, y2, color, opacity = 0.3) {
+  return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
+    stroke="${color}" stroke-width="1" opacity="${opacity}" pointer-events="none"/>`;
+}
+
+function hexPts(cx, cy, r) {
   return Array.from({ length: 6 }, (_, i) => {
-    const a = Math.PI / 180 * (60 * i - 30);
-    return `${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`;
+    const a = Math.PI / 3 * i - Math.PI / 6;
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
   }).join(' ');
 }
 
-function cellColony(q, r) {
-  if (q === 0 && r === 0) return COLONY_ORDER[0];
-  const { x, y } = axialToPixel(q, r);
-  let angle = Math.atan2(y, x);
-  if (angle < 0) angle += Math.PI * 2;
-  return COLONY_ORDER[Math.floor((angle / (Math.PI * 2)) * 6) % 6];
-}
+// ── Breadcrumb ────────────────────────────────────────────────────
+function updateBreadcrumb() {
+  const el = document.getElementById('hmapBreadcrumb');
+  if (!el || !_me) return;
 
-// Subtle colony tints for background canvas
-const COLONY_TINTS = {
-  'Data & AI Colony':      '#050c14',
-  'Automation Colony':     '#07070f',
-  'Sustainability Colony': '#050c07',
-  'Security Colony':       '#0d0505',
-  'Infrastructure Colony': '#09051a',
-  'Hybrid Cloud Colony':   '#0d0509',
-};
+  const orgName  = ORG_META[_me.comb]?.name || _me.comb?.replace(' Colony','') || '—';
+  const teamKey_ = teamId(_me);
+  const mgr      = _me.manager_id ? _all.find(p => p.id === _me.manager_id) : null;
+  const teamLbl  = mgr ? `${mgr.first_name} ${mgr.last_name}'s team` : 'Team';
 
-let _people       = [];
-let _activeFilter = null;
-let _scale        = 1;
-let _canvasW      = 0;
-let _canvasH      = 0;
-let _OX           = 0;
-let _OY           = 0;
+  const crumbs = [
+    { label: 'IBM Hive', key: null, type: null },
+    { label: _me.market + ' Colony', key: `market:${_me.market}`, type: 'market', id: _me.market },
+    { label: orgName + ' Org',       key: `org:${_me.comb}`,       type: 'org',    id: _me.comb },
+    { label: teamLbl,                key: `team:${teamKey_}`,       type: 'team',   id: teamKey_ },
+    { label: _me.first_name + ' ' + _me.last_name, key: null, type: null, isYou: true },
+  ];
 
-// Map "q,r" → {cx, cy} (canvas pixel centers)
-const _cellPx = new Map();
+  el.innerHTML = crumbs.map((c, i) => {
+    const sep  = i > 0 ? `<span class="bc-sep">›</span>` : '';
+    const cls  = c.isYou ? 'bc-you' : (c.key ? 'bc-link' : 'bc-root');
+    const attr = c.key ? `data-bc-key="${c.key}" data-bc-type="${c.type}" data-bc-id="${c.id}"` : '';
+    return `${sep}<span class="${cls}" ${attr}>${c.label}</span>`;
+  }).join('');
 
-export async function renderOrg(container) {
-  container.innerHTML = `
-    <div class="org-hive-page">
-      <div class="org-hive-toolbar">
-        <div class="org-hive-toolbar-left">
-          <span class="org-hive-title">Organization</span>
-          <span class="org-hive-subtitle" id="orgSubtitle">270,000 bees · 6 colonies</span>
-        </div>
-        <div class="org-hive-controls">
-          <button class="colony-zoom-btn" id="orgZoomIn"    title="Zoom in">+</button>
-          <button class="colony-zoom-btn" id="orgZoomOut"   title="Zoom out">−</button>
-          <button class="colony-zoom-btn" id="orgZoomReset" title="Fit" style="font-size:11px">Fit</button>
-        </div>
-      </div>
-      <div class="colony-viewport" id="orgViewport"
-           style="position:relative;cursor:grab;overflow:hidden;flex:1;min-height:0">
-        <canvas id="orgCanvas"
-                style="position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;image-rendering:pixelated"></canvas>
-        <svg id="orgSvg" xmlns="http://www.w3.org/2000/svg"
-             style="position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;overflow:visible"></svg>
-      </div>
-    </div>
-    <div class="org-modal-overlay" id="orgModalOverlay">
-      <div class="org-modal">
-        <div class="org-modal-header">
-          <div class="org-modal-title" id="orgModalTitle"></div>
-          <div class="org-modal-close" id="orgModalClose">✕</div>
-        </div>
-        <div class="org-modal-body" id="orgModalBody"></div>
-      </div>
-    </div>
-  `;
-
-  _people = await getPeople();
-
-  // ── Sort people: colony → role ────────────────────────────────
-  const byColony = {};
-  COLONY_ORDER.forEach(c => { byColony[c] = []; });
-  _people.forEach(p => {
-    const c = p.comb || COLONY_ORDER[0];
-    if (!byColony[c]) byColony[c] = [];
-    byColony[c].push(p);
-  });
-  COLONY_ORDER.forEach(c => {
-    byColony[c].sort((a, b) => (ROLE_ORDER[a.role_type] ?? 9) - (ROLE_ORDER[b.role_type] ?? 9));
-  });
-  const realPeople = COLONY_ORDER.flatMap(c => byColony[c] || []);
-
-  // ── Canvas dimensions ─────────────────────────────────────────
-  const edgeX = Math.abs(axialToPixel(VIRTUAL_N, 0).x)        + HEX_R + 4;
-  const edgeY = Math.abs(axialToPixel(0, -VIRTUAL_N).y)       + HEX_R + 4;
-  _canvasW = Math.ceil(edgeX * 2 + 8);
-  _canvasH = Math.ceil(edgeY * 2 + 8);
-  _OX = _canvasW / 2;
-  _OY = _canvasH / 2;
-
-  // ── Assign real people to center hex cells ────────────────────
-  // Grow smallN until there are enough center cells for all people
-  let smallN = 1;
-  let cnt = 7; // hexRegion(1) = 7
-  while (cnt < realPeople.length) { smallN++; cnt = 3 * smallN * (smallN + 1) + 1; }
-
-  const smallCells = [];
-  for (let q = -smallN; q <= smallN; q++) {
-    const r1 = Math.max(-smallN, -q - smallN);
-    const r2 = Math.min(smallN,  -q + smallN);
-    for (let r = r1; r <= r2; r++) smallCells.push({ q, r });
-  }
-  smallCells.sort((a, b) => {
-    const ra = Math.max(Math.abs(a.q), Math.abs(a.r), Math.abs(a.q + a.r));
-    const rb = Math.max(Math.abs(b.q), Math.abs(b.r), Math.abs(b.q + b.r));
-    if (ra !== rb) return ra - rb;
-    const pa = axialToPixel(a.q, a.r);
-    const pb = axialToPixel(b.q, b.r);
-    return Math.atan2(pa.y, pa.x) - Math.atan2(pb.y, pb.x);
-  });
-
-  const personByKey = new Map(); // "q,r" → person
-  smallCells.slice(0, realPeople.length).forEach((c, i) => {
-    personByKey.set(`${c.q},${c.r}`, realPeople[i]);
-  });
-
-  // ── Draw canvas background ────────────────────────────────────
-  const canvas = document.getElementById('orgCanvas');
-  canvas.width  = _canvasW;
-  canvas.height = _canvasH;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, _canvasW, _canvasH);
-
-  // Pre-compute all pixel centers and sort by colony for batched draw
-  const colonyBatches = {};
-  COLONY_ORDER.forEach(c => { colonyBatches[c] = []; });
-
-  for (let q = -VIRTUAL_N; q <= VIRTUAL_N; q++) {
-    const r1 = Math.max(-VIRTUAL_N, -q - VIRTUAL_N);
-    const r2 = Math.min(VIRTUAL_N,  -q + VIRTUAL_N);
-    for (let r = r1; r <= r2; r++) {
-      const { x, y } = axialToPixel(q, r);
-      const cx = x + _OX;
-      const cy = y + _OY;
-      _cellPx.set(`${q},${r}`, { cx, cy });
-      const c = personByKey.has(`${q},${r}`)
-        ? (personByKey.get(`${q},${r}`).comb || COLONY_ORDER[0])
-        : cellColony(q, r);
-      colonyBatches[c].push({ cx, cy });
-    }
-  }
-
-  // Batch-draw each colony: one fill pass + one stroke pass per colony
-  COLONY_ORDER.forEach(colony => {
-    const cells = colonyBatches[colony];
-    ctx.beginPath();
-    cells.forEach(({ cx, cy }) => hexPath(ctx, cx, cy, HEX_R - 0.3));
-    ctx.fillStyle = COLONY_TINTS[colony] || '#0a0a0a';
-    ctx.fill();
-
-    ctx.beginPath();
-    cells.forEach(({ cx, cy }) => hexPath(ctx, cx, cy, HEX_R - 0.3));
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.lineWidth = 0.3;
-    ctx.stroke();
-  });
-
-  // ── SVG overlay — person cells + labels ───────────────────────
-  const svg = document.getElementById('orgSvg');
-  svg.setAttribute('width',   _canvasW);
-  svg.setAttribute('height',  _canvasH);
-  svg.setAttribute('viewBox', `0 0 ${_canvasW} ${_canvasH}`);
-
-  personByKey.forEach((person, key) => {
-    const { cx, cy } = _cellPx.get(key);
-    const isMe = person.is_current_user;
-
-    // Highlighted person cell
-    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    poly.setAttribute('points', svgHexPoints(cx, cy, HEX_R - 0.2));
-    poly.setAttribute('fill', isMe ? '#1a2e5e' : '#1e1e2e');
-    poly.setAttribute('stroke', isMe ? 'rgba(77,123,255,0.9)' : 'rgba(255,255,255,0.6)');
-    poly.setAttribute('stroke-width', isMe ? '0.6' : '0.4');
-    poly.setAttribute('data-person-id', person.id);
-    poly.style.cursor = 'pointer';
-    svg.appendChild(poly);
-
-    if (isMe) {
-      const ring = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      ring.setAttribute('points', svgHexPoints(cx, cy, HEX_R - 1.2));
-      ring.setAttribute('fill', 'none');
-      ring.setAttribute('stroke', 'rgba(77,123,255,0.4)');
-      ring.setAttribute('stroke-width', '0.3');
-      ring.style.pointerEvents = 'none';
-      svg.appendChild(ring);
-    }
-
-    poly.addEventListener('click', e => {
-      e.stopPropagation();
-      openPersonModal(person);
+  el.querySelectorAll('[data-bc-key]').forEach(seg => {
+    seg.addEventListener('click', () => {
+      const k = seg.dataset.bcKey;
+      const t = seg.dataset.bcType;
+      const id = seg.dataset.bcId;
+      // Expand target, collapse everything below
+      _expanded.add(k);
+      _sel = { type: t, id: t === 'person' ? parseInt(id) : id };
+      buildMap();
+      updateBreadcrumb();
     });
-
-    // Name label (shown only at high zoom via CSS class opacity)
-    const nameEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    nameEl.setAttribute('x', cx);
-    nameEl.setAttribute('y', cy);
-    nameEl.setAttribute('text-anchor', 'middle');
-    nameEl.setAttribute('dominant-baseline', 'middle');
-    nameEl.setAttribute('fill', 'rgba(255,255,255,0.9)');
-    nameEl.setAttribute('font-size', '1.8');
-    nameEl.setAttribute('font-weight', '500');
-    nameEl.setAttribute('font-family', 'IBM Plex Sans, system-ui, sans-serif');
-    nameEl.setAttribute('pointer-events', 'none');
-    nameEl.classList.add('org-hex-name');
-    nameEl.textContent = person.first_name + ' ' + person.last_name;
-    svg.appendChild(nameEl);
   });
+}
 
-  // ── Colony labels (huge text, shown only when zoomed way out) ─
-  // Sample colony centroids from virtual grid
-  const colLabels = {};
-  COLONY_ORDER.forEach(c => { colLabels[c] = { sx: 0, sy: 0, n: 0 }; });
-  for (let q = -VIRTUAL_N; q <= VIRTUAL_N; q += 8) {
-    const r1 = Math.max(-VIRTUAL_N, -q - VIRTUAL_N);
-    const r2 = Math.min(VIRTUAL_N,  -q + VIRTUAL_N);
-    for (let r = r1; r <= r2; r += 8) {
-      const px = _cellPx.get(`${q},${r}`);
-      if (!px) continue;
-      const c = cellColony(q, r);
-      colLabels[c].sx += px.cx;
-      colLabels[c].sy += px.cy;
-      colLabels[c].n++;
-    }
+// ── You Are Here banner ───────────────────────────────────────────
+function updateYouHere() {
+  const el = document.getElementById('hmapYouHere');
+  if (!el || !_me) return;
+  const mgr = _me.manager_id ? _all.find(p => p.id === _me.manager_id) : null;
+  el.innerHTML = `
+    <span class="yah-dot"></span>
+    <span class="yah-text">
+      <strong>${_me.first_name} ${_me.last_name}</strong>
+      · ${_me.role || ROLE_LABEL[_me.role_type] || '—'}
+      · ${_me.market} Colony
+      ${mgr ? `· Reports to ${mgr.first_name} ${mgr.last_name}` : ''}
+    </span>
+  `;
+}
+
+// ── Detail panel ──────────────────────────────────────────────────
+function showDetail(type, id) {
+  const panel = document.getElementById('hmapDetail');
+  const body  = document.getElementById('hmapDetailBody');
+  if (!panel || !body) return;
+
+  let html = '';
+
+  if (type === 'person') {
+    const p = _all.find(x => x.id === parseInt(id));
+    if (!p) return;
+    const mgr = _all.find(x => x.id === p.manager_id);
+    const teamMembers = _all.filter(x => x.manager_id === p.manager_id && x.id !== p.id && x.comb === p.comb);
+    const reports = _all.filter(x => x.manager_id === p.id);
+    const orgMeta = ORG_META[p.comb] || {};
+    const isMe = p.is_current_user;
+
+    html = `
+      <div class="hdp-header">
+        <div class="hdp-hex" style="background:${isMe ? '#0d1f4c' : '#1c1c1c'};border-color:${isMe ? '#4589ff' : '#525252'}"></div>
+        <div>
+          <div class="hdp-name">${p.first_name} ${p.last_name}${isMe ? ' <span class="you-tag">You</span>' : ''}</div>
+          <div class="hdp-role">${p.role || ROLE_LABEL[p.role_type] || '—'}</div>
+        </div>
+      </div>
+      <div class="hdp-sections">
+        <div class="hdp-section">
+          <div class="hdp-label">Colony (Market)</div>
+          <div class="hdp-val" style="color:${MKT_COLOR[p.market]||'#aaa'}">${p.market} Colony</div>
+        </div>
+        <div class="hdp-section">
+          <div class="hdp-label">Organization</div>
+          <div class="hdp-val">${ORG_META[p.comb]?.name || p.comb || '—'}</div>
+        </div>
+        <div class="hdp-section">
+          <div class="hdp-label">Manager</div>
+          <div class="hdp-val">${mgr ? `<a href="#" class="hdp-link" data-person-id="${mgr.id}">${mgr.first_name} ${mgr.last_name}</a>` : '— (top of chain)'}</div>
+        </div>
+        ${reports.length ? `<div class="hdp-section">
+          <div class="hdp-label">Direct reports</div>
+          <div class="hdp-val">${reports.map(r => `<a href="#" class="hdp-link" data-person-id="${r.id}">${r.first_name} ${r.last_name}</a>`).join(', ')}</div>
+        </div>` : ''}
+        ${teamMembers.length ? `<div class="hdp-section">
+          <div class="hdp-label">On the same team</div>
+          <div class="hdp-val">${teamMembers.slice(0,4).map(r => `<a href="#" class="hdp-link" data-person-id="${r.id}">${r.first_name} ${r.last_name}</a>`).join(', ')}${teamMembers.length > 4 ? ` +${teamMembers.length - 4} more` : ''}</div>
+        </div>` : ''}
+        ${orgMeta.products ? `<div class="hdp-section">
+          <div class="hdp-label">Products</div>
+          <div class="hdp-tags">${orgMeta.products.map(pr => `<span class="hdp-tag">${pr}</span>`).join('')}</div>
+        </div>` : ''}
+        <div class="hdp-section">
+          <div class="hdp-label">Email</div>
+          <div class="hdp-val">${p.email ? `<a href="mailto:${p.email}" class="hdp-link">${p.email}</a>` : '—'}</div>
+        </div>
+        <div class="hdp-section">
+          <div class="hdp-label">Slack</div>
+          <div class="hdp-val">${p.slack || '—'}</div>
+        </div>
+        <div class="hdp-section">
+          <div class="hdp-label">Location</div>
+          <div class="hdp-val">${p.location || '—'}</div>
+        </div>
+      </div>`;
+
+  } else if (type === 'market') {
+    const mktPeople = _all.filter(p => p.market === id);
+    const orgs = [...new Set(mktPeople.map(p => p.comb).filter(Boolean))];
+    const color = MKT_COLOR[id] || '#aaa';
+    html = `
+      <div class="hdp-header">
+        <div class="hdp-circle" style="background:${color}22;border-color:${color}"></div>
+        <div>
+          <div class="hdp-name" style="color:${color}">${id} Colony</div>
+          <div class="hdp-role">${mktPeople.length} people across ${orgs.length} organizations</div>
+        </div>
+      </div>
+      <div class="hdp-sections">
+        <div class="hdp-section">
+          <div class="hdp-label">Organizations</div>
+          <div class="hdp-val">${orgs.map(o => ORG_META[o]?.name || o.replace(' Colony','')).join(', ')}</div>
+        </div>
+        <div class="hdp-section">
+          <div class="hdp-label">Headcount</div>
+          <div class="hdp-val">${mktPeople.length} people</div>
+        </div>
+      </div>`;
+
+  } else if (type === 'org') {
+    const orgPeople = _all.filter(p => p.comb === id);
+    const meta = ORG_META[id] || {};
+    const color = ORG_COLOR[id] || '#aaa';
+    html = `
+      <div class="hdp-header">
+        <div class="hdp-circle" style="background:${color}22;border-color:${color}"></div>
+        <div>
+          <div class="hdp-name" style="color:${color}">${meta.name || id.replace(' Colony','')}</div>
+          <div class="hdp-role">Organization · ${orgPeople[0]?.market || ''} Colony</div>
+        </div>
+      </div>
+      <div class="hdp-sections">
+        <div class="hdp-section">
+          <div class="hdp-label">People</div>
+          <div class="hdp-val">${orgPeople.length}</div>
+        </div>
+        ${meta.products ? `<div class="hdp-section">
+          <div class="hdp-label">Products</div>
+          <div class="hdp-tags">${meta.products.map(pr => `<span class="hdp-tag">${pr}</span>`).join('')}</div>
+        </div>` : ''}
+      </div>`;
+
+  } else if (type === 'team') {
+    const [mgrIdStr, comb] = id.split(':');
+    const mgrId = parseInt(mgrIdStr);
+    const mgr = _all.find(p => p.id === mgrId);
+    const members = _all.filter(p => p.manager_id === mgrId && p.comb === comb);
+    const color = ORG_COLOR[comb] || '#aaa';
+    html = `
+      <div class="hdp-header">
+        <div class="hdp-circle" style="background:${color}22;border-color:${color}"></div>
+        <div>
+          <div class="hdp-name">${mgr ? mgr.first_name + ' ' + mgr.last_name + "'s team" : 'Team'}</div>
+          <div class="hdp-role">Cell · ${ORG_META[comb]?.name || ''} Org</div>
+        </div>
+      </div>
+      <div class="hdp-sections">
+        <div class="hdp-section">
+          <div class="hdp-label">Manager</div>
+          <div class="hdp-val">${mgr ? `<a href="#" class="hdp-link" data-person-id="${mgr.id}">${mgr.first_name} ${mgr.last_name}</a>` : '—'}</div>
+        </div>
+        <div class="hdp-section">
+          <div class="hdp-label">Members (${members.length})</div>
+          <div class="hdp-val">${members.map(m => `<a href="#" class="hdp-link" data-person-id="${m.id}">${m.first_name} ${m.last_name}</a>`).join(', ')}</div>
+        </div>
+      </div>`;
   }
 
-  COLONY_ORDER.forEach(colony => {
-    const d = colLabels[colony];
-    if (!d.n) return;
-    const info = COLONY_INFO[colony] || {};
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.classList.add('colony-section-label');
-    g.style.cursor = 'pointer';
+  body.innerHTML = html;
+  panel.style.display = 'flex';
 
-    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    t.setAttribute('x', d.sx / d.n);
-    t.setAttribute('y', d.sy / d.n);
-    t.setAttribute('text-anchor', 'middle');
-    t.setAttribute('dominant-baseline', 'middle');
-    t.setAttribute('fill', info.color || 'rgba(255,255,255,0.4)');
-    t.setAttribute('font-size', '70');
-    t.setAttribute('font-weight', '700');
-    t.setAttribute('font-family', 'IBM Plex Sans, system-ui, sans-serif');
-    t.setAttribute('letter-spacing', '4');
-    t.setAttribute('pointer-events', 'none');
-    t.textContent = (info.label || colony.replace(' Colony', '')).toUpperCase();
-
-    g.appendChild(t);
-    svg.appendChild(g);
-    g.addEventListener('click', () => openColonyModal(colony));
-  });
-
-  updateVisibility(_scale);
-  wireZoom();
-  wireModal();
-
-  document.addEventListener('sidebar:filter', onFilter);
-  container._cleanup = () => document.removeEventListener('sidebar:filter', onFilter);
-}
-
-// ── Filter ────────────────────────────────────────────────────────
-function onFilter(e) {
-  _activeFilter = e.detail;
-  const svg = document.getElementById('orgSvg');
-  if (!svg) return;
-
-  const count = _activeFilter ? _people.filter(p => !isFiltered(p)).length : 270000;
-  const sub = document.getElementById('orgSubtitle');
-  if (sub) sub.textContent = _activeFilter
-    ? `${count.toLocaleString()} matching · 6 colonies`
-    : '270,000 bees · 6 colonies';
-
-  svg.querySelectorAll('[data-person-id]').forEach(poly => {
-    const pid    = poly.dataset.personId;
-    const person = _people.find(p => String(p.id) === pid);
-    if (!person) return;
-    const dim = isFiltered(person);
-    const me  = person.is_current_user;
-    poly.setAttribute('fill', dim ? '#080808' : (me ? '#1a2e5e' : '#1e1e2e'));
-    poly.setAttribute('stroke', dim ? 'rgba(255,255,255,0.08)' : (me ? 'rgba(77,123,255,0.9)' : 'rgba(255,255,255,0.6)'));
-    poly.style.opacity = dim ? '0.25' : '1';
+  // Wire person links in detail panel
+  body.querySelectorAll('[data-person-id]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const pid = parseInt(a.dataset.personId);
+      _sel = { type: 'person', id: pid };
+      buildMap();
+      showDetail('person', pid);
+      updateBreadcrumb();
+    });
   });
 }
 
-function isFiltered(p) {
-  if (!_activeFilter) return false;
-  const { group, value } = _activeFilter;
-  if (group === 'colonies') return p.comb !== COLONY_MAP[value];
-  if (group === 'jobs') {
-    const m = { bss:'bss',bts:'bts',csm:'csm',manager:'manager',
-                director:'director',exec:'exec',partner:'partner',sdr:'sdr',intern:'intern' };
-    return p.role_type !== m[value];
-  }
-  if (group === 'markets') return p.market !== MARKET_MAP[value];
-  return false;
-}
-
-// ── Label visibility by zoom level ───────────────────────────────
-function updateVisibility(scale) {
-  _scale = scale;
-  const svg = document.getElementById('orgSvg');
-  if (!svg) return;
-
-  // Colony labels: visible only when zoomed way out
-  const showLabels = scale < 0.09;
-  svg.querySelectorAll('.colony-section-label').forEach(el => {
-    el.style.opacity = showLabels ? '0.85' : '0';
-    el.style.pointerEvents = showLabels ? 'auto' : 'none';
+function wireDetailClose() {
+  document.getElementById('hmapDetailClose')?.addEventListener('click', () => {
+    _sel = null;
+    document.getElementById('hmapDetail').style.display = 'none';
   });
-
-  // Person names: readable at high zoom (scale ≥ 5 → HEX_R*5=15px cells)
-  const showNames = scale >= 4.5;
-  svg.querySelectorAll('.org-hex-name').forEach(el => {
-    el.style.opacity = showNames ? '1' : '0';
-  });
-}
-
-// ── Modals ────────────────────────────────────────────────────────
-function openColonyModal(colony) {
-  const info = COLONY_INFO[colony] || {};
-  const el   = document.getElementById('orgModalTitle');
-  const body = document.getElementById('orgModalBody');
-  const ov   = document.getElementById('orgModalOverlay');
-  if (!ov) return;
-
-  el.textContent = info.label || colony;
-  el.style.color = info.color || '#fff';
-
-  body.innerHTML = `
-    <div class="org-modal-meta">
-      <span class="org-modal-badge" style="background:${info.color}22;color:${info.color};border-color:${info.color}44">
-        ${info.headcount || ''} employees
-      </span>
-    </div>
-    <p class="org-modal-desc">${info.desc || ''}</p>
-    ${info.products ? `
-      <div class="org-modal-section-title">Key products</div>
-      <div class="org-modal-tags">${info.products.map(p => `<span class="org-modal-tag">${p}</span>`).join('')}</div>
-    ` : ''}
-  `;
-  ov.classList.add('open');
-}
-
-function openPersonModal(person) {
-  const el   = document.getElementById('orgModalTitle');
-  const body = document.getElementById('orgModalBody');
-  const ov   = document.getElementById('orgModalOverlay');
-  if (!ov) return;
-
-  el.textContent = person.first_name + ' ' + person.last_name;
-  el.style.color = '#fff';
-
-  const ci = COLONY_INFO[person.comb] || {};
-
-  body.innerHTML = `
-    <div class="org-modal-meta">
-      <span class="org-modal-badge" style="background:${ci.color||'#333'}22;color:${ci.color||'#aaa'};border-color:${ci.color||'#333'}44">
-        ${ci.label || person.comb || '—'}
-      </span>
-      ${person.is_current_user ? '<span class="org-modal-badge" style="background:rgba(77,123,255,0.12);color:#4d7bff;border-color:rgba(77,123,255,0.2)">You</span>' : ''}
-    </div>
-    <div class="org-modal-person-grid">
-      <div class="org-modal-field"><div class="org-modal-field-label">Role</div><div>${person.role || '—'}</div></div>
-      <div class="org-modal-field"><div class="org-modal-field-label">Market</div><div>${person.market || '—'}</div></div>
-      <div class="org-modal-field"><div class="org-modal-field-label">Location</div><div>${person.location || '—'}</div></div>
-      <div class="org-modal-field"><div class="org-modal-field-label">Email</div><div style="color:#4d7bff">${person.email || '—'}</div></div>
-    </div>
-  `;
-  ov.classList.add('open');
-}
-
-function wireModal() {
-  const ov  = document.getElementById('orgModalOverlay');
-  const btn = document.getElementById('orgModalClose');
-  if (!ov) return;
-  btn?.addEventListener('click', () => ov.classList.remove('open'));
-  ov.addEventListener('click',  e => { if (e.target === ov) ov.classList.remove('open'); });
 }
 
 // ── Zoom + pan ────────────────────────────────────────────────────
+function applyTransform() {
+  const svg = document.getElementById('hmapSvg');
+  if (svg) svg.style.transform = `translate(${_tx}px,${_ty}px) scale(${_zoom})`;
+}
+
+function fit() {
+  const stage = document.getElementById('hmapStage');
+  if (!stage || !_svgW || !_svgH) return;
+  const sw = stage.clientWidth  || 900;
+  const sh = stage.clientHeight || 700;
+  _zoom = Math.min(sw / _svgW, sh / _svgH) * 0.90;
+  _tx   = (sw - _svgW * _zoom) / 2;
+  _ty   = (sh - _svgH * _zoom) / 2;
+  applyTransform();
+}
+
 function wireZoom() {
-  const viewport = document.getElementById('orgViewport');
-  const canvas   = document.getElementById('orgCanvas');
-  const svg      = document.getElementById('orgSvg');
-  if (!viewport || !canvas || !svg) return;
-
-  let scale = 1, tx = 0, ty = 0;
-  let dragging = false, didDrag = false, sx = 0, sy = 0, stx = 0, sty = 0;
-
-  function applyTransform() {
-    const t = `translate(${tx}px,${ty}px) scale(${scale})`;
-    canvas.style.transform = t;
-    svg.style.transform    = t;
-    updateVisibility(scale);
-  }
-
-  function fit() {
-    const vw = viewport.clientWidth  || 900;
-    const vh = viewport.clientHeight || 700;
-    // Zoom out so hive occupies ~12% of viewport — looks like a tiny dense speck
-    scale = Math.min(vw / _canvasW, vh / _canvasH) * 0.12;
-    tx = (vw - _canvasW * scale) / 2;
-    ty = (vh - _canvasH * scale) / 2;
-    applyTransform();
-  }
+  const stage = document.getElementById('hmapStage');
+  if (!stage) return;
 
   requestAnimationFrame(() => requestAnimationFrame(fit));
 
-  const zoom = (factor, cx, cy) => {
-    cx = cx ?? viewport.clientWidth  / 2;
-    cy = cy ?? viewport.clientHeight / 2;
-    const ns = Math.min(Math.max(scale * factor, 0.02), 20);
-    tx = cx - (cx - tx) * (ns / scale);
-    ty = cy - (cy - ty) * (ns / scale);
-    scale = ns;
+  document.getElementById('hmapZoomIn')?.addEventListener('click', () => {
+    _zoom = Math.min(_zoom * 1.4, 12);
     applyTransform();
-  };
+  });
+  document.getElementById('hmapZoomOut')?.addEventListener('click', () => {
+    _zoom = Math.max(_zoom / 1.4, 0.05);
+    applyTransform();
+  });
+  document.getElementById('hmapFit')?.addEventListener('click', fit);
 
-  document.getElementById('orgZoomIn')?.addEventListener('click',    () => zoom(1.5));
-  document.getElementById('orgZoomOut')?.addEventListener('click',   () => zoom(1 / 1.5));
-  document.getElementById('orgZoomReset')?.addEventListener('click', fit);
-
-  viewport.addEventListener('wheel', e => {
+  // Wheel zoom
+  stage.addEventListener('wheel', e => {
     e.preventDefault();
-    const r = viewport.getBoundingClientRect();
-    zoom(e.deltaY < 0 ? 1.15 : 0.87, e.clientX - r.left, e.clientY - r.top);
+    const r = stage.getBoundingClientRect();
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    const newZoom = Math.min(Math.max(_zoom * factor, 0.05), 12);
+    _tx = cx - (cx - _tx) * (newZoom / _zoom);
+    _ty = cy - (cy - _ty) * (newZoom / _zoom);
+    _zoom = newZoom;
+    applyTransform();
   }, { passive: false });
 
-  viewport.addEventListener('mousedown', e => {
+  // Pan
+  let drag = false, sx = 0, sy = 0, stx = 0, sty = 0, didDrag = false;
+  stage.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
-    dragging = true; didDrag = false;
-    sx = e.clientX; sy = e.clientY; stx = tx; sty = ty;
-    viewport.style.cursor = 'grabbing';
+    drag = true; didDrag = false;
+    sx = e.clientX; sy = e.clientY; stx = _tx; sty = _ty;
+    stage.style.cursor = 'grabbing';
   });
   window.addEventListener('mousemove', e => {
-    if (!dragging) return;
+    if (!drag) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDrag = true;
-    tx = stx + dx; ty = sty + dy;
+    _tx = stx + dx; _ty = sty + dy;
     applyTransform();
   });
   window.addEventListener('mouseup', () => {
-    dragging = false;
-    if (viewport) viewport.style.cursor = 'grab';
+    drag = false;
+    if (stage) stage.style.cursor = 'default';
   });
-  viewport.addEventListener('click', e => {
+  stage.addEventListener('click', e => {
     if (didDrag) { e.stopImmediatePropagation(); didDrag = false; }
   }, true);
 
   // Pinch
   let lastDist = 0;
-  viewport.addEventListener('touchstart', e => {
+  stage.addEventListener('touchstart', e => {
     if (e.touches.length === 2)
-      lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
-                            e.touches[0].clientY - e.touches[1].clientY);
+      lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
   }, { passive: true });
-  viewport.addEventListener('touchmove', e => {
+  stage.addEventListener('touchmove', e => {
     if (e.touches.length !== 2) return;
     e.preventDefault();
-    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
-                            e.touches[0].clientY - e.touches[1].clientY);
-    const r    = viewport.getBoundingClientRect();
-    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    zoom(dist / lastDist, midX - r.left, midY - r.top);
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const r = stage.getBoundingClientRect();
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+    const factor = dist / lastDist;
+    const newZoom = Math.min(Math.max(_zoom * factor, 0.05), 12);
+    _tx = cx - (cx - _tx) * (newZoom / _zoom);
+    _ty = cy - (cy - _ty) * (newZoom / _zoom);
+    _zoom = newZoom;
+    applyTransform();
     lastDist = dist;
   }, { passive: false });
 }
