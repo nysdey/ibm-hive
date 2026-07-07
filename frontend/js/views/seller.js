@@ -1,318 +1,315 @@
 /**
- * seller.js — Cell view
+ * seller.js — My Team view
  *
- * The most important relationship on Sydney's team is NOT reporting structure.
- * It's the BTSS ↔ TSS pairing.
- *
- * Layout:
- *   - Two columns: BTSS | TSS
- *   - SVG lines connecting paired people
- *   - Managers at top, members below
- *   - Reporting lines (dashed) vs pairing lines (solid colored)
- *   - "You are here" glow on Sydney's node
- *   - Connections tab: personal CRM
- *
- * Team:
- *   BTSS Manager: Chris Kennedy
- *   BTSS: Sydney Chin, Mark Hoffman, Armada Veraepalli
- *   TSS Manager: Rob Hanes
- *   TSS: Ross Holley, Patrick McBride
- *   Pairs: Mark ↔ Ross, Armada ↔ Patrick
+ * Two-column layout: BTSS (left) | TSS (right)
+ * Gray dashed lines  = reporting relationship
+ * IBM blue lines     = BTSS ↔ TSS partnership
+ * Right-side panel   = persistent person detail
  */
-import { getPeople }  from '../api.js';
-import { getNetwork } from '../api.js';
-import { openPerson } from '../panel.js';
+import { getPeople } from '../api.js';
 
-const ROLE_COLOR = {
-  manager: '#6c63ff', bts: '#4589ff', bss: '#0ea5e9',
-  intern: '#60a5fa', other: '#525252',
+// ── Static team data ──────────────────────────────────────────────
+const TEAM_META = {
+  products: ['IBM PowerVS', 'IBM FlashSystem', 'IBM Fusion'],
+  coverage: ['Select Territory', 'National', 'C&D (Channels & Distribution)'],
+  btssManager: 'Chris Kennedy',
+  tssManager:  'Rob Hanes',
 };
 
-const ROLE_LABEL = {
-  manager:'Manager', bts:'BTSS', bss:'TSS', intern:'Intern', other:'—',
+const PERSON_DETAIL = {
+  'Chris Kennedy':      { role: 'BTSS Manager',                     manager: null,                pair: null,              products: null,                            territory: 'National',  coverage: 'Select Territory',  responsibilities: 'Team leadership, BTSS alignment, escalation support.',           contact: 'ckennedy@us.ibm.com' },
+  'Rob Hanes':          { role: 'TSS Manager',                      manager: null,                pair: null,              products: null,                            territory: 'National',  coverage: 'Select Territory',  responsibilities: 'Team leadership, TSS quota ownership, territory strategy.',        contact: 'rhanes@us.ibm.com' },
+  'Sydney Chin':        { role: 'Brand Technical Sales Specialist',  manager: 'Chris Kennedy',     pair: null,              products: ['PowerVS','FlashSystem','Fusion'],territory: 'C&D',      coverage: 'Select Territory',  responsibilities: 'Technical discovery, demos, POCs, solution validation.',          contact: 'schin@us.ibm.com' },
+  'Mark Hoffman':       { role: 'Brand Technical Sales Specialist',  manager: 'Chris Kennedy',     pair: 'Ross Holley',     products: ['PowerVS','FlashSystem'],        territory: 'C&D',      coverage: 'Select Territory',  responsibilities: 'Technical discovery, demos, POCs, solution validation.',          contact: 'mhoffman@us.ibm.com' },
+  'Armada Veraepalli':  { role: 'Brand Technical Sales Specialist',  manager: 'Chris Kennedy',     pair: 'Patrick McBride', products: ['Fusion','z16'],                 territory: 'C&D',      coverage: 'Select Territory',  responsibilities: 'Technical discovery, demos, POCs, solution validation.',          contact: 'averaepalli@us.ibm.com' },
+  'Ross Holley':        { role: 'Territory Sales Specialist',        manager: 'Rob Hanes',         pair: 'Mark Hoffman',    products: null,                            territory: 'National',  coverage: 'Select Territory',  responsibilities: 'Territory pipeline, prospecting, commercial close.',              contact: 'rholley@us.ibm.com' },
+  'Patrick McBride':    { role: 'Territory Sales Specialist',        manager: 'Rob Hanes',         pair: 'Armada Veraepalli',products: null,                           territory: 'National',  coverage: 'Select Territory',  responsibilities: 'Territory pipeline, prospecting, commercial close.',              contact: 'pmcbride@us.ibm.com' },
 };
 
+// ── Layout constants ──────────────────────────────────────────────
+const NW      = 160;   // node width
+const NH      = 64;    // node height
+const COL_GAP = 240;   // gap between BTSS right-edge and TSS left-edge
+const V_STEP  = 92;    // vertical step between member rows
+const MGR_Y   = 56;    // top margin for managers row
+const MBR_Y   = MGR_Y + NH + 64;  // members start Y
+
+// X positions
+const BTSSx = 0;
+const TSSx  = BTSSx + NW + COL_GAP;
+const midX  = BTSSx + NW + COL_GAP / 2;
+const SVG_W = TSSx + NW;
+
+// Y positions
+const yMark    = MBR_Y;
+const yArmada  = MBR_Y + V_STEP;
+const ySydney  = MBR_Y + V_STEP * 2;
+const yRoss    = yMark;
+const yPatrick = yArmada;
+const SVG_H    = ySydney + NH + 48;
+
+// ── State ─────────────────────────────────────────────────────────
+let _selected    = null;   // person name string
+let _hovered     = null;   // person name string
+let _personNodes = [];     // [{name, x, y, isManager, person, col}]
+
+// ── Entry ─────────────────────────────────────────────────────────
 export async function renderSeller(container) {
+  _selected = null;
+  _hovered  = null;
+
+  const allPeople = await getPeople();
+
+  const find = (fn, ln) => allPeople.find(p => p.first_name === fn && p.last_name === ln);
+  const chrisK   = find('Chris',   'Kennedy');
+  const robH     = find('Rob',     'Hanes');
+  const sydneyC  = allPeople.find(p => p.is_current_user) || find('Sydney', 'Chin');
+  const markH    = find('Mark',    'Hoffman');
+  const armada   = find('Armada',  'Veraepalli');
+  const rossH    = find('Ross',    'Holley');
+  const patrickM = find('Patrick', 'McBride');
+
+  _personNodes = [
+    { name: 'Chris Kennedy',     x: BTSSx, y: MGR_Y,   isManager: true,  col: 'btss', person: chrisK   },
+    { name: 'Rob Hanes',         x: TSSx,  y: MGR_Y,   isManager: true,  col: 'tss',  person: robH     },
+    { name: 'Mark Hoffman',      x: BTSSx, y: yMark,   isManager: false, col: 'btss', person: markH    },
+    { name: 'Armada Veraepalli', x: BTSSx, y: yArmada, isManager: false, col: 'btss', person: armada   },
+    { name: 'Sydney Chin',       x: BTSSx, y: ySydney, isManager: false, col: 'btss', person: sydneyC  },
+    { name: 'Ross Holley',       x: TSSx,  y: yRoss,   isManager: false, col: 'tss',  person: rossH    },
+    { name: 'Patrick McBride',   x: TSSx,  y: yPatrick,isManager: false, col: 'tss',  person: patrickM },
+  ];
+
   container.innerHTML = `
-    <div class="cell-page">
-      <div class="tab-bar" style="padding:0 24px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0">
-        <div class="tab active" data-tab="structure">My Cell</div>
-        <div class="tab" data-tab="connections">Connections</div>
+    <div class="mt-page">
+      <div class="mt-layout">
+        <div class="mt-left">
+
+          <div class="mt-overview">
+            <div class="mt-overview-title">Team overview</div>
+            <div class="mt-overview-grid">
+              <div class="mt-ov-block">
+                <div class="mt-ov-label">Products</div>
+                <div class="mt-ov-list">${TEAM_META.products.map(p => `<div class="mt-ov-item">${p}</div>`).join('')}</div>
+              </div>
+              <div class="mt-ov-block">
+                <div class="mt-ov-label">Coverage</div>
+                <div class="mt-ov-list">${TEAM_META.coverage.map(c => `<div class="mt-ov-item">${c}</div>`).join('')}</div>
+              </div>
+              <div class="mt-ov-block">
+                <div class="mt-ov-label">BTSS Manager</div>
+                <div class="mt-ov-item mt-ov-name">${TEAM_META.btssManager}</div>
+              </div>
+              <div class="mt-ov-block">
+                <div class="mt-ov-label">TSS Manager</div>
+                <div class="mt-ov-item mt-ov-name">${TEAM_META.tssManager}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-diagram-wrap">
+            <div class="mt-svg-scroll" id="mtSvgWrap"></div>
+            <div class="mt-legend">
+              <span class="mt-leg"><span class="mt-leg-line mt-leg-report"></span>Reports to manager</span>
+              <span class="mt-leg"><span class="mt-leg-line mt-leg-pair"></span>BTSS ↔ TSS partnership</span>
+            </div>
+          </div>
+
+        </div>
+        <div class="mt-detail-panel" id="mtDetail">
+          <div class="mt-detail-empty">Click anyone on the team map to see their details.</div>
+        </div>
       </div>
-      <div id="cell-tab-structure" class="cell-tab-content" style="display:flex;flex:1;min-height:0;overflow-y:auto"></div>
-      <div id="cell-tab-connections" class="cell-tab-content" style="display:none;flex:1;min-height:0;overflow-y:auto"></div>
     </div>
   `;
 
-  container.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
-      document.getElementById(`cell-tab-${tab.dataset.tab}`).style.display = 'flex';
+  drawMap(container);
+}
+
+// ── Draw the SVG map ──────────────────────────────────────────────
+function drawMap(container) {
+  const wrap = document.getElementById('mtSvgWrap');
+  if (!wrap) return;
+
+  const detail = PERSON_DETAIL[_selected] || null;
+  const hDetail = PERSON_DETAIL[_hovered] || null;
+
+  // Determine which names to highlight based on hover or selection
+  const focusName = _hovered || _selected;
+  const focusDetail = PERSON_DETAIL[focusName] || null;
+  const highlighted = new Set();
+  if (focusName) {
+    highlighted.add(focusName);
+    if (focusDetail?.manager)  highlighted.add(focusDetail.manager);
+    if (focusDetail?.pair)     highlighted.add(focusDetail.pair);
+    // If it's a manager, highlight all their reports
+    _personNodes.forEach(n => {
+      const d = PERSON_DETAIL[n.name];
+      if (d?.manager === focusName) highlighted.add(n.name);
+    });
+  }
+  const hasFocus = highlighted.size > 0;
+
+  // ── Lines ─────────────────────────────────────────────────────
+  let lines = '';
+
+  // Vertical divider
+  lines += `<line x1="${midX}" y1="0" x2="${midX}" y2="${SVG_H}"
+    stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
+
+  // Reporting lines (gray dashed, vertical)
+  const reportTargets = [
+    [BTSSx, MGR_Y, [yMark, yArmada, ySydney]],
+    [TSSx,  MGR_Y, [yRoss, yPatrick]],
+  ];
+  reportTargets.forEach(([cx, my, memberYs]) => {
+    memberYs.forEach(my2 => {
+      const mgrName   = cx === BTSSx ? 'Chris Kennedy' : 'Rob Hanes';
+      const mbrName   = _personNodes.find(n => n.x === cx && n.y === my2)?.name;
+      const isLit     = hasFocus && (highlighted.has(mgrName) && highlighted.has(mbrName));
+      const opacity   = !hasFocus ? 0.15 : isLit ? 0.50 : 0.06;
+      lines += `<line x1="${cx + NW/2}" y1="${my + NH}" x2="${cx + NW/2}" y2="${my2}"
+        stroke="rgba(255,255,255,${opacity})" stroke-width="1" stroke-dasharray="4,4"/>`;
     });
   });
 
-  document.addEventListener('sidebar:filter', e => {
-    const { value } = e.detail;
-    if (value === 'structure' || value === 'connections') {
-      container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === value));
-      container.querySelectorAll('.cell-tab-content').forEach(t => t.style.display = 'none');
-      document.getElementById(`cell-tab-${value}`).style.display = 'flex';
-    }
-  });
-
-  const allPeople = await getPeople();
-  renderStructure(allPeople);
-  renderConnections(allPeople);
-}
-
-// ── Structure: BTSS↔TSS pairing diagram ──────────────────────────
-function renderStructure(allPeople) {
-  const pane = document.getElementById('cell-tab-structure');
-  if (!pane) return;
-
-  const me = allPeople.find(p => p.is_current_user) || allPeople[0];
-
-  // Resolve team members by name (static team for Sydney)
-  const find = (fn, ln) => allPeople.find(p => p.first_name === fn && p.last_name === ln);
-  const chrisK  = find('Chris', 'Kennedy');
-  const robH    = find('Rob', 'Hanes');
-  const markH   = find('Mark', 'Hoffman');
-  const armada  = find('Armada', 'Veraepalli');
-  const rossH   = find('Ross', 'Holley');
-  const patrickM= find('Patrick', 'McBride');
-
-  // Fallback to manager from data
-  const mgr = chrisK || allPeople.find(p => p.id === me?.manager_id);
-
-  // BTSS column (left): Chris Kennedy (mgr), Sydney, Mark, Armada
-  const btssCol = [chrisK, me, markH, armada].filter(Boolean);
-  // TSS column (right): Rob Hanes (mgr), Ross, Patrick
-  const tssCol  = [robH, rossH, patrickM].filter(Boolean);
-
-  // Pairings: [btss, tss]
+  // Pairing lines (IBM blue, bezier)
   const pairs = [
-    [markH, rossH],
-    [armada, patrickM],
+    ['Mark Hoffman', 'Ross Holley',       yMark,   yRoss],
+    ['Armada Veraepalli', 'Patrick McBride', yArmada, yPatrick],
   ];
-
-  // Node layout constants
-  const NODE_W = 140, NODE_H = 64, V_GAP = 20, H_GAP = 200;
-  const BTSS_X = 60, TSS_X = BTSS_X + NODE_W + H_GAP;
-  const START_Y = 120;
-
-  // Compute Y positions for each person
-  const yPos = {};
-  btssCol.forEach((p, i) => { if (p) yPos[p.id] = START_Y + i * (NODE_H + V_GAP); });
-  tssCol.forEach((p, i)  => { if (p) yPos[p.id] = START_Y + i * (NODE_H + V_GAP); });
-
-  const totalH = Math.max(btssCol.length, tssCol.length) * (NODE_H + V_GAP) + START_Y + 60;
-  const SVG_W  = TSS_X + NODE_W + 60;
-
-  // Build SVG
-  let svgHtml = `<svg width="${SVG_W}" height="${totalH}" viewBox="0 0 ${SVG_W} ${totalH}"
-    xmlns="http://www.w3.org/2000/svg" style="overflow:visible">`;
-
-  // Column labels
-  svgHtml += `
-    <text x="${BTSS_X + NODE_W/2}" y="30" text-anchor="middle"
-      fill="#6c63ff" font-size="11" font-weight="600" letter-spacing="1"
-      font-family="IBM Plex Sans, system-ui, sans-serif">BTSS</text>
-    <text x="${BTSS_X + NODE_W/2}" y="46" text-anchor="middle"
-      fill="#525252" font-size="10"
-      font-family="IBM Plex Sans, system-ui, sans-serif">Brand Technical Sales</text>
-    <text x="${TSS_X + NODE_W/2}" y="30" text-anchor="middle"
-      fill="#0ea5e9" font-size="11" font-weight="600" letter-spacing="1"
-      font-family="IBM Plex Sans, system-ui, sans-serif">TSS</text>
-    <text x="${TSS_X + NODE_W/2}" y="46" text-anchor="middle"
-      fill="#525252" font-size="10"
-      font-family="IBM Plex Sans, system-ui, sans-serif">Territory Sales</text>`;
-
-  // Column divider
-  const midX = (BTSS_X + NODE_W + TSS_X) / 2;
-  svgHtml += `<line x1="${midX}" y1="60" x2="${midX}" y2="${totalH - 40}"
-    stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="4,4"/>`;
-
-  // Manager ↔ Manager reporting line (dashed)
-  if (chrisK && robH && yPos[chrisK.id] !== undefined && yPos[robH.id] !== undefined) {
-    const y1 = yPos[chrisK.id] + NODE_H / 2;
-    const y2 = yPos[robH.id]   + NODE_H / 2;
-    svgHtml += `<line
-      x1="${BTSS_X + NODE_W}" y1="${y1}"
-      x2="${TSS_X}" y2="${y2}"
-      stroke="#6c63ff" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.5"/>
-    <text x="${midX}" y="${(y1 + y2)/2 - 6}" text-anchor="middle"
-      fill="#444" font-size="9" font-family="IBM Plex Sans, system-ui, sans-serif">reporting</text>`;
-  }
-
-  // Pairing lines (solid, colored, labeled)
-  pairs.forEach(([btss, tss], i) => {
-    if (!btss || !tss || yPos[btss.id] === undefined || yPos[tss.id] === undefined) return;
-    const y1 = yPos[btss.id] + NODE_H / 2;
-    const y2 = yPos[tss.id]  + NODE_H / 2;
-    const cx1 = BTSS_X + NODE_W;
-    const cx2 = TSS_X;
-    // Bezier curve for elegance
-    svgHtml += `<path
-      d="M ${cx1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${cx2} ${y2}"
-      stroke="#0ea5e9" stroke-width="2" fill="none" opacity="0.7"/>
-    <circle cx="${midX}" cy="${(y1+y2)/2}" r="3" fill="#0ea5e9" opacity="0.7"/>
-    <text x="${midX + 6}" y="${(y1+y2)/2 + 4}" text-anchor="middle"
-      fill="#0ea5e9" font-size="9" opacity="0.8"
-      font-family="IBM Plex Sans, system-ui, sans-serif">paired</text>`;
+  pairs.forEach(([bName, tName, y1, y2]) => {
+    const isLit   = hasFocus && (highlighted.has(bName) || highlighted.has(tName));
+    const opacity = !hasFocus ? 0.45 : isLit ? 1.0 : 0.12;
+    const sw      = isLit ? 2 : 1.5;
+    lines += `<path d="M ${BTSSx + NW} ${y1 + NH/2} C ${midX} ${y1 + NH/2}, ${midX} ${y2 + NH/2}, ${TSSx} ${y2 + NH/2}"
+      stroke="#4589ff" stroke-width="${sw}" fill="none" opacity="${opacity}"/>`;
   });
 
-  // Draw nodes
-  [...btssCol.map(p => ({p, x: BTSS_X})), ...tssCol.map(p => ({p, x: TSS_X}))].forEach(({p, x}) => {
-    if (!p || yPos[p.id] === undefined) return;
-    const y = yPos[p.id];
-    const isMe_ = p.is_current_user;
-    const isMgr = p.role_type === 'manager';
-    const col   = isMgr ? '#6c63ff' : (x === BTSS_X ? '#4589ff' : '#0ea5e9');
-    const fill  = isMe_ ? '#0d1f4c' : (isMgr ? '#1a183a' : '#161b2e');
-    const stroke = isMe_ ? '#4589ff' : col;
-    const sw = isMe_ ? 2 : 1;
+  // ── Nodes ──────────────────────────────────────────────────────
+  let nodes = '';
 
-    svgHtml += `
-      <g class="cell-node" data-person-id="${p.id}" style="cursor:pointer">
-        <rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}" rx="6"
-          fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
-        ${isMe_ ? `<rect x="${x-2}" y="${y-2}" width="${NODE_W+4}" height="${NODE_H+4}" rx="8"
-          fill="none" stroke="#4589ff" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>` : ''}
-        <text x="${x + NODE_W/2}" y="${y + 22}" text-anchor="middle"
-          fill="${isMe_ ? '#a0c4ff' : '#e0e0e0'}" font-size="12" font-weight="500"
-          font-family="IBM Plex Sans, system-ui, sans-serif">${p.first_name} ${p.last_name}</text>
-        <text x="${x + NODE_W/2}" y="${y + 38}" text-anchor="middle"
-          fill="${col}" font-size="10"
-          font-family="IBM Plex Sans, system-ui, sans-serif">${p.role || ROLE_LABEL[p.role_type] || '—'}</text>
-        ${isMe_ ? `<text x="${x + NODE_W/2}" y="${y + 54}" text-anchor="middle"
-          fill="#4589ff" font-size="9" font-weight="600" letter-spacing="1"
-          font-family="IBM Plex Sans, system-ui, sans-serif">YOU</text>` : ''}
+  // Column headings
+  nodes += `<text x="${BTSSx + NW/2}" y="${MGR_Y - 28}" text-anchor="middle"
+    fill="#a855f7" font-size="12" font-weight="600"
+    font-family="IBM Plex Sans, system-ui, sans-serif">BTSS</text>
+  <text x="${BTSSx + NW/2}" y="${MGR_Y - 12}" text-anchor="middle"
+    fill="#525252" font-size="10"
+    font-family="IBM Plex Sans, system-ui, sans-serif">Brand Technical Sales</text>
+  <text x="${TSSx + NW/2}" y="${MGR_Y - 28}" text-anchor="middle"
+    fill="#0ea5e9" font-size="12" font-weight="600"
+    font-family="IBM Plex Sans, system-ui, sans-serif">TSS</text>
+  <text x="${TSSx + NW/2}" y="${MGR_Y - 12}" text-anchor="middle"
+    fill="#525252" font-size="10"
+    font-family="IBM Plex Sans, system-ui, sans-serif">Territory Sales</text>`;
+
+  _personNodes.forEach(({ name, x, y, isManager, col, person }) => {
+    if (!person) return;
+    const isMe  = person.is_current_user;
+    const isSel = _selected === name;
+    const isHov = _hovered  === name;
+    const isHighlighted = highlighted.has(name);
+    const isDimmed = hasFocus && !isHighlighted;
+
+    // Border color
+    const borderColor = isSel
+      ? '#4589ff'
+      : isManager
+        ? (col === 'btss' ? '#a855f7' : '#0ea5e9')
+        : (col === 'btss' ? '#4589ff' : '#0ea5e9');
+    const borderOpacity = isDimmed ? 0.25 : 1;
+    const sw = isSel ? 2 : 1;
+
+    const fillColor = isSel ? '#0d1f3c' : '#1c1c1c';
+    const fillOpacity = isDimmed ? 0.4 : 1;
+
+    const nameColor = isDimmed ? 'rgba(255,255,255,0.30)' : (isMe ? '#78a9ff' : '#e0e0e0');
+    const subColor  = isDimmed ? 'rgba(255,255,255,0.15)' : borderColor;
+
+    const roleText = isManager
+      ? PERSON_DETAIL[name]?.role || '—'
+      : (col === 'btss' ? 'BTSS' : 'TSS');
+
+    nodes += `
+      <g class="mt-node" data-name="${name}" data-person-id="${person.id}" style="cursor:pointer">
+        <rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="4"
+          fill="${fillColor}" fill-opacity="${fillOpacity}"
+          stroke="${borderColor}" stroke-opacity="${borderOpacity}" stroke-width="${sw}"/>
+        ${isMe ? `<rect x="${x-3}" y="${y-3}" width="${NW+6}" height="${NH+6}" rx="7"
+          fill="none" stroke="#4589ff" stroke-opacity="${isDimmed ? 0.15 : 0.5}"
+          stroke-width="1" stroke-dasharray="3,3"/>` : ''}
+        <text x="${x + NW/2}" y="${y + 22}" text-anchor="middle"
+          fill="${nameColor}" font-size="13" font-weight="500"
+          font-family="IBM Plex Sans, system-ui, sans-serif">${name}</text>
+        <text x="${x + NW/2}" y="${y + 40}" text-anchor="middle"
+          fill="${subColor}" fill-opacity="${isDimmed ? 0.4 : 0.85}" font-size="10"
+          font-family="IBM Plex Sans, system-ui, sans-serif">${roleText}</text>
+        ${isMe ? `<text x="${x + NW/2}" y="${y + 56}" text-anchor="middle"
+          fill="#4589ff" fill-opacity="${isDimmed ? 0.3 : 0.7}" font-size="9"
+          font-family="IBM Plex Sans, system-ui, sans-serif">you</text>` : ''}
       </g>`;
   });
 
-  svgHtml += `</svg>`;
+  wrap.innerHTML = `
+    <svg width="${SVG_W}" height="${SVG_H}" viewBox="0 0 ${SVG_W} ${SVG_H}"
+      xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
+      <g>${lines}</g>
+      <g>${nodes}</g>
+    </svg>`;
 
-  // Products supported
-  const products = ['IBM PowerVS', 'IBM FlashSystem', 'IBM Fusion', 'IBM z16', 'IBM LinuxONE'];
+  // ── Events ────────────────────────────────────────────────────
+  wrap.querySelectorAll('.mt-node').forEach(el => {
+    const name = el.dataset.name;
 
-  pane.innerHTML = `
-    <div class="cell-structure-wrap">
-      <div class="cell-structure-header">
-        <div class="cell-header-breadcrumb">
-          <span class="cell-bc">Horizon Colony</span>
-          <span class="cell-bc-sep">›</span>
-          <span class="cell-bc">Infrastructure Org</span>
-          <span class="cell-bc-sep">›</span>
-          <span class="cell-bc cell-bc-active">My Cell</span>
-        </div>
-        <div class="cell-header-sub">
-          BTSS Manager: Chris Kennedy · TSS Manager: Rob Hanes
-        </div>
-      </div>
-
-      <div class="cell-diagram-wrap">
-        ${svgHtml}
-      </div>
-
-      <div class="cell-legend">
-        <span class="cell-leg-item"><span class="cell-leg-line cell-leg-solid"></span> BTSS↔TSS pair</span>
-        <span class="cell-leg-item"><span class="cell-leg-line cell-leg-dashed"></span> Reporting structure</span>
-        <span class="cell-leg-item"><span class="cell-leg-dot" style="background:#4589ff"></span> You</span>
-        <span class="cell-leg-item"><span class="cell-leg-dot" style="background:#6c63ff"></span> BTSS Manager</span>
-        <span class="cell-leg-item"><span class="cell-leg-dot" style="background:#0ea5e9"></span> TSS</span>
-      </div>
-
-      <div class="cell-products">
-        <div class="cell-products-label">Products this team supports</div>
-        <div class="cell-products-list">
-          ${products.map(pr => `<span class="cell-product-tag">${pr}</span>`).join('')}
-        </div>
-      </div>
-
-      <div class="cell-pairs-table">
-        <div class="cell-pairs-title">Coverage pairs</div>
-        <table class="cell-table">
-          <thead>
-            <tr>
-              <th>BTSS</th>
-              <th>TSS Partner</th>
-              <th>Coverage</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${markH ? markH.first_name + ' ' + markH.last_name : 'Mark Hoffman'}</td>
-              <td style="color:#0ea5e9">${rossH ? rossH.first_name + ' ' + rossH.last_name : 'Ross Holley'}</td>
-              <td>Paired coverage · PowerVS + FlashSystem</td>
-            </tr>
-            <tr>
-              <td>${armada ? armada.first_name + ' ' + armada.last_name : 'Armada Veraepalli'}</td>
-              <td style="color:#0ea5e9">${patrickM ? patrickM.first_name + ' ' + patrickM.last_name : 'Patrick McBride'}</td>
-              <td>Paired coverage · Fusion + z16</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-
-  // Wire clicks → panel
-  pane.querySelectorAll('.cell-node').forEach(el => {
-    el.addEventListener('click', () => openPerson(el.dataset.personId));
+    el.addEventListener('mouseenter', () => {
+      _hovered = name;
+      drawMap(document.querySelector('.mt-page')?.closest('[id^="view"]') || wrap.closest('.view') || document.getElementById('view-cell'));
+    });
+    el.addEventListener('mouseleave', () => {
+      _hovered = null;
+      drawMap(document.querySelector('.mt-page')?.closest('[id^="view"]') || wrap.closest('.view') || document.getElementById('view-cell'));
+    });
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      _selected = (_selected === name) ? null : name;
+      drawMap(document.querySelector('.mt-page')?.closest('[id^="view"]') || wrap.closest('.view') || document.getElementById('view-cell'));
+      showPersonDetail(name);
+    });
   });
 }
 
-// ── Connections tab ───────────────────────────────────────────────
-async function renderConnections(allPeople) {
-  const pane = document.getElementById('cell-tab-connections');
-  if (!pane) return;
+// ── Detail panel ──────────────────────────────────────────────────
+function showPersonDetail(name) {
+  const panel = document.getElementById('mtDetail');
+  if (!panel) return;
 
-  const REL_LABELS = {
-    close_ally:'Close ally', partner:'Partner', cross_brand:'Cross-brand',
-    client:'Client', peer:'Peer',
-  };
-  const REL_CSS = {
-    close_ally:'tag-close', partner:'tag-partner', cross_brand:'tag-cross',
-    client:'tag-client', peer:'tag-peer',
-  };
-
-  try {
-    const conns = await getNetwork();
-    if (!conns?.length) {
-      pane.innerHTML = `<div style="padding:32px 24px;color:var(--muted);font-size:14px">No connections yet.</div>`;
-      return;
-    }
-
-    const cards = conns.map(c => {
-      const p   = allPeople.find(x => x.id === c.person_id) || {};
-      const name = p.first_name ? `${p.first_name} ${p.last_name}` : '—';
-      return `
-        <div class="network-card" data-person-id="${c.person_id}">
-          <div class="nc-top">
-            <div class="nc-avatar" style="background:${p.color||'#333'}"></div>
-            <div>
-              <div class="nc-name">${name}</div>
-              <div class="nc-role">${p.role || '—'}</div>
-            </div>
-          </div>
-          <div class="nc-tag ${REL_CSS[c.relationship]||'tag-peer'}">${REL_LABELS[c.relationship]||c.relationship}</div>
-          ${c.notes ? `<div class="nc-note">${c.notes}</div>` : ''}
-          ${c.needs_followup ? `<div class="nc-followup">⚑ Follow up</div>` : ''}
-        </div>`;
-    }).join('');
-
-    pane.innerHTML = `
-      <div style="flex:1;overflow-y:auto">
-        <div style="padding:16px 24px 8px;font-size:13px;color:var(--muted)">${conns.length} connection${conns.length!==1?'s':''}</div>
-        <div class="network-grid" style="padding:0 24px 24px">${cards}</div>
-      </div>`;
-
-    pane.querySelectorAll('[data-person-id]').forEach(el => {
-      el.addEventListener('click', () => openPerson(el.dataset.personId));
-    });
-  } catch (err) {
-    pane.innerHTML = `<div style="padding:32px 24px;color:var(--muted)">Could not load connections.</div>`;
+  if (!name || _selected !== name) {
+    panel.innerHTML = `<div class="mt-detail-empty">Click anyone on the team map to see their details.</div>`;
+    return;
   }
+
+  const d = PERSON_DETAIL[name] || {};
+  const node = _personNodes.find(n => n.name === name);
+
+  const row = (label, value) => value
+    ? `<div class="mt-dp-row"><div class="mt-dp-label">${label}</div><div class="mt-dp-value">${value}</div></div>`
+    : '';
+
+  const products = d.products?.length
+    ? d.products.join(', ')
+    : null;
+
+  panel.innerHTML = `
+    <div class="mt-dp-content">
+      <div class="mt-dp-name">${name}</div>
+      <div class="mt-dp-role">${d.role || '—'}</div>
+      ${row('Manager', d.manager || 'N/A')}
+      ${row('TSS partner', d.pair && d.role?.includes('BTSS') ? d.pair : null)}
+      ${row('BTSS partner', d.pair && d.role?.includes('TSS') ? d.pair : null)}
+      ${row('Territory', d.territory)}
+      ${row('Coverage', d.coverage)}
+      ${row('Products', products)}
+      ${row('Responsibilities', d.responsibilities)}
+      ${row('Contact', d.contact ? `<a href="mailto:${d.contact}" style="color:#4589ff;text-decoration:none">${d.contact}</a>` : null)}
+    </div>
+  `;
 }

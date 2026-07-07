@@ -1,225 +1,361 @@
 /**
- * network.js — Connections view (personal CRM), full create/edit/delete
+ * network.js — Network tab
+ *
+ * Purpose: "Who do I know?"
+ * Layout: full SVG honeycomb, you at center, contacts as hex nodes,
+ *         lines connecting each contact back to you.
+ * Click a contact hex → modal with editable details.
+ * Contacts are custom-created (no dependency on backend people).
+ * Data stored in localStorage under 'ibm_hive_network_v2'.
  */
-import { getNetwork, getPeople, addConnection, updateConnection, deleteConnection } from '../api.js';
-import { openPerson } from '../panel.js';
 
-const TAG_LABELS = {
-  close_ally:  'Close Ally',
-  partner:     'Partner',
-  cross_brand: 'Cross-brand',
-  client:      'Client',
-  peer:        'Peer',
-};
+// ── Persistence ───────────────────────────────────────────────────
+const STORE_KEY = 'ibm_hive_network_v2';
 
-const TAG_CLASSES = {
-  close_ally:  'tag-close',
-  partner:     'tag-partner',
-  cross_brand: 'tag-cross',
-  client:      'tag-client',
-  peer:        'tag-peer',
-};
-
-let connections = [];
-let allPeople   = [];
-let editingId   = null; // null = create mode, otherwise connection id being edited
-
-// ── Modal elements (shared markup lives in public/index.html) ─────
-const modalOverlay  = document.getElementById('modalOverlay');
-const modalTitle    = document.getElementById('modalTitle');
-const modalClose    = document.getElementById('modalClose');
-const cfForm        = document.getElementById('connectionForm');
-const cfPersonRow   = document.getElementById('cfPersonRow');
-const cfPerson      = document.getElementById('cfPerson');
-const cfRelationship= document.getElementById('cfRelationship');
-const cfHowWeMet    = document.getElementById('cfHowWeMet');
-const cfNotes       = document.getElementById('cfNotes');
-const cfFollowup    = document.getElementById('cfFollowup');
-const cfDelete      = document.getElementById('cfDelete');
-const cfCancel      = document.getElementById('cfCancel');
-
-export async function renderNetwork(container) {
-  container.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Connections</div>
-      <div class="page-sub">Personal connections within IBM — relationships, context, open notes</div>
-    </div>
-    <div class="content">
-      <div id="network-stats" class="stat-row"></div>
-      <div class="toolbar">
-        <input class="search-box" id="networkSearch" type="text" placeholder="Search connections…"/>
-        <select class="sort-select" id="networkFilter">
-          <option value="">All Relationships</option>
-          <option value="close_ally">Close Ally</option>
-          <option value="partner">Partner</option>
-          <option value="cross_brand">Cross-brand</option>
-          <option value="client">Client</option>
-          <option value="peer">Peer</option>
-        </select>
-        <div style="flex:1"></div>
-        <button class="btn-primary" id="addConnectionBtn">+ Add Connection</button>
-      </div>
-      <div id="network-grid" class="network-grid"><div class="loading">Loading…</div></div>
-    </div>
-  `;
-
-  [connections, allPeople] = await Promise.all([getNetwork(), getPeople()]);
-  renderStats(connections);
-
-  function redraw() {
-    const search = document.getElementById('networkSearch')?.value.toLowerCase() || '';
-    const filter = document.getElementById('networkFilter')?.value || '';
-    const filtered = connections.filter(c => {
-      const name = (c.first_name + ' ' + c.last_name).toLowerCase();
-      const matchSearch = !search || name.includes(search) || c.role.toLowerCase().includes(search);
-      const matchFilter = !filter || c.relationship === filter;
-      return matchSearch && matchFilter;
-    });
-    renderCards(filtered);
-  }
-
-  document.getElementById('networkSearch')?.addEventListener('input', redraw);
-  document.getElementById('networkFilter')?.addEventListener('change', redraw);
-  document.getElementById('addConnectionBtn')?.addEventListener('click', () => openModal('create'));
-
-  redraw();
-  wireModal();
+function loadContacts() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+  // Each contact: { id, name, role, company, relationship, notes }
 }
 
-function renderStats(list) {
-  const total     = list.length;
-  const allies    = list.filter(c => c.relationship === 'close_ally').length;
-  const crossBrand= list.filter(c => c.relationship === 'cross_brand').length;
-  const followup  = list.filter(c => c.needs_followup).length;
-
-  document.getElementById('network-stats').innerHTML = `
-    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Connections</div></div>
-    <div class="stat-card"><div class="stat-num">${allies}</div><div class="stat-label">Close Allies</div></div>
-    <div class="stat-card"><div class="stat-num">${crossBrand}</div><div class="stat-label">Cross-Brand</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--accent-magenta)">${followup}</div><div class="stat-label">Need Follow-up</div></div>
-  `;
+function saveContacts(contacts) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(contacts));
 }
 
-function renderCards(list) {
-  const grid = document.getElementById('network-grid');
-  if (!grid) return;
-
-  if (!list.length) {
-    grid.innerHTML = '<div class="loading">No connections match.</div>';
-    return;
-  }
-
-  grid.innerHTML = list.map(c => `
-    <div class="network-card" data-person-id="${c.person_id}">
-      <div class="nc-top">
-        <div class="nc-avatar" style="background:${c.color}">${c.initials}</div>
-        <div>
-          <div class="nc-name">${c.first_name} ${c.last_name}</div>
-          <div class="nc-role">${c.role}</div>
-        </div>
-        <div class="nc-actions">
-          <div class="nc-icon-btn" data-edit-id="${c.id}" title="Edit">✎</div>
-          <div class="nc-icon-btn danger" data-delete-id="${c.id}" title="Delete">🗑</div>
-        </div>
-      </div>
-      <span class="nc-tag ${TAG_CLASSES[c.relationship] || ''}">${TAG_LABELS[c.relationship] || c.relationship}</span>
-      ${c.needs_followup ? '<div class="nc-followup">⚠ Follow-up needed</div>' : ''}
-      ${c.notes ? `<div class="nc-note">${c.notes}</div>` : ''}
-    </div>
-  `).join('');
-
-  grid.querySelectorAll('.network-card').forEach(el => {
-    el.addEventListener('click', () => openPerson(el.dataset.personId));
-  });
-  grid.querySelectorAll('[data-edit-id]').forEach(el => {
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      const conn = connections.find(c => String(c.id) === el.dataset.editId);
-      if (conn) openModal('edit', conn);
-    });
-  });
-  grid.querySelectorAll('[data-delete-id]').forEach(el => {
-    el.addEventListener('click', async e => {
-      e.stopPropagation();
-      const conn = connections.find(c => String(c.id) === el.dataset.deleteId);
-      if (!conn) return;
-      if (!confirm(`Remove ${conn.first_name} ${conn.last_name} from your connections?`)) return;
-      await deleteConnection(conn.id);
-      connections = await getNetwork();
-      renderStats(connections);
-      renderCards(connections);
-    });
-  });
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
 }
 
-// ── Modal (create / edit) ──────────────────────────────────────────
-function openModal(mode, conn) {
-  editingId = mode === 'edit' ? conn.id : null;
-  modalTitle.textContent = mode === 'edit' ? 'Edit Connection' : 'Add Connection';
-  cfDelete.style.display = mode === 'edit' ? 'inline-block' : 'none';
+// ── Hex geometry (flat-top, same as org.js) ───────────────────────
+const R   = 60;                        // hex radius
+const W   = R * 2;                     // hex width  (flat-top)
+const H   = R * Math.sqrt(3);          // hex height (flat-top)
+const GAP = 14;                        // gap between hexes
 
-  if (mode === 'create') {
-    const connectedIds = new Set(connections.map(c => String(c.person_id)));
-    const candidates = allPeople.filter(p => !p.is_current_user && !connectedIds.has(String(p.id)));
-    cfPerson.innerHTML = candidates
-      .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name} — ${p.role}</option>`)
-      .join('');
-    cfPersonRow.style.display = '';
-    cfRelationship.value = 'peer';
-    cfHowWeMet.value = '';
-    cfNotes.value = '';
-    cfFollowup.checked = false;
-  } else {
-    cfPersonRow.style.display = 'none';
-    cfRelationship.value = conn.relationship;
-    cfHowWeMet.value = conn.how_we_met || '';
-    cfNotes.value = conn.notes || '';
-    cfFollowup.checked = !!conn.needs_followup;
-  }
-
-  modalOverlay.classList.add('open');
+// Flat-top hex points: angle offset = 0
+function hexPts(cx, cy, r) {
+  r = r || R;
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i;
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
 }
 
-function closeModal() {
-  modalOverlay.classList.remove('open');
-  editingId = null;
-}
+// Spiral positions around a center hex (flat-top axial coords)
+// Returns [{cx, cy}] for up to N surrounding slots
+function spiralPositions(count) {
+  const step = W + GAP;          // center-to-center horizontal
+  const vert = H + GAP;          // center-to-center vertical
+  // Six directions in flat-top offset coords
+  const dirs = [
+    [step,        0         ],   // E
+    [step * 0.5,  vert * 0.5],   // SE (approx cube-to-offset)
+    [-step * 0.5, vert * 0.5],   // SW
+    [-step,       0         ],   // W
+    [-step * 0.5, -vert * 0.5],  // NW
+    [step * 0.5,  -vert * 0.5],  // NE
+  ];
 
-function wireModal() {
-  modalClose.onclick  = closeModal;
-  cfCancel.onclick    = closeModal;
-  modalOverlay.onclick = e => { if (e.target === modalOverlay) closeModal(); };
-
-  cfDelete.onclick = async () => {
-    if (!editingId) return;
-    const conn = connections.find(c => c.id === editingId);
-    if (!confirm(`Remove ${conn?.first_name || 'this person'} from your connections?`)) return;
-    await deleteConnection(editingId);
-    closeModal();
-    connections = await getNetwork();
-    renderStats(connections);
-    renderCards(connections);
-  };
-
-  cfForm.onsubmit = async e => {
-    e.preventDefault();
-    const body = {
-      relationship: cfRelationship.value,
-      how_we_met: cfHowWeMet.value.trim() || null,
-      notes: cfNotes.value.trim() || null,
-      needs_followup: cfFollowup.checked,
+  // Use flat-top cube coordinate ring generation
+  // ring r = r*(step) from center
+  const positions = [];
+  let ring = 1;
+  while (positions.length < count) {
+    // Start at top-right of ring
+    let q = ring, r2 = 0, s = -ring;
+    const cubeToXY = (q, r2) => {
+      const x = step * q + step * 0.5 * r2;
+      const y = vert * 0.5 * r2;
+      return { cx: x, cy: y };
     };
+    // Walk the ring in 6 directions
+    const ringDirs = [
+      [0,  1, -1],  [-1, 1, 0],  [-1, 0, 1],
+      [0, -1,  1],  [1, -1, 0],  [1,  0, -1],
+    ];
+    for (let d = 0; d < 6; d++) {
+      for (let i = 0; i < ring; i++) {
+        positions.push(cubeToXY(q, r2));
+        q += ringDirs[d][0];
+        r2 += ringDirs[d][1];
+        s += ringDirs[d][2];
+      }
+    }
+    ring++;
+  }
+  return positions.slice(0, count);
+}
 
-    if (editingId) {
-      await updateConnection(editingId, body);
+// ── Module state ──────────────────────────────────────────────────
+let _contacts   = [];
+let _container  = null;
+let _selected   = null;   // contact id for hover highlight
+
+// ── Entry ─────────────────────────────────────────────────────────
+export function renderNetwork(container) {
+  _container = container;
+  _contacts  = loadContacts();
+  _selected  = null;
+
+  container.innerHTML = `
+    <div class="nw-page">
+      <div class="nw-toolbar">
+        <span class="nw-toolbar-title">My Network</span>
+        <button class="nw-add-btn" id="nwAddContact">+ Add contact</button>
+      </div>
+      <div class="nw-canvas-wrap" id="nwCanvasWrap"></div>
+    </div>
+  `;
+
+  document.getElementById('nwAddContact').addEventListener('click', () => openAddModal());
+
+  drawHive();
+}
+
+// ── Draw SVG hive ─────────────────────────────────────────────────
+function drawHive() {
+  const wrap = document.getElementById('nwCanvasWrap');
+  if (!wrap) return;
+
+  const contacts = _contacts;
+  const positions = spiralPositions(Math.max(contacts.length, 1));
+
+  // Compute bounding box
+  const allCX = [0, ...positions.slice(0, contacts.length).map(p => p.cx)];
+  const allCY = [0, ...positions.slice(0, contacts.length).map(p => p.cy)];
+  const minX  = Math.min(...allCX);
+  const minY  = Math.min(...allCY);
+  const maxX  = Math.max(...allCX);
+  const maxY  = Math.max(...allCY);
+
+  const PAD   = R + 48;
+  const svgW  = (maxX - minX) + W + PAD * 2;
+  const svgH  = (maxY - minY) + H + PAD * 2;
+  const ox    = PAD + (-minX) + (W / 2);  // offset to center "you" at origin→canvas
+  const oy    = PAD + (-minY) + (H / 2);
+
+  // ── Lines (you → each contact) ───────────────────────────────
+  let lines = '';
+  contacts.forEach((c, i) => {
+    const p  = positions[i];
+    const opacity = 0.30;
+    lines += `<line
+      x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}"
+      x2="${(ox + p.cx).toFixed(1)}" y2="${(oy + p.cy).toFixed(1)}"
+      stroke="#4589ff" stroke-width="1.5" stroke-opacity="${opacity}"
+      stroke-linecap="round"/>`;
+  });
+
+  // ── "You" hex ────────────────────────────────────────────────
+  const YOU_LABEL = 'Sydney';
+  const YOU_SUB   = 'BTSS';
+  let hexes = `
+    <g class="nw-you-node" style="cursor:default">
+      <polygon points="${hexPts(ox, oy)}" fill="#2a2a2a" stroke="#a855f7" stroke-width="2.5"/>
+      <text x="${ox}" y="${(oy - 8).toFixed(1)}" text-anchor="middle"
+        fill="#ffffff" font-size="13" font-weight="600"
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${YOU_LABEL}</text>
+      <text x="${ox}" y="${(oy + 10).toFixed(1)}" text-anchor="middle"
+        fill="rgba(255,255,255,0.45)" font-size="10"
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${YOU_SUB}</text>
+    </g>`;
+
+  // ── Contact hexes ─────────────────────────────────────────────
+  contacts.forEach((c, i) => {
+    const p     = positions[i];
+    const cx    = ox + p.cx;
+    const cy    = oy + p.cy;
+    const isSel = _selected === c.id;
+
+    const stroke    = isSel ? '#4589ff' : 'rgba(255,255,255,0.70)';
+    const sw        = isSel ? 2.5 : 1.5;
+    const fill      = isSel ? '#0a1a36' : '#2a2a2a';
+
+    // Wrap long names: first/last on separate lines
+    const nameParts  = c.name.trim().split(' ');
+    const firstName  = nameParts[0] || '';
+    const restName   = nameParts.slice(1).join(' ');
+    const hasTwo     = restName.length > 0;
+    const roleTxt    = c.role ? (c.role.length > 14 ? c.role.slice(0, 13) + '…' : c.role) : '';
+
+    let nameEl;
+    if (hasTwo) {
+      nameEl = `
+        <text x="${cx.toFixed(1)}" y="${(cy - 12).toFixed(1)}" text-anchor="middle"
+          fill="#ffffff" font-size="11" font-weight="500"
+          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(firstName)}</text>
+        <text x="${cx.toFixed(1)}" y="${(cy + 2).toFixed(1)}" text-anchor="middle"
+          fill="#ffffff" font-size="11" font-weight="500"
+          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(restName)}</text>
+        ${roleTxt ? `<text x="${cx.toFixed(1)}" y="${(cy + 17).toFixed(1)}" text-anchor="middle"
+          fill="rgba(255,255,255,0.40)" font-size="9"
+          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(roleTxt)}</text>` : ''}`;
     } else {
-      if (!cfPerson.value) return;
-      await addConnection({ person_id: cfPerson.value, ...body });
+      nameEl = `
+        <text x="${cx.toFixed(1)}" y="${(cy - 4).toFixed(1)}" text-anchor="middle"
+          fill="#ffffff" font-size="11" font-weight="500"
+          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(firstName)}</text>
+        ${roleTxt ? `<text x="${cx.toFixed(1)}" y="${(cy + 12).toFixed(1)}" text-anchor="middle"
+          fill="rgba(255,255,255,0.40)" font-size="9"
+          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(roleTxt)}</text>` : ''}`;
     }
 
-    closeModal();
-    connections = await getNetwork();
-    renderStats(connections);
-    renderCards(connections);
-  };
+    hexes += `
+      <g class="nw-hex-node" data-cid="${c.id}" style="cursor:pointer">
+        <polygon points="${hexPts(cx, cy)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
+        ${nameEl}
+      </g>`;
+  });
+
+  // Empty state hint
+  const emptyHint = contacts.length === 0
+    ? `<text x="${ox}" y="${(oy + R + 36).toFixed(1)}" text-anchor="middle"
+        fill="#3a3a3a" font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif"
+        pointer-events="none">Click "+ Add contact" to build your network</text>`
+    : '';
+
+  wrap.innerHTML = `
+    <svg id="nwHiveSvg"
+      width="${svgW.toFixed(0)}" height="${svgH.toFixed(0)}"
+      viewBox="0 0 ${svgW.toFixed(0)} ${svgH.toFixed(0)}"
+      xmlns="http://www.w3.org/2000/svg"
+      style="display:block;overflow:visible">
+      <g>${lines}</g>
+      <g>${hexes}</g>
+      ${emptyHint}
+    </svg>`;
+
+  // Events
+  wrap.querySelectorAll('.nw-hex-node').forEach(el => {
+    const cid = el.dataset.cid;
+    el.addEventListener('mouseenter', () => {
+      _selected = cid;
+      drawHive();
+    });
+    el.addEventListener('mouseleave', () => {
+      _selected = null;
+      drawHive();
+    });
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const c = _contacts.find(x => x.id === cid);
+      if (c) openDetailModal(c);
+    });
+  });
+}
+
+// ── Add Contact Modal ─────────────────────────────────────────────
+function openAddModal() {
+  showModal({
+    title: 'Add contact',
+    contact: { id: uid(), name: '', role: '', company: '', relationship: '', notes: '' },
+    isNew: true,
+  });
+}
+
+// ── Detail / Edit Modal ───────────────────────────────────────────
+function openDetailModal(contact) {
+  showModal({ title: contact.name || 'Contact', contact: { ...contact }, isNew: false });
+}
+
+function showModal({ title, contact, isNew }) {
+  // Remove any existing modal
+  document.getElementById('nwModal')?.remove();
+
+  const REL_TYPES = ['Mentor', 'Technical Expert', 'Manager', 'Counterpart', 'Partner', 'Peer', 'Client', 'Other'];
+
+  const overlay = document.createElement('div');
+  overlay.id = 'nwModal';
+  overlay.className = 'nw-modal-overlay';
+  overlay.innerHTML = `
+    <div class="nw-modal">
+      <div class="nw-modal-header">
+        <div class="nw-modal-title">${esc(title)}</div>
+        <button class="nw-modal-close" id="nwModalClose">✕</button>
+      </div>
+      <div class="nw-modal-body">
+        <label class="nw-modal-label">
+          Name
+          <input class="nw-modal-input" id="nwmName" type="text" placeholder="Full name" value="${esc(contact.name)}"/>
+        </label>
+        <label class="nw-modal-label">
+          Role / Title
+          <input class="nw-modal-input" id="nwmRole" type="text" placeholder="e.g. Solutions Architect" value="${esc(contact.role || '')}"/>
+        </label>
+        <label class="nw-modal-label">
+          Company
+          <input class="nw-modal-input" id="nwmCompany" type="text" placeholder="e.g. IBM, Partner Co." value="${esc(contact.company || '')}"/>
+        </label>
+        <label class="nw-modal-label">
+          Relationship
+          <select class="nw-modal-select" id="nwmRelationship">
+            <option value="">— select —</option>
+            ${REL_TYPES.map(r => `<option value="${r}"${contact.relationship === r ? ' selected' : ''}>${r}</option>`).join('')}
+          </select>
+        </label>
+        <label class="nw-modal-label">
+          Notes
+          <textarea class="nw-modal-textarea" id="nwmNotes" rows="3" placeholder="Context, how you met, why this relationship matters…">${esc(contact.notes || '')}</textarea>
+        </label>
+      </div>
+      <div class="nw-modal-footer">
+        ${!isNew ? `<button class="nw-modal-delete" id="nwmDelete">Delete</button>` : ''}
+        <div style="flex:1"></div>
+        <button class="nw-modal-cancel" id="nwModalCancel">Cancel</button>
+        <button class="nw-modal-save" id="nwmSave">Save</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const close = () => { overlay.remove(); _selected = null; drawHive(); };
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.getElementById('nwModalClose').addEventListener('click', close);
+  document.getElementById('nwModalCancel').addEventListener('click', close);
+
+  document.getElementById('nwmDelete')?.addEventListener('click', () => {
+    _contacts = _contacts.filter(c => c.id !== contact.id);
+    saveContacts(_contacts);
+    close();
+  });
+
+  document.getElementById('nwmSave').addEventListener('click', () => {
+    const name = document.getElementById('nwmName').value.trim();
+    if (!name) {
+      document.getElementById('nwmName').focus();
+      return;
+    }
+    const updated = {
+      id:           contact.id,
+      name,
+      role:         document.getElementById('nwmRole').value.trim(),
+      company:      document.getElementById('nwmCompany').value.trim(),
+      relationship: document.getElementById('nwmRelationship').value,
+      notes:        document.getElementById('nwmNotes').value.trim(),
+    };
+    if (isNew) {
+      _contacts.push(updated);
+    } else {
+      const idx = _contacts.findIndex(c => c.id === contact.id);
+      if (idx !== -1) _contacts[idx] = updated;
+    }
+    saveContacts(_contacts);
+    close();
+  });
+
+  // Focus name field
+  setTimeout(() => document.getElementById('nwmName')?.focus(), 60);
+}
+
+// ── Util ──────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

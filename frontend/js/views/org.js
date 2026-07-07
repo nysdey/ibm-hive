@@ -1,730 +1,644 @@
 /**
- * org.js — IBM Hive: zoomable organizational map
+ * org.js — Organization tab: expanding honeycomb
  *
- * Hierarchy (correct):
- *   IBM Hive
- *   └── Market (Colony)         — Enterprise / Strategic / Horizon / Territory
- *       └── Organization (Comb) — Infrastructure / Data & AI / Security …
- *           └── Team (Cell)     — manager-led group
- *               └── Person (Bee)
+ * Purpose: "Where does my role fit in IBM?"
  *
- * Behaviour — Google Maps metaphor:
- *   Zoom out  → see Markets
- *   Zoom in   → see Organizations within a Market
- *   Zoom more → see Teams within an Org
- *   Zoom full → see People within a Team
- *
- *   Click any node → expand it / select it / show detail panel
- *   Breadcrumb always shows current position
- *   "You are here" node always highlighted
+ * Role-centric only. No employee names.
+ * Layout: hive fills left side, permanent detail panel on right.
+ * Selecting a role highlights its worksWith peers in the hive.
  */
-import { getPeople } from '../api.js';
 
-// ── Org metadata (comb → org name, products) ─────────────────────
-const ORG_META = {
-  'Infrastructure Colony':  { name: 'Infrastructure',  products: ['IBM PowerVS', 'IBM FlashSystem', 'IBM Fusion', 'IBM z16', 'IBM LinuxONE'] },
-  'Data & AI Colony':       { name: 'Data & AI',       products: ['watsonx.ai', 'watsonx.data', 'IBM Db2', 'IBM Cognos'] },
-  'Automation Colony':      { name: 'Automation',      products: ['IBM BAW', 'IBM RPA', 'IBM FileNet'] },
-  'Security Colony':        { name: 'Security',        products: ['IBM QRadar', 'IBM Guardium', 'IBM Verify'] },
-  'Sustainability Colony':  { name: 'Sustainability',  products: ['IBM Envizi', 'IBM TRIRIGA', 'IBM Maximo'] },
-  'Hybrid Cloud Colony':    { name: 'Hybrid Cloud',    products: ['Red Hat OpenShift', 'IBM Cloud', 'IBM Cloud Paks'] },
-};
+// ─────────────────────────────────────────────────────────────────
+// Data — role-centric, no people names
+// youAreHere = true on the user's actual segment + function
+// User: BTSS in Select Territory
+// ─────────────────────────────────────────────────────────────────
 
-const ROLE_LABEL = {
-  exec:'VP / Executive', director:'Director', manager:'Manager',
-  bss:'Brand Sales Spec.', bts:'Brand Tech. Sales', csm:'Customer Success',
-  sdr:'SDR', partner:'Partner', intern:'Intern', other:'—',
-};
+const SEGMENTS = [
+  {
+    id: 'enterprise',
+    label: 'Enterprise',
+    sub: '143 clients',
+    desc: 'IBM\'s top accounts with joint coverage between Technology and Consulting. Clients qualify based on significant investment across both Technology and Consulting. Highest-touch account model with dedicated Client Engineering squads. Examples: JPMorgan Chase, ExxonMobil, General Motors, Boeing.',
+    functions: [
+      {
+        id: 'cse-e', abbr: 'CSE', label: 'Customer Success Engineer',
+        purpose: 'Drive technical adoption post-sale. Provides deep hands-on enablement to ensure clients realize value from IBM technology.',
+        worksWith: ['ATL', 'Client Engineering', 'AE'],
+        reportsThrough: 'CSE Lead → VP',
+        ownsAccounts: false,
+        salesMotion: 'Post-Close → Adoption → Expansion',
+        segment: 'Enterprise',
+      },
+      {
+        id: 'atl-e', abbr: 'ATL', label: 'Account Technical Leader',
+        purpose: 'Provides overall technical leadership across an Enterprise account. Owns the technical architecture strategy and ensures IBM solutions align to the client\'s roadmap.',
+        worksWith: ['CSE', 'Client Engineering', 'AE'],
+        reportsThrough: 'VP → IBM Sales Leader',
+        ownsAccounts: false,
+        salesMotion: 'Discovery → Architecture → Ongoing advisory',
+        segment: 'Enterprise',
+      },
+      {
+        id: 'ce-e', abbr: 'CE', label: 'Client Engineering',
+        purpose: 'Cross-functional technical squad that rapidly builds pilots, proofs, and production-ready solutions alongside clients.',
+        worksWith: ['ATL', 'CSE', 'AE'],
+        reportsThrough: 'CE Lead → VP',
+        ownsAccounts: false,
+        salesMotion: 'Technical Evaluation → PoC → Production readiness',
+        segment: 'Enterprise',
+      },
+      {
+        id: 'ae-e', abbr: 'AE', label: 'Account Executive',
+        purpose: 'Primary commercial relationship owner for Enterprise accounts. Coordinates all IBM resources and owns the overall commercial outcome.',
+        worksWith: ['ATL', 'CSE', 'Client Engineering'],
+        reportsThrough: 'VP → IBM Sales Leader',
+        ownsAccounts: true,
+        salesMotion: 'Full-cycle account ownership from Prospect to Renewal',
+        segment: 'Enterprise',
+      },
+    ],
+  },
+  {
+    id: 'strategic',
+    label: 'Strategic',
+    sub: '446 clients',
+    desc: 'Clients that have made strategic bets or have a sizeable footprint with IBM in Technology. Dedicated coverage with director-level oversight. Examples: Fidelity Investments, Anthem, Lockheed Martin, FedEx.',
+    functions: [
+      {
+        id: 'cse-s', abbr: 'CSE', label: 'Customer Success Engineer',
+        purpose: 'Drive technical adoption and expansion across strategic accounts. Deep technical enablement post-close.',
+        worksWith: ['ATL', 'Client Engineering', 'AE'],
+        reportsThrough: 'Director → VP',
+        ownsAccounts: false,
+        salesMotion: 'Post-Close → Adoption → Expansion → Renewal',
+        segment: 'Strategic',
+      },
+      {
+        id: 'atl-s', abbr: 'ATL', label: 'Account Technical Leader',
+        purpose: 'Overall technical leadership for strategic accounts. Owns the technical relationship and architecture decisions.',
+        worksWith: ['CSE', 'Client Engineering', 'AE'],
+        reportsThrough: 'Director → VP',
+        ownsAccounts: false,
+        salesMotion: 'Discovery → Architecture → Ongoing advisory',
+        segment: 'Strategic',
+      },
+      {
+        id: 'ce-s', abbr: 'CE', label: 'Client Engineering',
+        purpose: 'Cross-functional technical squad. Rapidly builds pilots and proofs for strategic accounts.',
+        worksWith: ['ATL', 'CSE', 'AE'],
+        reportsThrough: 'CE Lead → Director',
+        ownsAccounts: false,
+        salesMotion: 'Technical Evaluation → PoC → Production readiness',
+        segment: 'Strategic',
+      },
+      {
+        id: 'ae-s', abbr: 'AE', label: 'Account Executive',
+        purpose: 'Primary relationship owner for strategic accounts. Coordinates full IBM coverage team and owns commercial outcome.',
+        worksWith: ['ATL', 'CSE', 'Client Engineering'],
+        reportsThrough: 'Director → VP',
+        ownsAccounts: true,
+        salesMotion: 'Full-cycle account ownership',
+        segment: 'Strategic',
+      },
+    ],
+  },
+  {
+    id: 'horizon',
+    label: 'Select Horizon',
+    sub: '1,589 clients',
+    desc: 'Current IBM clients with potential for future growth and expansion. With dedicated support, Horizon accounts become the next Strategic Clients. Higher-touch than Territory. Examples: Regional banks, mid-size manufacturers, healthcare systems.',
+    functions: [
+      {
+        id: 'cse-h', abbr: 'CSE', label: 'Customer Success Engineer',
+        purpose: 'Drive technical adoption in Horizon accounts. Partners with ATL to identify expansion opportunities and ensure value realization.',
+        worksWith: ['ATL', 'Client Engineering', 'AE'],
+        reportsThrough: 'CSE Lead → Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Post-Close → Adoption → Expansion',
+        segment: 'Select Horizon',
+      },
+      {
+        id: 'atl-h', abbr: 'ATL', label: 'Account Technical Leader',
+        purpose: 'Provides overall technical leadership for Horizon accounts. Owns the technical strategy and solution alignment.',
+        worksWith: ['CSE', 'Client Engineering', 'AE'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Discovery → Architecture → Ongoing advisory',
+        segment: 'Select Horizon',
+      },
+      {
+        id: 'ce-h', abbr: 'CE', label: 'Client Engineering',
+        purpose: 'Cross-functional technical squad that rapidly builds pilots and proofs. Engaged post-discovery to accelerate technical evaluation.',
+        worksWith: ['ATL', 'CSE', 'AE'],
+        reportsThrough: 'CE Lead → Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Technical Evaluation → PoC → Production readiness',
+        segment: 'Select Horizon',
+      },
+      {
+        id: 'ae-h', abbr: 'AE', label: 'Account Executive',
+        purpose: 'Primary client relationship owner. Coordinates all IBM resources and owns the overall commercial outcome for Horizon accounts.',
+        worksWith: ['ATL', 'CSE', 'Client Engineering'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: true,
+        salesMotion: 'Full-cycle account ownership from Prospect to Renewal',
+        segment: 'Select Horizon',
+      },
+    ],
+  },
+  {
+    id: 'territory',
+    label: 'Select Territory',
+    sub: '420K clients',
+    desc: 'Digital-first, scaled sales model. Clients buy primarily Technology or Consulting, often through Ecosystem partners. Divided into Select Territory Growth (1,796 clients) and Select Territory Activate. Examples: Small and mid-size businesses, startups, SMB retail, local government.',
+    youAreHere: true,
+    functions: [
+      {
+        id: 'btss-t', abbr: 'BTSS', label: 'Brand Technical Sales Specialist',
+        purpose: 'Technical discovery, demos, POCs, solution validation, and deal progression for 1–12 specialized IBM products. Paired with TSS for joint coverage across a territory.',
+        worksWith: ['TSS', 'SDR', 'Business Partners', 'Tech SME', 'CSM'],
+        reportsThrough: 'BTSS Manager → Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Technical Discovery → Demo → POC → Solution Validation → Deal Progression',
+        segment: 'Select Territory',
+        youAreHere: true,
+        products: 'Focused on 1–12 products within a specialty (e.g. PowerVS, FlashSystem, Fusion, z16, LinuxONE)',
+      },
+      {
+        id: 'tss-t', abbr: 'TSS', label: 'Territory Sales Specialist',
+        purpose: 'Cross-brand sales across a defined territory. Paired with BTSS for joint technical and commercial coverage. Owns territory quota.',
+        worksWith: ['BTSS', 'SDR', 'Business Partners'],
+        reportsThrough: 'TSS Manager → Colony VP',
+        ownsAccounts: true,
+        salesMotion: 'Prospecting → Discovery → Paired close with BTSS',
+        segment: 'Select Territory',
+      },
+      {
+        id: 'sdr-t', abbr: 'SDR', label: 'Sales Development Rep',
+        purpose: 'Pipeline generation through outbound prospecting. Qualifies leads and books discovery calls for TSS and BTSS.',
+        worksWith: ['TSS', 'BTSS'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Outbound → Qualification → Handoff to TSS/BTSS',
+        segment: 'Select Territory',
+      },
+      {
+        id: 'csm-t', abbr: 'CSM', label: 'Customer Success Manager',
+        purpose: 'Drive post-sale adoption and value realization. Monitor account health, flag renewal risk, and coordinate expansion motions.',
+        worksWith: ['BTSS', 'TSS', 'Business Partners'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Post-Close → Adoption → Renewal → Expansion',
+        segment: 'Select Territory',
+      },
+      {
+        id: 'tps-t', abbr: 'TPS', label: 'Technology Partner Specialist',
+        purpose: 'Manage and enable Business Partner relationships for a technology domain. Drive partner-sourced pipeline and co-sell execution.',
+        worksWith: ['BTSS', 'TSS', 'Business Partners'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Partner enablement → Co-sell → Channel close',
+        segment: 'Select Territory',
+      },
+      {
+        id: 'pts-t', abbr: 'PTS', label: 'Partner Technical Specialist',
+        purpose: 'Provide technical enablement and pre-sales support to Business Partners. Runs demos and POCs with partners on behalf of IBM.',
+        worksWith: ['TPS', 'BTSS', 'Business Partners'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Partner Technical Enablement → Partner-led POC → Channel close',
+        segment: 'Select Territory',
+      },
+      {
+        id: 'sme-t', abbr: 'Tech SME', label: 'Technical Subject Matter Expert',
+        purpose: 'Deep specialist on a specific technology domain. Engaged for complex technical questions that require beyond-BTSS expertise.',
+        worksWith: ['BTSS', 'TSS', 'Client Engineering'],
+        reportsThrough: 'Technical Leader → Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Engaged on-demand at any technical escalation point',
+        segment: 'Select Territory',
+      },
+      {
+        id: 'bp-t', abbr: 'BP', label: 'Business Partners',
+        purpose: 'Ecosystem partners (ISVs, resellers, distributors) who sell IBM technology to clients. Major growth lever for Select Territory.',
+        worksWith: ['TPS', 'PTS', 'BTSS'],
+        reportsThrough: 'Partner ecosystem — external to IBM org',
+        ownsAccounts: true,
+        salesMotion: 'Channel-led selling → Partner close → IBM co-sell support',
+        segment: 'Select Territory',
+      },
+    ],
+  },
+];
 
-// Market color palette
-const MKT_COLOR = {
-  'Enterprise': '#4589ff',
-  'Strategic':  '#a855f7',
-  'Horizon':    '#6c63ff',
-  'Territory':  '#d946ef',
-};
+// ─────────────────────────────────────────────────────────────────
+// Hex geometry (pointy-top)
+// ─────────────────────────────────────────────────────────────────
+const R   = 72;                    // original radius
+const CS  = R * Math.sqrt(3);      // horizontal center-to-center
+const RS  = R * 2;                 // vertical center-to-center
+const GAP = 48;                    // spacing so hexes don't touch
 
-const ORG_COLOR = {
-  'Infrastructure Colony':  '#a855f7',
-  'Data & AI Colony':       '#4589ff',
-  'Automation Colony':      '#6c63ff',
-  'Security Colony':        '#ef4444',
-  'Sustainability Colony':  '#22c55e',
-  'Hybrid Cloud Colony':    '#ec4899',
-};
-
-// ── View state ────────────────────────────────────────────────────
-let _all      = [];
-let _me       = null;
-let _sel      = null;   // selected node { type:'market'|'org'|'team'|'person', id }
-let _expanded = new Set(); // expanded node keys (e.g. "market:Horizon", "org:Infrastructure Colony")
-let _zoom     = 1;
-let _tx = 0, _ty = 0;
-let _svgW = 0, _svgH = 0;
-let _container = null;
-
-// ── Entry ─────────────────────────────────────────────────────────
-export async function renderOrg(container) {
-  _container = container;
-  container.innerHTML = `
-    <div class="hmap-shell">
-      <div class="hmap-topbar">
-        <div class="hmap-breadcrumb" id="hmapBreadcrumb"></div>
-        <div class="hmap-you-here" id="hmapYouHere"></div>
-        <div class="hmap-zoom-btns">
-          <button class="hmap-zbtn" id="hmapZoomIn" title="Zoom in">+</button>
-          <button class="hmap-zbtn" id="hmapZoomOut" title="Zoom out">−</button>
-          <button class="hmap-zbtn hmap-zbtn-fit" id="hmapFit" title="Fit to screen">Fit</button>
-        </div>
-      </div>
-      <div class="hmap-stage" id="hmapStage">
-        <svg id="hmapSvg" class="hmap-svg"></svg>
-      </div>
-      <div class="hmap-detail" id="hmapDetail" style="display:none">
-        <button class="hmap-detail-close" id="hmapDetailClose">✕</button>
-        <div id="hmapDetailBody"></div>
-      </div>
-    </div>
-  `;
-
-  _all = await getPeople();
-  _me  = _all.find(p => p.is_current_user) || _all[0];
-
-  // Auto-expand me's market and org
-  if (_me) {
-    _expanded.add(`market:${_me.market}`);
-    _expanded.add(`org:${_me.comb}`);
-    // auto-expand my team (find manager)
-    const teamKey = teamId(_me);
-    if (teamKey) _expanded.add(`team:${teamKey}`);
-  }
-
-  wireZoom();
-  wireDetailClose();
-  buildMap();
-  updateBreadcrumb();
-  updateYouHere();
-}
-
-// ── Team key: "managerName" used as team identifier ───────────────
-function teamId(person) {
-  // A "team" is all people sharing the same manager within the same org
-  // Key = manager_id + comb
-  if (!person?.manager_id) return null;
-  return `${person.manager_id}:${person.comb}`;
-}
-
-function teamLabel(mgrId, comb) {
-  const mgr = _all.find(p => p.id === mgrId);
-  if (!mgr) return 'Team';
-  const orgName = ORG_META[comb]?.name || comb.replace(' Colony','');
-  return `${mgr.first_name} ${mgr.last_name}'s team`;
-}
-
-// ── Build and render the full SVG map ─────────────────────────────
-function buildMap() {
-  const svg = document.getElementById('hmapSvg');
-  const stage = document.getElementById('hmapStage');
-  if (!svg || !stage) return;
-
-  // --- Layout constants ---
-  const MARKET_R  = 64;   // market bubble radius
-  const ORG_R     = 44;   // org node radius
-  const TEAM_R    = 34;   // team node radius
-  const PERSON_R  = 26;   // person node radius
-  const PAD       = 40;
-
-  // --- Group people by market → org → team ---
-  const markets = [...new Set(_all.map(p => p.market).filter(Boolean))];
-  const byMarket = {};
-  markets.forEach(m => { byMarket[m] = _all.filter(p => p.market === m); });
-
-  // --- Position markets in a horizontal row, centered ---
-  const MARKET_STEP = 260;
-  const totalW = markets.length * MARKET_STEP;
-
-  // Node positions stored for line drawing
-  const positions = {}; // key → {x,y}
-
-  let nodes = ''; // SVG markup accumulator
-  let lines = ''; // connection lines (drawn under nodes)
-
-  const marketY = 120;
-
-  markets.forEach((mkt, mi) => {
-    const mx = PAD + mi * MARKET_STEP + MARKET_STEP / 2;
-    const my = marketY;
-    const mkey = `market:${mkt}`;
-    const color = MKT_COLOR[mkt] || '#525252';
-    const isMyMkt = _me?.market === mkt;
-    const isExpanded = _expanded.has(mkey);
-    const isSel = _sel?.type === 'market' && _sel.id === mkt;
-
-    positions[mkey] = { x: mx, y: my };
-
-    // Market bubble
-    nodes += marketNode(mx, my, MARKET_R, mkt, color, isMyMkt, isSel, isExpanded,
-      byMarket[mkt].length);
-
-    if (!isExpanded) return;
-
-    // --- Orgs within this market ---
-    const orgs = [...new Set(byMarket[mkt].map(p => p.comb).filter(Boolean))];
-    const orgStep = Math.max(180, MARKET_STEP / Math.max(orgs.length, 1));
-    const orgY = my + MARKET_R + 100;
-    const orgStartX = mx - ((orgs.length - 1) * orgStep) / 2;
-
-    orgs.forEach((org, oi) => {
-      const ox = orgStartX + oi * orgStep;
-      const oy = orgY;
-      const okey = `org:${org}`;
-      const ocolor = ORG_COLOR[org] || '#525252';
-      const inOrg = byMarket[mkt].filter(p => p.comb === org);
-      const isMyOrg = _me?.comb === org;
-      const isOrgExp = _expanded.has(okey);
-      const isOrgSel = _sel?.type === 'org' && _sel.id === org;
-
-      positions[okey] = { x: ox, y: oy };
-
-      // Line: market → org
-      lines += connLine(mx, my + MARKET_R, ox, oy - ORG_R, color, 0.4);
-
-      nodes += orgNode(ox, oy, ORG_R, org, ocolor, isMyOrg, isOrgSel, isOrgExp, inOrg.length);
-
-      if (!isOrgExp) return;
-
-      // --- Teams within this org ---
-      // A team = all people sharing the same manager_id within this org
-      const teamMap = {};
-      inOrg.forEach(p => {
-        const tid = teamId(p);
-        if (!teamMap[tid]) teamMap[tid] = [];
-        teamMap[tid].push(p);
-      });
-      // Also include managers themselves in "their own" team display
-      const teamKeys = Object.keys(teamMap).filter(k => k !== 'null:' + org);
-
-      const teamStep = Math.max(160, orgStep);
-      const teamY = oy + ORG_R + 90;
-      const teamStartX = ox - ((teamKeys.length - 1) * teamStep) / 2;
-
-      teamKeys.forEach((tk, ti) => {
-        const [mgrId, tcomb] = tk.split(':');
-        if (tcomb !== org) return;
-        const tx_ = teamStartX + ti * teamStep;
-        const ty_ = teamY;
-        const tkey = `team:${tk}`;
-        const members = teamMap[tk] || [];
-        const mgr = _all.find(p => p.id === parseInt(mgrId));
-        const label = mgr ? `${mgr.first_name} ${mgr.last_name}` : 'Team';
-        const isMyTeam = _me && teamId(_me) === tk;
-        const isTeamExp = _expanded.has(tkey);
-        const isTeamSel = _sel?.type === 'team' && _sel.id === tk;
-
-        positions[tkey] = { x: tx_, y: ty_ };
-
-        // Line: org → team
-        lines += connLine(ox, oy + ORG_R, tx_, ty_ - TEAM_R, ocolor, 0.35);
-
-        nodes += teamNode(tx_, ty_, TEAM_R, tk, label, ocolor, isMyTeam, isTeamSel, isTeamExp, members.length);
-
-        if (!isTeamExp) return;
-
-        // --- People within this team ---
-        const allTeamMembers = [...members];
-        // Include the manager too if not already in members
-        if (mgr && !allTeamMembers.find(p => p.id === mgr.id)) {
-          allTeamMembers.unshift(mgr);
-        }
-
-        const personStep = Math.max(70, teamStep / Math.max(allTeamMembers.length, 1));
-        const personY = ty_ + TEAM_R + 80;
-        const personStartX = tx_ - ((allTeamMembers.length - 1) * personStep) / 2;
-
-        allTeamMembers.forEach((person, pi) => {
-          const px_ = personStartX + pi * personStep;
-          const py_ = personY;
-          const pkey = `person:${person.id}`;
-          const isMe_ = person.is_current_user;
-          const pSel  = _sel?.type === 'person' && _sel.id === person.id;
-
-          positions[pkey] = { x: px_, y: py_ };
-
-          // Line: team → person
-          lines += connLine(tx_, ty_ + TEAM_R, px_, py_ - PERSON_R, ocolor, 0.25);
-
-          nodes += personNode(px_, py_, PERSON_R, person, isMe_, pSel);
-        });
-      });
-    });
-  });
-
-  // Calculate total SVG dimensions from positions
-  let maxX = 800, maxY = 600;
-  Object.values(positions).forEach(({ x, y }) => {
-    if (x + 120 > maxX) maxX = x + 120;
-    if (y + 120 > maxY) maxY = y + 120;
-  });
-  _svgW = maxX + PAD;
-  _svgH = maxY + PAD;
-
-  svg.setAttribute('width',   _svgW);
-  svg.setAttribute('height',  _svgH);
-  svg.setAttribute('viewBox', `0 0 ${_svgW} ${_svgH}`);
-  svg.innerHTML = `<g id="hmapLines">${lines}</g><g id="hmapNodes">${nodes}</g>`;
-
-  // Wire all node clicks
-  svg.querySelectorAll('[data-node-key]').forEach(el => {
-    el.style.cursor = 'pointer';
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      handleNodeClick(el.dataset.nodeKey, el.dataset.nodeType, el.dataset.nodeId);
-    });
-  });
-
-  applyTransform();
-}
-
-// ── Node click handler ────────────────────────────────────────────
-function handleNodeClick(key, type, id) {
-  const wasExpanded = _expanded.has(key);
-
-  // Toggle expand
-  if (['market','org','team'].includes(type)) {
-    if (wasExpanded) _expanded.delete(key);
-    else _expanded.add(key);
-  }
-
-  // Set selection
-  _sel = { type, id: type === 'person' ? parseInt(id) : id };
-
-  buildMap();
-  showDetail(type, id);
-  updateBreadcrumb();
-}
-
-// ── SVG node generators ───────────────────────────────────────────
-
-function marketNode(cx, cy, r, label, color, isMine, isSel, isExp, count) {
-  const key  = `market:${label}`;
-  const ring = isMine ? `<circle cx="${cx}" cy="${cy}" r="${r + 8}" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5" pointer-events="none"/>` : '';
-  const selRing = isSel ? `<circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
-  const chevron = isExp ? '▾' : '▸';
-
-  return `
-    <g data-node-key="${key}" data-node-type="market" data-node-id="${label}">
-      ${ring}${selRing}
-      <circle cx="${cx}" cy="${cy}" r="${r}"
-        fill="${isMine ? color + '2a' : '#1a1a1a'}"
-        stroke="${color}"
-        stroke-width="${isSel ? 2.5 : 1.5}"
-      />
-      <text x="${cx}" y="${cy - 10}" text-anchor="middle" dominant-baseline="middle"
-        fill="${color}" font-size="13" font-weight="600"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${label}</text>
-      <text x="${cx}" y="${cy + 8}" text-anchor="middle" dominant-baseline="middle"
-        fill="${color}99" font-size="11"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">Colony</text>
-      <text x="${cx}" y="${cy + 24}" text-anchor="middle" dominant-baseline="middle"
-        fill="${color}66" font-size="10"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${count} people  ${chevron}</text>
-      ${isMine ? `<text x="${cx}" y="${cy - r - 12}" text-anchor="middle"
-        fill="${color}" font-size="10" font-weight="600"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">YOUR COLONY</text>` : ''}
-    </g>`;
-}
-
-function orgNode(cx, cy, r, comb, color, isMine, isSel, isExp, count) {
-  const key   = `org:${comb}`;
-  const label = ORG_META[comb]?.name || comb.replace(' Colony','');
-  const selRing = isSel ? `<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
-  const chevron = isExp ? '▾' : '▸';
-
-  return `
-    <g data-node-key="${key}" data-node-type="org" data-node-id="${comb}">
-      ${selRing}
-      <circle cx="${cx}" cy="${cy}" r="${r}"
-        fill="${isMine ? color + '28' : '#202020'}"
-        stroke="${color}"
-        stroke-width="${isSel ? 2.5 : 1.2}"
-      />
-      <text x="${cx}" y="${cy - 4}" text-anchor="middle" dominant-baseline="middle"
-        fill="${isMine ? color : '#e0e0e0'}" font-size="11" font-weight="600"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${label}</text>
-      <text x="${cx}" y="${cy + 10}" text-anchor="middle" dominant-baseline="middle"
-        fill="#666" font-size="9"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${count}  ${chevron}</text>
-    </g>`;
-}
-
-function teamNode(cx, cy, r, tk, label, color, isMine, isSel, isExp, count) {
-  const key = `team:${tk}`;
-  const selRing = isSel ? `<rect x="${cx - r - 5}" y="${cy - r - 5}" width="${(r + 5) * 2}" height="${(r + 5) * 2}" rx="${r + 2}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
-  const chevron = isExp ? '▾' : '▸';
-  // Team node is a rounded rect
-  const w = r * 2 + 20, h = r * 2;
-  const rx2 = 6;
-  return `
-    <g data-node-key="${key}" data-node-type="team" data-node-id="${tk}">
-      ${selRing}
-      <rect x="${cx - w/2}" y="${cy - h/2}" width="${w}" height="${h}" rx="${rx2}"
-        fill="${isMine ? color + '22' : '#1e1e1e'}"
-        stroke="${color}"
-        stroke-width="${isSel ? 2.2 : 1}"
-      />
-      <text x="${cx}" y="${cy - 5}" text-anchor="middle" dominant-baseline="middle"
-        fill="${isMine ? '#fff' : '#d4d4d4'}" font-size="9.5" font-weight="500"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${label}</text>
-      <text x="${cx}" y="${cy + 8}" text-anchor="middle" dominant-baseline="middle"
-        fill="#555" font-size="9"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${count} members  ${chevron}</text>
-    </g>`;
-}
-
-function personNode(cx, cy, r, person, isMe, isSel) {
-  const key   = `person:${person.id}`;
-  const fname = person.first_name;
-  const lname = person.last_name;
-  const color = isMe ? '#4589ff' : '#525252';
-  const fill  = isMe ? '#0d1f4c' : '#1c1c1c';
-  const selRing = isSel ? `<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9" pointer-events="none"/>` : '';
-  const youLabel = isMe ? `<text x="${cx}" y="${cy - r - 10}" text-anchor="middle"
-    fill="#4589ff" font-size="9" font-weight="600"
-    font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">YOU</text>` : '';
-
-  // Pointy-top hexagon for people
-  const pts = hexPts(cx, cy, r);
-
-  return `
-    <g data-node-key="${key}" data-node-type="person" data-node-id="${person.id}">
-      ${selRing}${youLabel}
-      <polygon points="${pts}"
-        fill="${fill}" stroke="${color}"
-        stroke-width="${isMe ? 1.8 : 1}"
-      />
-      <text x="${cx}" y="${cy - 4}" text-anchor="middle" dominant-baseline="middle"
-        fill="${isMe ? '#a0c4ff' : '#d4d4d4'}" font-size="8" font-weight="500"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${fname}</text>
-      <text x="${cx}" y="${cy + 6}" text-anchor="middle" dominant-baseline="middle"
-        fill="${isMe ? '#7aabff' : '#888'}" font-size="7.5"
-        font-family="IBM Plex Sans, system-ui, sans-serif" pointer-events="none">${lname}</text>
-    </g>`;
-}
-
-function connLine(x1, y1, x2, y2, color, opacity = 0.3) {
-  return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
-    stroke="${color}" stroke-width="1" opacity="${opacity}" pointer-events="none"/>`;
-}
-
-function hexPts(cx, cy, r) {
+function hexPts(cx, cy, r = R) {
   return Array.from({ length: 6 }, (_, i) => {
-    const a = Math.PI / 3 * i - Math.PI / 6;
+    const a = (Math.PI / 3) * i;
     return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
   }).join(' ');
 }
 
-// ── Breadcrumb ────────────────────────────────────────────────────
-function updateBreadcrumb() {
-  const el = document.getElementById('hmapBreadcrumb');
-  if (!el || !_me) return;
+// ─────────────────────────────────────────────────────────────────
+// View state
+// ─────────────────────────────────────────────────────────────────
+let _expandedSegments = new Set();
+let _selectedId       = null;   // currently selected node id
 
-  const orgName  = ORG_META[_me.comb]?.name || _me.comb?.replace(' Colony','') || '—';
-  const teamKey_ = teamId(_me);
-  const mgr      = _me.manager_id ? _all.find(p => p.id === _me.manager_id) : null;
-  const teamLbl  = mgr ? `${mgr.first_name} ${mgr.last_name}'s team` : 'Team';
+// ─────────────────────────────────────────────────────────────────
+// Entry point
+// ─────────────────────────────────────────────────────────────────
+export async function renderOrg(container) {
+  _expandedSegments = new Set();
+  _selectedId       = null;
 
-  const crumbs = [
-    { label: 'IBM Hive', key: null, type: null },
-    { label: _me.market + ' Colony', key: `market:${_me.market}`, type: 'market', id: _me.market },
-    { label: orgName + ' Org',       key: `org:${_me.comb}`,       type: 'org',    id: _me.comb },
-    { label: teamLbl,                key: `team:${teamKey_}`,       type: 'team',   id: teamKey_ },
-    { label: _me.first_name + ' ' + _me.last_name, key: null, type: null, isYou: true },
-  ];
-
-  el.innerHTML = crumbs.map((c, i) => {
-    const sep  = i > 0 ? `<span class="bc-sep">›</span>` : '';
-    const cls  = c.isYou ? 'bc-you' : (c.key ? 'bc-link' : 'bc-root');
-    const attr = c.key ? `data-bc-key="${c.key}" data-bc-type="${c.type}" data-bc-id="${c.id}"` : '';
-    return `${sep}<span class="${cls}" ${attr}>${c.label}</span>`;
-  }).join('');
-
-  el.querySelectorAll('[data-bc-key]').forEach(seg => {
-    seg.addEventListener('click', () => {
-      const k = seg.dataset.bcKey;
-      const t = seg.dataset.bcType;
-      const id = seg.dataset.bcId;
-      // Expand target, collapse everything below
-      _expanded.add(k);
-      _sel = { type: t, id: t === 'person' ? parseInt(id) : id };
-      buildMap();
-      updateBreadcrumb();
-    });
-  });
-}
-
-// ── You Are Here banner ───────────────────────────────────────────
-function updateYouHere() {
-  const el = document.getElementById('hmapYouHere');
-  if (!el || !_me) return;
-  const mgr = _me.manager_id ? _all.find(p => p.id === _me.manager_id) : null;
-  el.innerHTML = `
-    <span class="yah-dot"></span>
-    <span class="yah-text">
-      <strong>${_me.first_name} ${_me.last_name}</strong>
-      · ${_me.role || ROLE_LABEL[_me.role_type] || '—'}
-      · ${_me.market} Colony
-      ${mgr ? `· Reports to ${mgr.first_name} ${mgr.last_name}` : ''}
-    </span>
+  container.innerHTML = `
+    <div class="ohive-layout">
+      <div class="ohive-hive-area">
+        <div class="ohive-canvas" id="ohiveCanvas"></div>
+      </div>
+      <div class="ohive-detail-panel" id="ohiveDetail">
+        <div class="ohive-detail-empty">
+          <div class="ohive-detail-welcome">
+            <div class="ohive-detail-welcome-title">IBM Hive</div>
+            <div class="ohive-detail-welcome-body">Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM's go-to-market motion.</div>
+            <div class="ohive-detail-welcome-tip">Your current role is highlighted in purple.</div>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
+
+  redraw();
 }
 
-// ── Detail panel ──────────────────────────────────────────────────
-function showDetail(type, id) {
-  const panel = document.getElementById('hmapDetail');
-  const body  = document.getElementById('hmapDetailBody');
-  if (!panel || !body) return;
+// ─────────────────────────────────────────────────────────────────
+// Layout builder
+// ─────────────────────────────────────────────────────────────────
+const COLS_PER_ROW = 4;
 
-  let html = '';
+function buildLayout() {
+  const nodes     = [];
+  const pos       = {};
+  const lines_data = [];
 
-  if (type === 'person') {
-    const p = _all.find(x => x.id === parseInt(id));
-    if (!p) return;
-    const mgr = _all.find(x => x.id === p.manager_id);
-    const teamMembers = _all.filter(x => x.manager_id === p.manager_id && x.id !== p.id && x.comb === p.comb);
-    const reports = _all.filter(x => x.manager_id === p.id);
-    const orgMeta = ORG_META[p.comb] || {};
-    const isMe = p.is_current_user;
+  const PAD_X = R + 48;
+  const PAD_Y = R + 36;
 
-    html = `
-      <div class="hdp-header">
-        <div class="hdp-hex" style="background:${isMe ? '#0d1f4c' : '#1c1c1c'};border-color:${isMe ? '#4589ff' : '#525252'}"></div>
-        <div>
-          <div class="hdp-name">${p.first_name} ${p.last_name}${isMe ? ' <span class="you-tag">You</span>' : ''}</div>
-          <div class="hdp-role">${p.role || ROLE_LABEL[p.role_type] || '—'}</div>
-        </div>
-      </div>
-      <div class="hdp-sections">
-        <div class="hdp-section">
-          <div class="hdp-label">Colony (Market)</div>
-          <div class="hdp-val" style="color:${MKT_COLOR[p.market]||'#aaa'}">${p.market} Colony</div>
-        </div>
-        <div class="hdp-section">
-          <div class="hdp-label">Organization</div>
-          <div class="hdp-val">${ORG_META[p.comb]?.name || p.comb || '—'}</div>
-        </div>
-        <div class="hdp-section">
-          <div class="hdp-label">Manager</div>
-          <div class="hdp-val">${mgr ? `<a href="#" class="hdp-link" data-person-id="${mgr.id}">${mgr.first_name} ${mgr.last_name}</a>` : '— (top of chain)'}</div>
-        </div>
-        ${reports.length ? `<div class="hdp-section">
-          <div class="hdp-label">Direct reports</div>
-          <div class="hdp-val">${reports.map(r => `<a href="#" class="hdp-link" data-person-id="${r.id}">${r.first_name} ${r.last_name}</a>`).join(', ')}</div>
-        </div>` : ''}
-        ${teamMembers.length ? `<div class="hdp-section">
-          <div class="hdp-label">On the same team</div>
-          <div class="hdp-val">${teamMembers.slice(0,4).map(r => `<a href="#" class="hdp-link" data-person-id="${r.id}">${r.first_name} ${r.last_name}</a>`).join(', ')}${teamMembers.length > 4 ? ` +${teamMembers.length - 4} more` : ''}</div>
-        </div>` : ''}
-        ${orgMeta.products ? `<div class="hdp-section">
-          <div class="hdp-label">Products</div>
-          <div class="hdp-tags">${orgMeta.products.map(pr => `<span class="hdp-tag">${pr}</span>`).join('')}</div>
-        </div>` : ''}
-        <div class="hdp-section">
-          <div class="hdp-label">Email</div>
-          <div class="hdp-val">${p.email ? `<a href="mailto:${p.email}" class="hdp-link">${p.email}</a>` : '—'}</div>
-        </div>
-        <div class="hdp-section">
-          <div class="hdp-label">Slack</div>
-          <div class="hdp-val">${p.slack || '—'}</div>
-        </div>
-        <div class="hdp-section">
-          <div class="hdp-label">Location</div>
-          <div class="hdp-val">${p.location || '—'}</div>
-        </div>
-      </div>`;
+  const segCount  = SEGMENTS.length;
+  const segTotalW = segCount * CS + (segCount - 1) * GAP;
 
-  } else if (type === 'market') {
-    const mktPeople = _all.filter(p => p.market === id);
-    const orgs = [...new Set(mktPeople.map(p => p.comb).filter(Boolean))];
-    const color = MKT_COLOR[id] || '#aaa';
-    html = `
-      <div class="hdp-header">
-        <div class="hdp-circle" style="background:${color}22;border-color:${color}"></div>
-        <div>
-          <div class="hdp-name" style="color:${color}">${id} Colony</div>
-          <div class="hdp-role">${mktPeople.length} people across ${orgs.length} organizations</div>
-        </div>
-      </div>
-      <div class="hdp-sections">
-        <div class="hdp-section">
-          <div class="hdp-label">Organizations</div>
-          <div class="hdp-val">${orgs.map(o => ORG_META[o]?.name || o.replace(' Colony','')).join(', ')}</div>
-        </div>
-        <div class="hdp-section">
-          <div class="hdp-label">Headcount</div>
-          <div class="hdp-val">${mktPeople.length} people</div>
-        </div>
-      </div>`;
+  // Cluster widths for expanded segments
+  const clusterWidths = {};
+  SEGMENTS.forEach(seg => {
+    if (!_expandedSegments.has(seg.id)) return;
+    const n    = seg.functions.length;
+    const cols = Math.min(n, COLS_PER_ROW);
+    clusterWidths[seg.id] = cols * CS + (cols - 1) * GAP;
+  });
 
-  } else if (type === 'org') {
-    const orgPeople = _all.filter(p => p.comb === id);
-    const meta = ORG_META[id] || {};
-    const color = ORG_COLOR[id] || '#aaa';
-    html = `
-      <div class="hdp-header">
-        <div class="hdp-circle" style="background:${color}22;border-color:${color}"></div>
-        <div>
-          <div class="hdp-name" style="color:${color}">${meta.name || id.replace(' Colony','')}</div>
-          <div class="hdp-role">Organization · ${orgPeople[0]?.market || ''} Colony</div>
-        </div>
-      </div>
-      <div class="hdp-sections">
-        <div class="hdp-section">
-          <div class="hdp-label">People</div>
-          <div class="hdp-val">${orgPeople.length}</div>
-        </div>
-        ${meta.products ? `<div class="hdp-section">
-          <div class="hdp-label">Products</div>
-          <div class="hdp-tags">${meta.products.map(pr => `<span class="hdp-tag">${pr}</span>`).join('')}</div>
-        </div>` : ''}
-      </div>`;
+  const maxW  = Math.max(segTotalW, ...Object.values(clusterWidths), 0);
+  const svgW  = maxW + PAD_X * 2;
+  const svgCX = svgW / 2;
 
-  } else if (type === 'team') {
-    const [mgrIdStr, comb] = id.split(':');
-    const mgrId = parseInt(mgrIdStr);
-    const mgr = _all.find(p => p.id === mgrId);
-    const members = _all.filter(p => p.manager_id === mgrId && p.comb === comb);
-    const color = ORG_COLOR[comb] || '#aaa';
-    html = `
-      <div class="hdp-header">
-        <div class="hdp-circle" style="background:${color}22;border-color:${color}"></div>
-        <div>
-          <div class="hdp-name">${mgr ? mgr.first_name + ' ' + mgr.last_name + "'s team" : 'Team'}</div>
-          <div class="hdp-role">Cell · ${ORG_META[comb]?.name || ''} Org</div>
-        </div>
-      </div>
-      <div class="hdp-sections">
-        <div class="hdp-section">
-          <div class="hdp-label">Manager</div>
-          <div class="hdp-val">${mgr ? `<a href="#" class="hdp-link" data-person-id="${mgr.id}">${mgr.first_name} ${mgr.last_name}</a>` : '—'}</div>
-        </div>
-        <div class="hdp-section">
-          <div class="hdp-label">Members (${members.length})</div>
-          <div class="hdp-val">${members.map(m => `<a href="#" class="hdp-link" data-person-id="${m.id}">${m.first_name} ${m.last_name}</a>`).join(', ')}</div>
-        </div>
-      </div>`;
+  // Root
+  let curY = PAD_Y + R;
+  nodes.push({
+    id: 'root', label: 'IBM', sub: 'Client Segments',
+    type: 'root', cx: svgCX, cy: curY,
+    isSelected: _selectedId === 'root',
+    youAreHere: false, data: null,
+  });
+  pos['root'] = { cx: svgCX, cy: curY };
+  curY += RS + GAP;
+
+  // Segments
+  const segStartX = svgCX - segTotalW / 2 + CS / 2;
+  SEGMENTS.forEach((seg, si) => {
+    const cx = segStartX + si * (CS + GAP);
+    const cy = curY;
+    nodes.push({
+      id: seg.id, label: seg.label, sub: seg.sub,
+      type: 'segment', cx, cy,
+      isSelected: _selectedId === seg.id,
+      youAreHere: seg.youAreHere || false,
+      isExpanded: _expandedSegments.has(seg.id),
+      data: seg,
+    });
+    pos[seg.id] = { cx, cy };
+    // IBM → segment line
+    lines_data.push({ x1: svgCX, y1: pos['root'].cy + R, x2: cx, y2: cy - R, kind: 'root-seg' });
+  });
+  curY += RS + GAP;
+
+  // Role clusters
+  SEGMENTS.forEach(seg => {
+    if (!_expandedSegments.has(seg.id)) return;
+
+    const fns  = seg.functions;
+    const cols = Math.min(fns.length, COLS_PER_ROW);
+    const rows = Math.ceil(fns.length / cols);
+    const clusterW      = cols * CS + (cols - 1) * GAP;
+    const clusterStartX = svgCX - clusterW / 2 + CS / 2;
+
+    fns.forEach((fn, fi) => {
+      const col     = fi % cols;
+      const row     = Math.floor(fi / cols);
+      const offsetX = (row % 2 === 1) ? CS / 2 : 0;
+      const cx      = clusterStartX + col * (CS + GAP) + offsetX;
+      const cy      = curY + row * (RS + GAP);
+
+      nodes.push({
+        id: fn.id, label: fn.abbr, sub: fn.label,
+        type: 'function', cx, cy,
+        isSelected: _selectedId === fn.id,
+        youAreHere: fn.youAreHere || false,
+        isExpanded: false, data: fn,
+        segId: seg.id,
+      });
+      pos[fn.id] = { cx, cy };
+      // Segment → role line
+      const segPos = pos[seg.id];
+      if (segPos) {
+        lines_data.push({ x1: segPos.cx, y1: segPos.cy + R, x2: cx, y2: cy - R, kind: 'seg-role' });
+      }
+    });
+
+    curY += rows * (RS + GAP) + GAP;
+  });
+
+  const svgH = curY + R + PAD_Y;
+  return { nodes, svgW, svgH, lines_data };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Compute which node ids are "related" to the selected node
+// Returns: { selected: Set, related: Set }
+// ─────────────────────────────────────────────────────────────────
+function getRelationshipSets(selectedId) {
+  if (!selectedId || selectedId === 'root') return { selected: new Set(), related: new Set() };
+
+  // Find the selected function
+  let selFn = null;
+  for (const seg of SEGMENTS) {
+    const fn = seg.functions.find(f => f.id === selectedId);
+    if (fn) { selFn = fn; break; }
+  }
+  if (!selFn) return { selected: new Set([selectedId]), related: new Set() };
+
+  const worksWithAbbrs = new Set((selFn.worksWith || []).map(w => w.toLowerCase()));
+
+  // Find all role nodes whose abbr is in worksWith
+  const related = new Set();
+  for (const seg of SEGMENTS) {
+    for (const fn of seg.functions) {
+      if (worksWithAbbrs.has(fn.abbr.toLowerCase())) {
+        related.add(fn.id);
+      }
+    }
   }
 
-  body.innerHTML = html;
-  panel.style.display = 'flex';
+  return { selected: new Set([selectedId]), related };
+}
 
-  // Wire person links in detail panel
-  body.querySelectorAll('[data-person-id]').forEach(a => {
-    a.addEventListener('click', e => {
-      e.preventDefault();
-      const pid = parseInt(a.dataset.personId);
-      _sel = { type: 'person', id: pid };
-      buildMap();
-      showDetail('person', pid);
-      updateBreadcrumb();
+// ─────────────────────────────────────────────────────────────────
+// Text wrap — break on spaces, max maxChars per line
+// ─────────────────────────────────────────────────────────────────
+function wrapText(text, maxChars) {
+  if (!text) return [];
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if (!cur) { cur = w; continue; }
+    if ((cur + ' ' + w).length <= maxChars) { cur += ' ' + w; }
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Draw
+// ─────────────────────────────────────────────────────────────────
+function redraw() {
+  const canvas = document.getElementById('ohiveCanvas');
+  if (!canvas) return;
+
+  const { nodes, svgW, svgH, lines_data } = buildLayout();
+  const { selected, related } = getRelationshipSets(_selectedId);
+  const hasSelection = selected.size > 0;
+
+  // Lines
+  const lines = lines_data.map(l => {
+    const isRootSeg = l.kind === 'root-seg';
+    return `<line x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}"
+      x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}"
+      stroke="rgba(255,255,255,${isRootSeg ? '0.28' : '0.18'})"
+      stroke-width="${isRootSeg ? '1.5' : '1'}" stroke-linecap="round" pointer-events="none"/>`;
+  }).join('');
+
+  let hexes = '';
+  nodes.forEach(n => {
+    const isRoot = n.type === 'root';
+    const isSeg  = n.type === 'segment';
+    const isFn   = n.type === 'function';
+    const isSel  = selected.has(n.id);
+    const isRel  = related.has(n.id);
+    const isYou  = n.youAreHere;
+
+    // Outline: always white except selected (blue) and you-are-here (purple)
+    // Related cells get a brighter white outline to highlight the relationship
+    const stroke = isSel
+      ? '#4589ff'
+      : isYou
+        ? '#a855f7'
+        : isRel
+          ? 'rgba(255,255,255,0.90)'
+          : 'rgba(255,255,255,0.70)';
+    const sw = isSel || isYou ? 2.5 : isRel ? 2 : 1.5;
+
+    // Fill: all cells the same gray — never dim
+    const fill = '#2a2a2a';
+
+    // Text: always white
+    const labelColor = '#ffffff';
+    const subColor   = 'rgba(255,255,255,0.45)';
+
+    const labelFontSize   = isRoot ? 16 : isFn ? 14 : 13;
+    const labelFontWeight = isRoot || isSel ? 700 : 500;
+
+    const labelLines  = wrapText(n.label, isRoot ? 10 : 8);
+    const lineH       = labelFontSize + 3;
+    const labelBlockH = labelLines.length * lineH;
+    const labelBaseY  = n.sub
+      ? n.cy - labelBlockH / 2 - 6
+      : n.cy - labelBlockH / 2 + labelFontSize * 0.35;
+
+    const labelEl = labelLines.map((line, i) =>
+      `<text x="${n.cx.toFixed(1)}" y="${(labelBaseY + i * lineH).toFixed(1)}"
+        text-anchor="middle" fill="${labelColor}"
+        font-size="${labelFontSize}" font-weight="${labelFontWeight}"
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${line}</text>`
+    ).join('');
+
+    const subLines = n.sub ? wrapText(n.sub, 11) : [];
+    const subBaseY = labelBaseY + labelLines.length * lineH + 3;
+    const subEl = subLines.map((line, i) =>
+      `<text x="${n.cx.toFixed(1)}" y="${(subBaseY + i * 13).toFixed(1)}"
+        text-anchor="middle" fill="${subColor}" font-size="10"
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${line}</text>`
+    ).join('');
+
+    // No expand dot — the lines communicating segment→role is enough
+
+    hexes += `
+      <g class="ohive-node" data-node-id="${n.id}" data-node-type="${n.type}"
+         ${n.segId ? `data-seg-id="${n.segId}"` : ''} style="cursor:pointer">
+        <polygon points="${hexPts(n.cx, n.cy)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
+        ${labelEl}${subEl}
+      </g>`;
+  });
+
+  canvas.innerHTML = `
+    <svg id="ohiveSvg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}"
+      xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
+      <g>${lines}</g>
+      <g>${hexes}</g>
+    </svg>`;
+
+  canvas.querySelector('#ohiveSvg')?.addEventListener('click', () => clearSelection());
+
+  canvas.querySelectorAll('.ohive-node').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      handleClick(el.dataset.nodeId, el.dataset.nodeType, e.shiftKey);
     });
   });
 }
 
-function wireDetailClose() {
-  document.getElementById('hmapDetailClose')?.addEventListener('click', () => {
-    _sel = null;
-    document.getElementById('hmapDetail').style.display = 'none';
-  });
+// ─────────────────────────────────────────────────────────────────
+// Interaction
+// ─────────────────────────────────────────────────────────────────
+function handleClick(id, type, shiftKey = false) {
+  if (type === 'root') {
+    _expandedSegments.clear();
+    _selectedId = null;
+    redraw();
+    showDetail(null, null);
+    return;
+  }
+
+  if (type === 'segment') {
+    if (_expandedSegments.has(id)) {
+      _expandedSegments.delete(id);
+      _selectedId = null;
+    } else {
+      if (!shiftKey) _expandedSegments.clear();
+      _expandedSegments.add(id);
+      _selectedId = id;
+    }
+    redraw();
+    const seg = SEGMENTS.find(s => s.id === id);
+    showDetail(id, 'segment', seg);
+    return;
+  }
+
+  if (type === 'function') {
+    _selectedId = (_selectedId === id) ? null : id;
+    redraw();
+    if (_selectedId) {
+      const seg = SEGMENTS.find(s => s.functions.some(f => f.id === id));
+      const fn  = seg?.functions.find(f => f.id === id);
+      showDetail(id, 'function', fn);
+    } else {
+      showDetail(null, null);
+    }
+    return;
+  }
 }
 
-// ── Zoom + pan ────────────────────────────────────────────────────
-function applyTransform() {
-  const svg = document.getElementById('hmapSvg');
-  if (svg) svg.style.transform = `translate(${_tx}px,${_ty}px) scale(${_zoom})`;
+function clearSelection() {
+  _selectedId = null;
+  redraw();
+  showDetail(null, null);
 }
 
-function fit() {
-  const stage = document.getElementById('hmapStage');
-  if (!stage || !_svgW || !_svgH) return;
-  const sw = stage.clientWidth  || 900;
-  const sh = stage.clientHeight || 700;
-  _zoom = Math.min(sw / _svgW, sh / _svgH) * 0.90;
-  _tx   = (sw - _svgW * _zoom) / 2;
-  _ty   = (sh - _svgH * _zoom) / 2;
-  applyTransform();
+// ─────────────────────────────────────────────────────────────────
+// Permanent right-side detail panel
+// ─────────────────────────────────────────────────────────────────
+function field(label, value) {
+  if (!value) return '';
+  return `
+    <div class="odp-field">
+      <div class="odp-field-label">${label}</div>
+      <div class="odp-field-value">${value}</div>
+    </div>`;
 }
 
-function wireZoom() {
-  const stage = document.getElementById('hmapStage');
-  if (!stage) return;
+function showDetail(id, type, data) {
+  const panel = document.getElementById('ohiveDetail');
+  if (!panel) return;
 
-  requestAnimationFrame(() => requestAnimationFrame(fit));
+  if (!id || !data) {
+    panel.innerHTML = `
+      <div class="ohive-detail-empty">
+        <div class="ohive-detail-welcome">
+          <div class="ohive-detail-welcome-title">IBM Hive</div>
+          <div class="ohive-detail-welcome-body">Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM's go-to-market motion.</div>
+          <div class="ohive-detail-welcome-tip">Your current role is highlighted in purple.</div>
+        </div>
+      </div>`;
+    return;
+  }
 
-  document.getElementById('hmapZoomIn')?.addEventListener('click', () => {
-    _zoom = Math.min(_zoom * 1.4, 12);
-    applyTransform();
-  });
-  document.getElementById('hmapZoomOut')?.addEventListener('click', () => {
-    _zoom = Math.max(_zoom / 1.4, 0.05);
-    applyTransform();
-  });
-  document.getElementById('hmapFit')?.addEventListener('click', fit);
+  if (type === 'segment') {
+    const rows = data.functions.map(f =>
+      `<div class="odp-role-row">
+        <span class="odp-role-abbr">${f.abbr}</span>
+        <span class="odp-role-label">${f.label}</span>
+      </div>`
+    ).join('');
+    panel.innerHTML = `
+      <div class="odp-content">
+        <div class="odp-type-badge">Client segment</div>
+        <div class="odp-title">${data.label}</div>
+        <div class="odp-sub">${data.sub}</div>
+        <div class="odp-desc">${data.desc}</div>
+        <div class="odp-section-title">Roles in this segment</div>
+        <div class="odp-role-list">${rows}</div>
+        <div class="odp-hint">Click a role to see how it connects to others.</div>
+      </div>`;
+    return;
+  }
 
-  // Wheel zoom
-  stage.addEventListener('wheel', e => {
-    e.preventDefault();
-    const r = stage.getBoundingClientRect();
-    const cx = e.clientX - r.left, cy = e.clientY - r.top;
-    const factor = e.deltaY < 0 ? 1.12 : 0.89;
-    const newZoom = Math.min(Math.max(_zoom * factor, 0.05), 12);
-    _tx = cx - (cx - _tx) * (newZoom / _zoom);
-    _ty = cy - (cy - _ty) * (newZoom / _zoom);
-    _zoom = newZoom;
-    applyTransform();
-  }, { passive: false });
+  if (type === 'function') {
+    const ww = (data.worksWith || []).map(w =>
+      `<span class="odp-works-tag">${w}</span>`
+    ).join('');
+    panel.innerHTML = `
+      <div class="odp-content">
+        <div class="odp-type-badge">Role</div>
+        <div class="odp-title">${data.abbr}</div>
+        <div class="odp-sub">${data.label}</div>
+        ${data.youAreHere ? '<div class="odp-you-badge">You are here</div>' : ''}
+        <div class="odp-desc">${data.purpose}</div>
 
-  // Pan
-  let drag = false, sx = 0, sy = 0, stx = 0, sty = 0, didDrag = false;
-  stage.addEventListener('mousedown', e => {
-    if (e.button !== 0) return;
-    drag = true; didDrag = false;
-    sx = e.clientX; sy = e.clientY; stx = _tx; sty = _ty;
-    stage.style.cursor = 'grabbing';
-  });
-  window.addEventListener('mousemove', e => {
-    if (!drag) return;
-    const dx = e.clientX - sx, dy = e.clientY - sy;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDrag = true;
-    _tx = stx + dx; _ty = sty + dy;
-    applyTransform();
-  });
-  window.addEventListener('mouseup', () => {
-    drag = false;
-    if (stage) stage.style.cursor = 'default';
-  });
-  stage.addEventListener('click', e => {
-    if (didDrag) { e.stopImmediatePropagation(); didDrag = false; }
-  }, true);
+        <div class="odp-section-title">Works with</div>
+        <div class="odp-works-tags">${ww || '—'}</div>
+        <div class="odp-works-hint">Highlighted in hive above</div>
 
-  // Pinch
-  let lastDist = 0;
-  stage.addEventListener('touchstart', e => {
-    if (e.touches.length === 2)
-      lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-  }, { passive: true });
-  stage.addEventListener('touchmove', e => {
-    if (e.touches.length !== 2) return;
-    e.preventDefault();
-    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    const r = stage.getBoundingClientRect();
-    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
-    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
-    const factor = dist / lastDist;
-    const newZoom = Math.min(Math.max(_zoom * factor, 0.05), 12);
-    _tx = cx - (cx - _tx) * (newZoom / _zoom);
-    _ty = cy - (cy - _ty) * (newZoom / _zoom);
-    _zoom = newZoom;
-    applyTransform();
-    lastDist = dist;
-  }, { passive: false });
+        ${field('Quota', data.ownsAccounts ? 'Owns accounts — carries quota' : 'Supports quota — does not own accounts')}
+        ${field('Sales motion', data.salesMotion)}
+        ${data.products ? field('Products', data.products) : ''}
+      </div>`;
+  }
 }
