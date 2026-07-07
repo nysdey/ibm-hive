@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IBM Hive</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --ibm-blue:#0f62fe;
+    --ibm-blue-dark:#0043ce;
+    --honey:#f1a21b;
+    --honey-light:#fde8b5;
+    --honey-mid:#f7c96e;
+    --bg:#f4f4f4;
+    --surface:#ffffff;
+    --border:#e0e0e0;
+    --text:#161616;
+    --muted:#6f6f6f;
+    --cell-size:80px;
+  }
+  body{font-family:-apple-system,"IBM Plex Sans","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+  /* ── TOP NAV ── */
+  .topnav{background:#161616;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:48px;flex-shrink:0}
+  .topnav-brand{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;letter-spacing:.5px}
+  .logo-hex{width:28px;height:28px}
+  .topnav-user{display:flex;align-items:center;gap:8px;font-size:13px;color:#c6c6c6}
+  .avatar{width:28px;height:28px;border-radius:50%;background:var(--honey);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#161616}
+
+  /* ── LAYOUT ── */
+  .shell{display:flex;flex:1;overflow:hidden;height:calc(100vh - 48px)}
+
+  /* ── SIDEBAR ── */
+  .sidebar{width:200px;background:#262626;display:flex;flex-direction:column;flex-shrink:0}
+  .sidebar-section{padding:12px 0}
+  .sidebar-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8d8d8d;padding:0 16px 6px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:13px;color:#c6c6c6;border-left:2px solid transparent;transition:background .15s,color .15s}
+  .nav-item:hover{background:#393939;color:#fff}
+  .nav-item.active{background:#393939;color:var(--honey);border-left-color:var(--honey)}
+  .nav-icon{font-size:16px;width:18px;text-align:center}
+  .sidebar-divider{height:1px;background:#393939;margin:4px 0}
+
+  /* ── MAIN ── */
+  .main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+  .page-header{padding:24px 28px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .page-title{font-size:20px;font-weight:600;color:var(--text)}
+  .page-sub{font-size:13px;color:var(--muted);margin-top:2px}
+  .tab-bar{display:flex;gap:0;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--border)}
+  .tab{padding:10px 18px;font-size:13px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+  .tab:hover{color:var(--text)}
+  .tab.active{color:var(--ibm-blue);border-bottom-color:var(--ibm-blue);font-weight:500}
+  .content{flex:1;padding:24px 28px}
+
+  /* ── VIEW PANELS ── */
+  .view{display:none}
+  .view.active{display:block}
+
+  /* ── HONEYCOMB GRID ── */
+  .hive-container{display:flex;flex-direction:column;align-items:center;gap:0;padding:16px 0}
+  .hex-row{display:flex;gap:4px;margin-bottom:-18px}
+  .hex-row:nth-child(even){margin-left:42px}
+  .hex-wrap{display:flex;flex-direction:column;align-items:center;cursor:pointer}
+  .hex{width:80px;height:88px;position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);background:var(--honey-mid);transition:transform .15s,filter .15s;text-align:center;padding:8px 4px}
+  .hex:hover{transform:scale(1.06);filter:brightness(1.08)}
+  .hex.me{background:var(--ibm-blue)}
+  .hex.manager{background:#8a3ffc}
+  .hex.peer{background:var(--honey)}
+  .hex.cross{background:#009d9a}
+  .hex.exec{background:#da1e28}
+  .hex.open{background:#e0e0e0}
+  .hex-name{font-size:9px;font-weight:600;color:#fff;line-height:1.2;z-index:1;text-shadow:0 1px 2px rgba(0,0,0,.4);max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hex-role{font-size:8px;color:rgba(255,255,255,.8);z-index:1;text-shadow:0 1px 2px rgba(0,0,0,.3);max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hex.open .hex-name{color:#8d8d8d;text-shadow:none}
+
+  /* ── ORG TREE ── */
+  .org-tree{display:flex;flex-direction:column;gap:0;overflow-x:auto;padding-bottom:16px}
+  .org-level{display:flex;justify-content:center;gap:16px;position:relative;padding:12px 0}
+  .org-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 14px;display:flex;align-items:center;gap:10px;min-width:180px;max-width:200px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+  .org-card:hover{border-color:var(--ibm-blue);box-shadow:0 2px 8px rgba(15,98,254,.12)}
+  .org-card.highlight{border-color:var(--honey);background:var(--honey-light)}
+  .org-card.you{border-color:var(--ibm-blue);background:#edf5ff}
+  .org-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;color:#fff}
+  .org-info{flex:1;min-width:0}
+  .org-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .org-role{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .org-badge{font-size:10px;background:#e0e0e0;border-radius:10px;padding:1px 6px;color:var(--muted);white-space:nowrap;margin-top:3px;display:inline-block}
+
+  /* ── NETWORK ── */
+  .network-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .network-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+  .network-card:hover{border-color:var(--ibm-blue);box-shadow:0 2px 8px rgba(15,98,254,.1)}
+  .nc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .nc-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+  .nc-name{font-size:13px;font-weight:600}
+  .nc-role{font-size:11px;color:var(--muted);margin-top:1px}
+  .nc-tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;margin-top:6px}
+  .tag-close{background:#d0e2ff;color:#0043ce}
+  .tag-partner{background:#d9fbfb;color:#005d5d}
+  .tag-cross{background:#e8daff;color:#491d8b}
+  .tag-client{background:#ffd6e8;color:#740937}
+  .nc-note{font-size:11px;color:var(--muted);margin-top:8px;border-top:1px solid var(--border);padding-top:8px;line-height:1.5}
+
+  /* ── ACCOUNTS HIVE ── */
+  .accounts-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+  .acct-filter{font-size:12px;padding:5px 12px;border-radius:16px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--muted);transition:all .15s}
+  .acct-filter.active{background:var(--ibm-blue);color:#fff;border-color:var(--ibm-blue)}
+  .acct-legend{display:flex;align-items:center;gap:16px;margin-left:auto;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+  .legend-dot{width:10px;height:10px;border-radius:2px}
+  .acct-hive{display:flex;flex-direction:column;align-items:flex-start;gap:0}
+  .acct-row{display:flex;gap:5px;margin-bottom:-20px}
+  .acct-row:nth-child(even){margin-left:44px}
+  .acct-hex{width:88px;height:96px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s,filter .15s,opacity .2s;padding:10px 6px;text-align:center}
+  .acct-hex:hover{transform:scale(1.05);filter:brightness(1.08)}
+  .acct-name{font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);line-height:1.2;max-width:76px;overflow:hidden;text-overflow:ellipsis}
+  .acct-val{font-size:8px;color:rgba(255,255,255,.85);margin-top:3px;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .acct-stage{font-size:8px;color:rgba(255,255,255,.75);margin-top:1px}
+  .col-green{background:#198038}
+  .col-blue{background:#0f62fe}
+  .col-purple{background:#8a3ffc}
+  .col-orange{background:#e67e22}
+  .col-red{background:#da1e28}
+  .col-grey{background:#8d8d8d}
+
+  /* ── DETAIL PANEL ── */
+  .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;display:none;align-items:flex-start;justify-content:flex-end}
+  .panel-overlay.open{display:flex}
+  .detail-panel{background:var(--surface);width:340px;height:100%;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.12);display:flex;flex-direction:column}
+  .dp-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px}
+  .dp-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0}
+  .dp-name{font-size:16px;font-weight:600}
+  .dp-role{font-size:12px;color:var(--muted);margin-top:2px}
+  .dp-market{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--honey-light);color:#8a4600;display:inline-block;margin-top:6px;font-weight:500}
+  .dp-close{margin-left:auto;font-size:18px;cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:4px;line-height:1}
+  .dp-close:hover{background:var(--bg);color:var(--text)}
+  .dp-body{padding:16px 20px;flex:1;display:flex;flex-direction:column;gap:16px}
+  .dp-section{display:flex;flex-direction:column;gap:6px}
+  .dp-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:600;padding-bottom:4px;border-bottom:1px solid var(--border)}
+  .dp-row{display:flex;align-items:center;gap:8px;font-size:13px}
+  .dp-label{color:var(--muted);min-width:80px;font-size:12px}
+  .dp-value{color:var(--text);font-weight:500}
+  .dp-link{color:var(--ibm-blue);text-decoration:none;font-size:13px}
+  .dp-link:hover{text-decoration:underline}
+  .dp-note{font-size:13px;color:var(--text);line-height:1.6;background:var(--bg);border-radius:6px;padding:10px 12px;border:1px solid var(--border)}
+  .dp-tag-row{display:flex;gap:6px;flex-wrap:wrap}
+  .dp-tag{font-size:11px;padding:2px 10px;border-radius:10px;background:#e0e0e0;color:var(--muted)}
+
+  /* ── EXEC VIEW ── */
+  .exec-section{margin-bottom:32px}
+  .exec-title{font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .exec-badge{font-size:11px;padding:2px 10px;border-radius:10px;color:#fff;font-weight:500}
+  .exec-hive{display:flex;flex-direction:column;align-items:flex-start;gap:0}
+  .exec-row{display:flex;gap:5px;margin-bottom:-20px}
+  .exec-row:nth-child(even){margin-left:44px}
+  .exec-hex{width:80px;height:88px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s,filter .15s;padding:8px 4px;text-align:center}
+  .exec-hex:hover{transform:scale(1.06);filter:brightness(1.08)}
+
+  /* ── LEGEND ── */
+  .role-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+  .rl-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .rl-dot{width:12px;height:12px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
+
+  /* ── TOOLBAR ── */
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+  .search-box{flex:1;min-width:160px;max-width:280px;padding:7px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);color:var(--text)}
+  .search-box:focus{outline:none;border-color:var(--ibm-blue)}
+  .sort-select{padding:7px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);color:var(--text)}
+  .sort-select:focus{outline:none;border-color:var(--ibm-blue)}
+
+  /* ── STAT CARDS ── */
+  .stat-row{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;flex:1;min-width:120px}
+  .stat-num{font-size:26px;font-weight:700;color:var(--ibm-blue)}
+  .stat-label{font-size:12px;color:var(--muted);margin-top:2px}
+
+  @media(max-width:640px){
+    .sidebar{display:none}
+    .content{padding:16px}
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <svg class="logo-hex" viewBox="0 0 28 32" fill="none">
+      <polygon points="14,1 27,8 27,24 14,31 1,24 1,8" fill="#f1a21b" stroke="#f7c96e" stroke-width="1"/>
+      <text x="14" y="21" text-anchor="middle" font-size="12" font-weight="700" fill="#161616">H</text>
+    </svg>
+    IBM Hive
+  </div>
+  <div class="topnav-user">
+    <span>Jordan Lee</span>
+    <div class="avatar">JL</div>
+  </div>
+</nav>
+
+<div class="shell">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-label">My Hive</div>
+    <div class="nav-item active" data-view="seller">
+      <span class="nav-icon">⬡</span> Hive View
+    </div>
+    <div class="nav-item" data-view="network">
+      <span class="nav-icon">◎</span> My Network
+    </div>
+    <div class="nav-item" data-view="accounts">
+      <span class="nav-icon">◈</span> Accounts
+    </div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Organization</div>
+    <div class="nav-item" data-view="exec">
+      <span class="nav-icon">⬡</span> Exec View
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- ═══ SELLER / HIVE VIEW ═══ -->
+  <div class="view active" id="view-seller">
+    <div class="page-header">
+      <div class="page-title">My Hive View</div>
+      <div class="page-sub">Your cell, your team, and where you fit in the larger comb</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab active" data-tab="hier">Management Hierarchy</div>
+      <div class="tab" data-tab="team">My Cell</div>
+    </div>
+    <div class="content">
+
+      <!-- HIERARCHY TAB -->
+      <div class="view active" id="tab-hier">
+        <div class="role-legend">
+          <div class="rl-item"><div class="rl-dot" style="background:#da1e28"></div>VP / Exec</div>
+          <div class="rl-item"><div class="rl-dot" style="background:#8a3ffc"></div>Director</div>
+          <div class="rl-item"><div class="rl-dot" style="background:var(--honey)"></div>Manager</div>
+          <div class="rl-item"><div class="rl-dot" style="background:var(--ibm-blue)"></div>You</div>
+          <div class="rl-item"><div class="rl-dot" style="background:#009d9a"></div>Peer</div>
+        </div>
+        <div class="org-tree">
+          <div class="org-level" style="padding-top:0">
+            <div class="org-card" data-person="vp">
+              <div class="org-avatar" style="background:#da1e28">RK</div>
+              <div class="org-info">
+                <div class="org-name">Rachel Kim</div>
+                <div class="org-role">VP, Enterprise Sales</div>
+                <div class="org-badge">Executive</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:center"><div style="width:1px;height:16px;background:var(--border)"></div></div>
+          <div class="org-level" style="padding:0">
+            <div class="org-card" data-person="dir">
+              <div class="org-avatar" style="background:#8a3ffc">MP</div>
+              <div class="org-info">
+                <div class="org-name">Marcus Park</div>
+                <div class="org-role">Director, Mid-Market</div>
+                <div class="org-badge">Director</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:center"><div style="width:1px;height:16px;background:var(--border)"></div></div>
+          <div class="org-level" style="padding:0">
+            <div class="org-card highlight" data-person="mgr">
+              <div class="org-avatar" style="background:var(--honey);color:#161616">SB</div>
+              <div class="org-info">
+                <div class="org-name">Sofia Becker</div>
+                <div class="org-role">Sales Manager</div>
+                <div class="org-badge">Your Manager</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:center"><div style="width:1px;height:16px;background:var(--border)"></div></div>
+          <div class="org-level" style="padding:0;gap:12px">
+            <div class="org-card" data-person="peer1">
+              <div class="org-avatar" style="background:#009d9a">AT</div>
+              <div class="org-info">
+                <div class="org-name">Amir Tahir</div>
+                <div class="org-role">Account Executive</div>
+                <div class="org-badge">Peer</div>
+              </div>
+            </div>
+            <div class="org-card you" data-person="you">
+              <div class="org-avatar" style="background:var(--ibm-blue)">JL</div>
+              <div class="org-info">
+                <div class="org-name">Jordan Lee</div>
+                <div class="org-role">Account Executive</div>
+                <div class="org-badge" style="background:#d0e2ff;color:var(--ibm-blue)">You</div>
+              </div>
+            </div>
+            <div class="org-card" data-person="peer2">
+              <div class="org-avatar" style="background:#009d9a">CN</div>
+              <div class="org-info">
+                <div class="org-name">Clara Nguyen</div>
+                <div class="org-role">Account Executive</div>
+                <div class="org-badge">Peer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TEAM / CELL TAB -->
+      <div class="view" id="tab-team">
+        <div class="role-legend">
+          <div class="rl-item"><div class="rl-dot" style="background:var(--honey)"></div>Manager</div>
+          <div class="rl-item"><div class="rl-dot" style="background:var(--ibm-blue)"></div>You</div>
+          <div class="rl-item"><div class="rl-dot" style="background:#009d9a"></div>Peer AE</div>
+          <div class="rl-item"><div class="rl-dot" style="background:#8a3ffc"></div>Technical</div>
+          <div class="rl-item"><div class="rl-dot" style="background:#e0e0e0"></div>Open</div>
+        </div>
+        <div class="hive-container">
+          <div class="hex-row">
+            <div class="hex-wrap" data-person="mgr">
+              <div class="hex manager"><div class="hex-name">Sofia B.</div><div class="hex-role">Mgr</div></div>
+            </div>
+            <div class="hex-wrap" data-person="tse">
+              <div class="hex" style="background:#8a3ffc"><div class="hex-name">Dev Patel</div><div class="hex-role">Tech Sales</div></div>
+            </div>
+          </div>
+          <div class="hex-row">
+            <div class="hex-wrap" data-person="peer1">
+              <div class="hex peer"><div class="hex-name">Amir T.</div><div class="hex-role">AE</div></div>
+            </div>
+            <div class="hex-wrap" data-person="you">
+              <div class="hex me"><div class="hex-name">Jordan L.</div><div class="hex-role">You · AE</div></div>
+            </div>
+            <div class="hex-wrap" data-person="peer2">
+              <div class="hex peer"><div class="hex-name">Clara N.</div><div class="hex-role">AE</div></div>
+            </div>
+          </div>
+          <div class="hex-row">
+            <div class="hex-wrap" data-person="csm">
+              <div class="hex" style="background:#005d5d"><div class="hex-name">Lisa Wang</div><div class="hex-role">CSM</div></div>
+            </div>
+            <div class="hex-wrap">
+              <div class="hex open"><div class="hex-name">Open</div><div class="hex-role">—</div></div>
+            </div>
+            <div class="hex-wrap" data-person="sdr">
+              <div class="hex" style="background:#6929c4"><div class="hex-name">Omar Diaz</div><div class="hex-role">SDR</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ NETWORK VIEW ═══ -->
+  <div class="view" id="view-network">
+    <div class="page-header">
+      <div class="page-title">My Network</div>
+      <div class="page-sub">Personal connections within IBM — relationships, context, open notes</div>
+    </div>
+    <div class="content">
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">14</div><div class="stat-label">Connections</div></div>
+        <div class="stat-card"><div class="stat-num">5</div><div class="stat-label">Close Allies</div></div>
+        <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">Cross-Brand</div></div>
+        <div class="stat-card"><div class="stat-num">2</div><div class="stat-label">Need Follow-up</div></div>
+      </div>
+      <div class="toolbar">
+        <input class="search-box" type="text" placeholder="Search connections..."/>
+        <select class="sort-select">
+          <option>All Relationships</option>
+          <option>Close Ally</option>
+          <option>Partner</option>
+          <option>Cross-brand</option>
+        </select>
+      </div>
+      <div class="network-grid">
+        <div class="network-card" data-person="mgr">
+          <div class="nc-top"><div class="nc-avatar" style="background:var(--honey);color:#161616">SB</div><div><div class="nc-name">Sofia Becker</div><div class="nc-role">Sales Manager</div></div></div>
+          <span class="nc-tag tag-close">Close Ally</span>
+          <div class="nc-note">Direct manager. Weekly 1:1 Tuesdays. Championed my last deal close — always in my corner.</div>
+        </div>
+        <div class="network-card" data-person="tse">
+          <div class="nc-top"><div class="nc-avatar" style="background:#8a3ffc">DP</div><div><div class="nc-name">Dev Patel</div><div class="nc-role">Tech Sales Engineer</div></div></div>
+          <span class="nc-tag tag-partner">Partner</span>
+          <div class="nc-note">Go-to TSE for watsonx demos. Helped close Accenture deal in Q3. Schedule 48h in advance.</div>
+        </div>
+        <div class="network-card" data-person="peer1">
+          <div class="nc-top"><div class="nc-avatar" style="background:#009d9a">AT</div><div><div class="nc-name">Amir Tahir</div><div class="nc-role">Account Executive</div></div></div>
+          <span class="nc-tag tag-close">Close Ally</span>
+          <div class="nc-note">Peer AE. We share intel on competitive deals. Covers Finance vertical — good for referrals.</div>
+        </div>
+        <div class="network-card" data-person="csm">
+          <div class="nc-top"><div class="nc-avatar" style="background:#005d5d">LW</div><div><div class="nc-name">Lisa Wang</div><div class="nc-role">Customer Success Mgr</div></div></div>
+          <span class="nc-tag tag-partner">Partner</span>
+          <div class="nc-note">CSM for my top 3 accounts. Flags renewal risk early. Ping her before any EBR.</div>
+        </div>
+        <div class="network-card" data-person="cross1">
+          <div class="nc-top"><div class="nc-avatar" style="background:#da1e28">TJ</div><div><div class="nc-name">Tanya Jones</div><div class="nc-role">Partner Ecosystem Lead</div></div></div>
+          <span class="nc-tag tag-cross">Cross-brand</span>
+          <div class="nc-note">Runs the AWS co-sell motion. Introduced me to 2 new logos in Q2. Monthly coffee chat.</div>
+        </div>
+        <div class="network-card" data-person="cross2">
+          <div class="nc-top"><div class="nc-avatar" style="background:#6929c4">BR</div><div><div class="nc-name">Ben Rocha</div><div class="nc-role">Consulting Partner</div></div></div>
+          <span class="nc-tag tag-cross">Cross-brand</span>
+          <div class="nc-note">GBS consultant. Works with same client base. Good for services attach opportunities.</div>
+        </div>
+        <div class="network-card" data-person="sdr">
+          <div class="nc-top"><div class="nc-avatar" style="background:#6929c4">OD</div><div><div class="nc-name">Omar Diaz</div><div class="nc-role">Sales Dev Rep</div></div></div>
+          <span class="nc-tag tag-close">Close Ally</span>
+          <div class="nc-note">My SDR. Always leaves detailed call notes in Salesforce. Pipeline quality is high.</div>
+        </div>
+        <div class="network-card" data-person="peer3">
+          <div class="nc-top"><div class="nc-avatar" style="background:#e67e22">KM</div><div><div class="nc-name">Keisha Morris</div><div class="nc-role">AE, Strategic Accounts</div></div></div>
+          <span class="nc-tag tag-partner">Partner</span>
+          <div class="nc-note">Covers strategic tier. Warm intro'd me to JPMorgan contact. Need to follow up on Citi collab.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ACCOUNTS VIEW ═══ -->
+  <div class="view" id="view-accounts">
+    <div class="page-header">
+      <div class="page-title">Account Hive</div>
+      <div class="page-sub">All your accounts in one comb — color coded by pipeline stage</div>
+    </div>
+    <div class="content">
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">18</div><div class="stat-label">Accounts</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#198038">$4.2M</div><div class="stat-label">Closed Won</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--ibm-blue)">$2.8M</div><div class="stat-label">Active Pipeline</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#e67e22">$1.1M</div><div class="stat-label">At Risk</div></div>
+      </div>
+      <div class="accounts-toolbar">
+        <button class="acct-filter active">All</button>
+        <button class="acct-filter">Closed Won</button>
+        <button class="acct-filter">Negotiation</button>
+        <button class="acct-filter">Proposal</button>
+        <button class="acct-filter">At Risk</button>
+        <div class="acct-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#198038"></div>Closed Won</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--ibm-blue)"></div>Negotiation</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#8a3ffc"></div>Proposal</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#e67e22"></div>At Risk</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#8d8d8d"></div>Prospect</div>
+        </div>
+      </div>
+      <div class="acct-hive">
+        <div class="acct-row">
+          <div class="acct-hex col-green" data-acct="acme"><div class="acct-name">Acme Corp</div><div class="acct-val">$820K</div><div class="acct-stage">Closed Won</div></div>
+          <div class="acct-hex col-blue" data-acct="jpmc"><div class="acct-name">JPMorgan</div><div class="acct-val">$1.1M</div><div class="acct-stage">Negotiation</div></div>
+          <div class="acct-hex col-purple" data-acct="ford"><div class="acct-name">Ford Motor</div><div class="acct-val">$650K</div><div class="acct-stage">Proposal</div></div>
+          <div class="acct-hex col-orange" data-acct="citi"><div class="acct-name">Citibank</div><div class="acct-val">$430K</div><div class="acct-stage">At Risk</div></div>
+        </div>
+        <div class="acct-row">
+          <div class="acct-hex col-green" data-acct="bms"><div class="acct-name">BMS Health</div><div class="acct-val">$510K</div><div class="acct-stage">Closed Won</div></div>
+          <div class="acct-hex col-blue" data-acct="delta"><div class="acct-name">Delta Air</div><div class="acct-val">$780K</div><div class="acct-stage">Negotiation</div></div>
+          <div class="acct-hex col-grey" data-acct="lenovo"><div class="acct-name">Lenovo</div><div class="acct-val">—</div><div class="acct-stage">Prospect</div></div>
+          <div class="acct-hex col-purple" data-acct="toyota"><div class="acct-name">Toyota</div><div class="acct-val">$390K</div><div class="acct-stage">Proposal</div></div>
+          <div class="acct-hex col-orange" data-acct="csx"><div class="acct-name">CSX Rail</div><div class="acct-val">$290K</div><div class="acct-stage">At Risk</div></div>
+        </div>
+        <div class="acct-row">
+          <div class="acct-hex col-green" data-acct="unilever"><div class="acct-name">Unilever</div><div class="acct-val">$670K</div><div class="acct-stage">Closed Won</div></div>
+          <div class="acct-hex col-grey" data-acct="siemens"><div class="acct-name">Siemens</div><div class="acct-val">—</div><div class="acct-stage">Prospect</div></div>
+          <div class="acct-hex col-blue" data-acct="amex"><div class="acct-name">Amex</div><div class="acct-val">$920K</div><div class="acct-stage">Negotiation</div></div>
+          <div class="acct-hex col-green" data-acct="pfizer"><div class="acct-name">Pfizer</div><div class="acct-val">$340K</div><div class="acct-stage">Closed Won</div></div>
+        </div>
+        <div class="acct-row">
+          <div class="acct-hex col-purple" data-acct="voda"><div class="acct-name">Vodafone</div><div class="acct-val">$210K</div><div class="acct-stage">Proposal</div></div>
+          <div class="acct-hex col-grey" data-acct="walmart"><div class="acct-name">Walmart</div><div class="acct-val">—</div><div class="acct-stage">Prospect</div></div>
+          <div class="acct-hex col-orange" data-acct="hsbc"><div class="acct-name">HSBC</div><div class="acct-val">$380K</div><div class="acct-stage">At Risk</div></div>
+          <div class="acct-hex col-green" data-acct="sap"><div class="acct-name">SAP SE</div><div class="acct-val">$420K</div><div class="acct-stage">Closed Won</div></div>
+          <div class="acct-hex col-blue" data-acct="att"><div class="acct-name">AT&amp;T</div><div class="acct-val">$560K</div><div class="acct-stage">Negotiation</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ EXEC VIEW ═══ -->
+  <div class="view" id="view-exec">
+    <div class="page-header">
+      <div class="page-title">Exec Hive View</div>
+      <div class="page-sub">Full organization — every bee in the hive, broken by market segment</div>
+    </div>
+    <div class="content">
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">284</div><div class="stat-label">Total Sellers</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#0f62fe">102</div><div class="stat-label">Enterprise</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#8a3ffc">78</div><div class="stat-label">Strategic</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#009d9a">64</div><div class="stat-label">Horizon</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#f1a21b">40</div><div class="stat-label">Territory</div></div>
+      </div>
+      <div class="toolbar">
+        <input class="search-box" type="text" placeholder="Search any bee in the hive..."/>
+        <select class="sort-select">
+          <option>All Markets</option>
+          <option>Enterprise</option>
+          <option>Strategic</option>
+          <option>Horizon</option>
+          <option>Territory</option>
+        </select>
+      </div>
+
+      <!-- ENTERPRISE -->
+      <div class="exec-section">
+        <div class="exec-title">
+          <svg width="14" height="16" viewBox="0 0 14 16"><polygon points="7,0.5 13.5,4 13.5,12 7,15.5 0.5,12 0.5,4" fill="#0f62fe"/></svg>
+          Enterprise Market <span class="exec-badge" style="background:#0f62fe">102 sellers</span>
+        </div>
+        <div class="exec-hive">
+          <div class="exec-row">
+            <div class="hex-wrap" data-person="vp"><div class="exec-hex" style="background:#da1e28"><div class="hex-name">Rachel K.</div><div class="hex-role">VP Sales</div></div></div>
+            <div class="hex-wrap" data-person="dir"><div class="exec-hex" style="background:#8a3ffc"><div class="hex-name">Marcus P.</div><div class="hex-role">Director</div></div></div>
+            <div class="hex-wrap" data-person="mgr"><div class="exec-hex" style="background:var(--honey)"><div class="hex-name">Sofia B.</div><div class="hex-role">Manager</div></div></div>
+            <div class="hex-wrap" data-person="you"><div class="exec-hex" style="background:var(--ibm-blue)"><div class="hex-name">Jordan L.</div><div class="hex-role">You · AE</div></div></div>
+            <div class="hex-wrap" data-person="peer1"><div class="exec-hex" style="background:#009d9a"><div class="hex-name">Amir T.</div><div class="hex-role">AE</div></div></div>
+          </div>
+          <div class="exec-row">
+            <div class="hex-wrap" data-person="peer2"><div class="exec-hex" style="background:#009d9a"><div class="hex-name">Clara N.</div><div class="hex-role">AE</div></div></div>
+            <div class="hex-wrap"><div class="exec-hex" style="background:#0f62fe"><div class="hex-name">Greg Hall</div><div class="hex-role">AE</div></div></div>
+            <div class="hex-wrap"><div class="exec-hex" style="background:#0f62fe"><div class="hex-name">Priya S.</div><div class="hex-role">AE</div></div></div>
+            <div class="hex-wrap" data-person="tse"><div class="exec-hex" style="background:#8a3ffc"><div class="hex-name">Dev P.</div><div class="hex-role">TSE</div></div></div>
+            <div class="hex-wrap" data-person="csm"><div class="exec-hex" style="background:#005d5d"><div class="hex-name">Lisa W.</div><div class="hex-role">CSM</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STRATEGIC -->
+      <div class="exec-section">
+        <div class="exec-title">
+          <svg width="14" height="16" viewBox="0 0 14 16"><polygon points="7,0.5 13.5,4 13.5,12 7,15.5 0.5,12 0.5,4" fill="#8a3ffc"/></svg>
+          Strategic Market <span class="exec-badge" style="background:#8a3ffc">78 sellers</span>
+        </div>
+        <div class="exec-hive">
+          <div class="exec-row">
+            <div class="hex-wrap"><div class="exec-hex" style="background:#da1e28"><div class="hex-name">James Wu</div><div class="hex-role">VP Strat.</div></div></div>
+            <div class="hex-wrap" data-person="peer3"><div class="exec-hex" style="background:#8a3ffc"><div class="hex-name">Keisha M.</div><div class="hex-role">AE Strat.</div></div></div>
+            <div class="hex-wrap"><div class="exec-hex" style="background:#8a3ffc"><div class="hex-name">Dana Fox</div><div class="hex-role">AE Strat.</div></div></div>
+            <div class="hex-wrap"><div class="exec-hex" style="background:#8a3ffc"><div class="hex-name">Neil S.</div><div class="hex-role">Director</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HORIZON -->
+      <div class="exec-section">
+        <div class="exec-title">
+          <svg width="14" height="16" viewBox="0 0 14 16"><polygon points="7,0.5 13.5,4 13.5,12 7,15.5 0.5,12 0.5,4" fill="#009d9a"/></svg>
+          Horizon Market <span class="exec-badge" style="background:#009d9a">64 sellers</span>
+        </div>
+        <div class="exec-hive">
+          <div class="exec-row">
+            <div class="hex-wrap"><div class="exec-hex" style="background:#da1e28"><div class="hex-name">Ingrid L.</div><div class="hex-role">VP Horizon</div></div></div>
+            <div class="hex-wrap"><div class="exec-hex" style="background:#009d9a"><div class="hex-name">Carlos V.</div><div class="hex-role">Manager</div></div></div>
+            <div class="hex-wrap"><div class="exec-hex" style="background:#009d9a"><div class="hex-name">Yui Tanaka</div><div class="hex-role">AE</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERRITORY -->
+      <div class="exec-section">
+        <div class="exec-title">
+          <svg width="14" height="16" viewBox="0 0 14 16"><polygon points="7,0.5 13.5,4 13.5,12 7,15.5 0.5,12 0.5,4" fill="#f1a21b"/></svg>
+          Territory Market <span class="exec-badge" style="background:#f1a21b;color:#161616">40 sellers</span>
+        </div>
+        <div class="exec-hive">
+          <div class="exec-row">
+            <div class="hex-wrap"><div class="exec-hex" style="background:#e67e22"><div class="hex-name">Sam O.</div><div class="hex-role">VP Terr.</div></div></div>
+            <div class="hex-wrap"><div class="exec-hex" style="background:var(--honey)"><div class="hex-name">Nina H.</div><div class="hex-role">Manager</div></div></div>
+            <div class="hex-wrap" data-person="sdr"><div class="exec-hex" style="background:#f1a21b"><div class="hex-name">Omar D.</div><div class="hex-role">SDR</div></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="panel-overlay" id="panelOverlay">
+  <div class="detail-panel" id="detailPanel">
+    <div class="dp-header">
+      <div class="dp-avatar" id="dpAvatar">JL</div>
+      <div style="flex:1">
+        <div class="dp-name" id="dpName">Jordan Lee</div>
+        <div class="dp-role" id="dpRole">Account Executive</div>
+        <div class="dp-market" id="dpMarket">Enterprise</div>
+      </div>
+      <div class="dp-close" id="dpClose">✕</div>
+    </div>
+    <div class="dp-body">
+      <div class="dp-section">
+        <div class="dp-section-title">Contact</div>
+        <div class="dp-row"><span class="dp-label">Email</span><a class="dp-link" id="dpEmail" href="#">—</a></div>
+        <div class="dp-row"><span class="dp-label">Slack</span><span class="dp-value" id="dpSlack">—</span></div>
+        <div class="dp-row"><span class="dp-label">Location</span><span class="dp-value" id="dpLocation">—</span></div>
+      </div>
+      <div class="dp-section">
+        <div class="dp-section-title">Relationship</div>
+        <div class="dp-tag-row" id="dpTags"></div>
+        <div class="dp-row" style="margin-top:6px"><span class="dp-label">How we met</span><span class="dp-value" id="dpMet">—</span></div>
+      </div>
+      <div class="dp-section">
+        <div class="dp-section-title">Notes</div>
+        <div class="dp-note" id="dpNotes">No notes yet.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PEOPLE = {
+  you:   {initials:'JL',name:'Jordan Lee',role:'Account Executive',market:'Enterprise',color:'#0f62fe',email:'jordan.lee@ibm.com',slack:'@jordan.lee',location:'New York, NY',met:'Joined IBM 2021',tags:['You'],notes:'My own profile. 18 active accounts, $4.2M closed won this year.'},
+  mgr:   {initials:'SB',name:'Sofia Becker',role:'Sales Manager',market:'Enterprise',color:'#f1a21b',email:'sofia.becker@ibm.com',slack:'@sofia.b',location:'Chicago, IL',met:'Onboarding 2021',tags:['Manager','Close Ally'],notes:'Direct manager. Weekly 1:1 Tuesdays. Championed my last deal close — always in my corner.'},
+  dir:   {initials:'MP',name:'Marcus Park',role:'Director, Mid-Market',market:'Enterprise',color:'#8a3ffc',email:'marcus.park@ibm.com',slack:'@marcus.park',location:'San Francisco, CA',met:'Org chart introduction',tags:['Director'],notes:'Sets quarterly targets. Approves large deal discounts. Prefers email over Slack.'},
+  vp:    {initials:'RK',name:'Rachel Kim',role:'VP, Enterprise Sales',market:'Enterprise',color:'#da1e28',email:'rachel.kim@ibm.com',slack:'@rachel.kim',location:'Austin, TX',met:'All-hands 2022',tags:['VP','Executive'],notes:'Quarterly business review sponsor. Focus on watsonx and platform deals this year.'},
+  peer1: {initials:'AT',name:'Amir Tahir',role:'Account Executive',market:'Enterprise',color:'#009d9a',email:'amir.tahir@ibm.com',slack:'@amir.t',location:'New York, NY',met:'Bootcamp 2021',tags:['Peer','Close Ally'],notes:'Covers Finance vertical. Great for warm intros. We share competitive intel on Salesforce and AWS.'},
+  peer2: {initials:'CN',name:'Clara Nguyen',role:'Account Executive',market:'Enterprise',color:'#009d9a',email:'clara.nguyen@ibm.com',slack:'@clara.n',location:'Boston, MA',met:'Team kickoff 2022',tags:['Peer'],notes:'Covers Healthcare. Strong on IBM Security angle. Collaborative on co-sell motions.'},
+  peer3: {initials:'KM',name:'Keisha Morris',role:'AE, Strategic Accounts',market:'Strategic',color:'#8a3ffc',email:'keisha.morris@ibm.com',slack:'@keisha.m',location:'Atlanta, GA',met:'Partner summit 2023',tags:['Cross-brand','Partner'],notes:"Warm intro'd to JPMorgan contact. Need to follow up on Citi collab by end of month."},
+  tse:   {initials:'DP',name:'Dev Patel',role:'Technical Sales Engineer',market:'Enterprise',color:'#8a3ffc',email:'dev.patel@ibm.com',slack:'@dev.patel',location:'Austin, TX',met:'Accenture deal 2022',tags:['Partner','Technical'],notes:'Go-to TSE for watsonx demos. Helped close Accenture deal in Q3. Schedule 48h in advance.'},
+  csm:   {initials:'LW',name:'Lisa Wang',role:'Customer Success Manager',market:'Enterprise',color:'#005d5d',email:'lisa.wang@ibm.com',slack:'@lisa.w',location:'Seattle, WA',met:'Account handoff 2022',tags:['Partner','CSM'],notes:'CSM for top 3 accounts. Flags renewal risk early. Always ping her before any EBR.'},
+  sdr:   {initials:'OD',name:'Omar Diaz',role:'Sales Development Rep',market:'Territory',color:'#6929c4',email:'omar.diaz@ibm.com',slack:'@omar.d',location:'New York, NY',met:'Team assignment 2023',tags:['SDR'],notes:'My SDR. Methodical, always leaves detailed call notes in Salesforce. Pipeline quality is high.'},
+  cross1:{initials:'TJ',name:'Tanya Jones',role:'Partner Ecosystem Lead',market:'Strategic',color:'#da1e28',email:'tanya.jones@ibm.com',slack:'@tanya.j',location:'Chicago, IL',met:'Partner summit 2023',tags:['Cross-brand','Partner'],notes:'Runs the AWS co-sell motion. Introduced 2 new logos in Q2. Monthly coffee chat.'},
+  cross2:{initials:'BR',name:'Ben Rocha',role:'Consulting Partner',market:'Strategic',color:'#6929c4',email:'ben.rocha@ibm.com',slack:'@ben.r',location:'Dallas, TX',met:'GBS collaboration 2023',tags:['Cross-brand'],notes:'GBS consultant — same client base. Good for services attach. Loop in on IBM Consulting co-sells.'},
+};
+
+const ACCOUNTS = {
+  acme:    {name:'Acme Corp',stage:'Closed Won',value:'$820K',industry:'Manufacturing',notes:'Full watsonx deployment. Renewal in Q1. Champion: Sarah Mills (CTO).'},
+  jpmc:    {name:'JPMorgan Chase',stage:'Negotiation',value:'$1.1M',industry:'Financial Services',notes:'In legal review. Procurement wants 15% discount. Decision by end of month.'},
+  ford:    {name:'Ford Motor Co',stage:'Proposal',value:'$650K',industry:'Automotive',notes:'Proposal submitted. Competing against Microsoft Azure. Need exec sponsor.'},
+  citi:    {name:'Citibank',stage:'At Risk',value:'$430K',industry:'Financial Services',notes:'Champion left the company. Need to re-engage new IT lead. CSM flagged in red.'},
+  bms:     {name:'BMS Health',stage:'Closed Won',value:'$510K',industry:'Healthcare',notes:'Post-sale implementation underway. Potential expansion in Q3 for additional BUs.'},
+  delta:   {name:'Delta Airlines',stage:'Negotiation',value:'$780K',industry:'Travel & Transport',notes:'Verbal yes from CISO. Waiting on legal terms. Strong IBM Security angle.'},
+  lenovo:  {name:'Lenovo',stage:'Prospect',value:'—',industry:'Technology',notes:'Initial discovery call done. Need to qualify budget and timeline.'},
+  toyota:  {name:'Toyota',stage:'Proposal',value:'$390K',industry:'Automotive',notes:'watsonx Code Assistant use case. Decision maker is SVP Engineering.'},
+  csx:     {name:'CSX Rail',stage:'At Risk',value:'$290K',industry:'Transportation',notes:'Delayed procurement cycle. Champion on leave. Need to re-qualify.'},
+  unilever:{name:'Unilever',stage:'Closed Won',value:'$670K',industry:'Consumer Goods',notes:'Expansion deal closed Q2. Moving into 3 new regions. Great reference account.'},
+  siemens: {name:'Siemens',stage:'Prospect',value:'—',industry:'Industrial',notes:'Referral from Keisha. Early stage. Meeting scheduled for next week.'},
+  amex:    {name:'American Express',stage:'Negotiation',value:'$920K',industry:'Financial Services',notes:'Largest active deal. Strong exec sponsor. Procurement is fast-tracking.'},
+  pfizer:  {name:'Pfizer',stage:'Closed Won',value:'$340K',industry:'Pharma',notes:'Use case: document intelligence. Upsell opportunity for Security module.'},
+  voda:    {name:'Vodafone',stage:'Proposal',value:'$210K',industry:'Telecom',notes:'Proposal sent. Competing on price. Need to show TCO advantage.'},
+  walmart: {name:'Walmart',stage:'Prospect',value:'—',industry:'Retail',notes:'Cold outreach via Omar (SDR). Need to schedule discovery.'},
+  hsbc:    {name:'HSBC',stage:'At Risk',value:'$380K',industry:'Financial Services',notes:'Regulatory blockers delayed deal. Re-engaging Q3.'},
+  sap:     {name:'SAP SE',stage:'Closed Won',value:'$420K',industry:'Technology',notes:'Partner co-sell closed. Potential to expand into SAP BTP integration.'},
+  att:     {name:'AT&T',stage:'Negotiation',value:'$560K',industry:'Telecom',notes:'Two-horse race vs AWS. Strong IBM advantage on data residency.'},
+};
+
+// Navigation
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.main > .view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + item.dataset.view).classList.add('active');
+  });
+});
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    tab.closest('.tab-bar').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-seller').querySelectorAll(':scope > .content > .view').forEach(v => v.classList.remove('active'));
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Detail panel — people
+function openPanel(key) {
+  const p = PEOPLE[key]; if (!p) return;
+  document.getElementById('dpAvatar').textContent = p.initials;
+  document.getElementById('dpAvatar').style.background = p.color;
+  document.getElementById('dpName').textContent = p.name;
+  document.getElementById('dpRole').textContent = p.role;
+  const mkt = document.getElementById('dpMarket');
+  mkt.textContent = p.market + ' Market';
+  mkt.style.background = ''; mkt.style.color = '';
+  document.getElementById('dpEmail').textContent = p.email;
+  document.getElementById('dpEmail').href = 'mailto:' + p.email;
+  document.getElementById('dpSlack').textContent = p.slack;
+  document.getElementById('dpLocation').textContent = p.location;
+  document.getElementById('dpMet').textContent = p.met;
+  document.getElementById('dpNotes').textContent = p.notes;
+  document.getElementById('dpTags').innerHTML = p.tags.map(t => `<span class="dp-tag">${t}</span>`).join('');
+  document.getElementById('panelOverlay').classList.add('open');
+}
+
+// Detail panel — accounts
+function openAcctPanel(key) {
+  const a = ACCOUNTS[key]; if (!a) return;
+  const colors = {'Closed Won':'#198038','Negotiation':'#0f62fe','Proposal':'#8a3ffc','At Risk':'#da1e28','Prospect':'#8d8d8d'};
+  const col = colors[a.stage] || '#8d8d8d';
+  document.getElementById('dpAvatar').textContent = a.name.slice(0,2).toUpperCase();
+  document.getElementById('dpAvatar').style.background = col;
+  document.getElementById('dpName').textContent = a.name;
+  document.getElementById('dpRole').textContent = a.industry;
+  const mkt = document.getElementById('dpMarket');
+  mkt.textContent = a.stage;
+  mkt.style.background = col + '22'; mkt.style.color = col;
+  document.getElementById('dpEmail').textContent = '—'; document.getElementById('dpEmail').href = '#';
+  document.getElementById('dpSlack').textContent = '—';
+  document.getElementById('dpLocation').textContent = a.value;
+  document.getElementById('dpMet').textContent = a.stage;
+  document.getElementById('dpNotes').textContent = a.notes;
+  document.getElementById('dpTags').innerHTML = `<span class="dp-tag">${a.stage}</span><span class="dp-tag">${a.industry}</span>`;
+  document.getElementById('panelOverlay').classList.add('open');
+}
+
+document.getElementById('dpClose').addEventListener('click', () => document.getElementById('panelOverlay').classList.remove('open'));
+document.getElementById('panelOverlay').addEventListener('click', e => { if (e.target === document.getElementById('panelOverlay')) document.getElementById('panelOverlay').classList.remove('open'); });
+
+document.querySelectorAll('[data-person]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); openPanel(el.dataset.person); }));
+document.querySelectorAll('[data-acct]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); openAcctPanel(el.dataset.acct); }));
+
+// Account filters
+document.querySelectorAll('.acct-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.acct-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const f = btn.textContent.trim();
+    document.querySelectorAll('.acct-hex').forEach(hex => {
+      const match = f === 'All' || hex.querySelector('.acct-stage').textContent === f;
+      hex.style.opacity = match ? '1' : '0.2';
+      hex.style.pointerEvents = match ? 'auto' : 'none';
+    });
+  });
+});
+</script>
+</body>
+</html>
