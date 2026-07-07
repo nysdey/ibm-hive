@@ -29,10 +29,10 @@ function seed() {
     'INSERT INTO markets (name, color, headcount) VALUES (?, ?, ?)'
   );
   const markets = db.transaction(() => {
-    insertMarket.run('Enterprise', '#0f62fe', 102);
-    insertMarket.run('Strategic',  '#8a3ffc', 78);
-    insertMarket.run('Horizon',    '#009d9a', 64);
-    insertMarket.run('Territory',  '#f1a21b', 40);
+    insertMarket.run('Enterprise', '#4d7bff', 102);
+    insertMarket.run('Strategic',  '#a855f7', 78);
+    insertMarket.run('Horizon',    '#6c63ff', 64);
+    insertMarket.run('Territory',  '#d946ef', 40);
   });
   markets();
 
@@ -44,11 +44,11 @@ function seed() {
     'INSERT INTO combs (name, market_id, color) VALUES (?, ?, ?)'
   );
   const combs = db.transaction(() => {
-    insertComb.run('Mid-Market Sales',       mkt['Enterprise'], '#0f62fe');
-    insertComb.run('Financial Services',     mkt['Enterprise'], '#0f62fe');
-    insertComb.run('Global Strategic Accts', mkt['Strategic'],  '#8a3ffc');
-    insertComb.run('Growth Markets',         mkt['Horizon'],    '#009d9a');
-    insertComb.run('SMB Territory',          mkt['Territory'],  '#f1a21b');
+    insertComb.run('Mid-Market Sales',       mkt['Enterprise'], '#4d7bff');
+    insertComb.run('Financial Services',     mkt['Enterprise'], '#4d7bff');
+    insertComb.run('Global Strategic Accts', mkt['Strategic'],  '#a855f7');
+    insertComb.run('Growth Markets',         mkt['Horizon'],    '#6c63ff');
+    insertComb.run('SMB Territory',          mkt['Territory'],  '#d946ef');
   });
   combs();
 
@@ -74,7 +74,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:null,
       email:'rachel.kim@ibm.com', slack:'@rachel.kim', location:'Austin, TX',
-      color:'#da1e28', is_current_user:0, joined_date:'2018-03-01'
+      color:'#c026d3', is_current_user:0, joined_date:'2018-03-01'
     });
     const rachel = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -84,7 +84,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:rachel,
       email:'marcus.park@ibm.com', slack:'@marcus.park', location:'San Francisco, CA',
-      color:'#8a3ffc', is_current_user:0, joined_date:'2019-07-15'
+      color:'#a855f7', is_current_user:0, joined_date:'2019-07-15'
     });
     const marcus = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -94,18 +94,18 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:marcus,
       email:'sofia.becker@ibm.com', slack:'@sofia.b', location:'Chicago, IL',
-      color:'#f1a21b', is_current_user:0, joined_date:'2020-01-10'
+      color:'#6c63ff', is_current_user:0, joined_date:'2020-01-10'
     });
     const sofia = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
     // ── Current user ──
     insertPerson.run({
-      first_name:'Jordan', last_name:'Lee', initials:'JL',
+      first_name:'Sydney', last_name:'Chin', initials:'SC',
       role:'Account Executive', role_type:'ae',
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:sofia,
-      email:'jordan.lee@ibm.com', slack:'@jordan.lee', location:'New York, NY',
-      color:'#0f62fe', is_current_user:1, joined_date:'2021-06-01'
+      email:'sydney.chin@ibm.com', slack:'@sydney.chin', location:'New York, NY',
+      color:'#4d7bff', is_current_user:1, joined_date:'2021-06-01'
     });
     const jordan = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -116,7 +116,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:sofia,
       email:'amir.tahir@ibm.com', slack:'@amir.t', location:'New York, NY',
-      color:'#009d9a', is_current_user:0, joined_date:'2021-06-01'
+      color:'#60a5fa', is_current_user:0, joined_date:'2021-06-01'
     });
     const amir = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -126,7 +126,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:sofia,
       email:'clara.nguyen@ibm.com', slack:'@clara.n', location:'Boston, MA',
-      color:'#009d9a', is_current_user:0, joined_date:'2022-01-15'
+      color:'#60a5fa', is_current_user:0, joined_date:'2022-01-15'
     });
 
     insertPerson.run({
@@ -135,7 +135,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:sofia,
       email:'greg.hall@ibm.com', slack:'@greg.h', location:'Chicago, IL',
-      color:'#0f62fe', is_current_user:0, joined_date:'2021-09-01'
+      color:'#4d7bff', is_current_user:0, joined_date:'2021-09-01'
     });
 
     insertPerson.run({
@@ -144,7 +144,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:sofia,
       email:'priya.shah@ibm.com', slack:'@priya.s', location:'Austin, TX',
-      color:'#0f62fe', is_current_user:0, joined_date:'2022-03-01'
+      color:'#4d7bff', is_current_user:0, joined_date:'2022-03-01'
     });
 
     // ── Enterprise technical / support ──
@@ -154,7 +154,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:marcus,
       email:'dev.patel@ibm.com', slack:'@dev.patel', location:'Austin, TX',
-      color:'#8a3ffc', is_current_user:0, joined_date:'2020-05-01'
+      color:'#a855f7', is_current_user:0, joined_date:'2020-05-01'
     });
     const dev = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -164,7 +164,7 @@ function seed() {
       market_id:mkt['Enterprise'], comb_id:combMap['Mid-Market Sales'],
       manager_id:marcus,
       email:'lisa.wang@ibm.com', slack:'@lisa.w', location:'Seattle, WA',
-      color:'#005d5d', is_current_user:0, joined_date:'2020-08-15'
+      color:'#4338ca', is_current_user:0, joined_date:'2020-08-15'
     });
     const lisa = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -174,7 +174,7 @@ function seed() {
       market_id:mkt['Territory'], comb_id:combMap['SMB Territory'],
       manager_id:sofia,
       email:'omar.diaz@ibm.com', slack:'@omar.d', location:'New York, NY',
-      color:'#6929c4', is_current_user:0, joined_date:'2023-02-01'
+      color:'#7e22ce', is_current_user:0, joined_date:'2023-02-01'
     });
     const omar = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -185,7 +185,7 @@ function seed() {
       market_id:mkt['Strategic'], comb_id:combMap['Global Strategic Accts'],
       manager_id:null,
       email:'james.wu@ibm.com', slack:'@james.wu', location:'New York, NY',
-      color:'#da1e28', is_current_user:0, joined_date:'2017-01-01'
+      color:'#c026d3', is_current_user:0, joined_date:'2017-01-01'
     });
     const james = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -195,7 +195,7 @@ function seed() {
       market_id:mkt['Strategic'], comb_id:combMap['Global Strategic Accts'],
       manager_id:james,
       email:'keisha.morris@ibm.com', slack:'@keisha.m', location:'Atlanta, GA',
-      color:'#8a3ffc', is_current_user:0, joined_date:'2022-05-01'
+      color:'#a855f7', is_current_user:0, joined_date:'2022-05-01'
     });
     const keisha = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -205,7 +205,7 @@ function seed() {
       market_id:mkt['Strategic'], comb_id:combMap['Global Strategic Accts'],
       manager_id:james,
       email:'dana.fox@ibm.com', slack:'@dana.f', location:'Chicago, IL',
-      color:'#8a3ffc', is_current_user:0, joined_date:'2021-11-01'
+      color:'#a855f7', is_current_user:0, joined_date:'2021-11-01'
     });
 
     insertPerson.run({
@@ -214,7 +214,7 @@ function seed() {
       market_id:mkt['Strategic'], comb_id:combMap['Global Strategic Accts'],
       manager_id:james,
       email:'neil.singh@ibm.com', slack:'@neil.s', location:'San Francisco, CA',
-      color:'#8a3ffc', is_current_user:0, joined_date:'2019-03-01'
+      color:'#a855f7', is_current_user:0, joined_date:'2019-03-01'
     });
 
     insertPerson.run({
@@ -223,7 +223,7 @@ function seed() {
       market_id:mkt['Strategic'], comb_id:combMap['Global Strategic Accts'],
       manager_id:james,
       email:'tanya.jones@ibm.com', slack:'@tanya.j', location:'Chicago, IL',
-      color:'#da1e28', is_current_user:0, joined_date:'2020-09-01'
+      color:'#c026d3', is_current_user:0, joined_date:'2020-09-01'
     });
     const tanya = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -233,7 +233,7 @@ function seed() {
       market_id:mkt['Strategic'], comb_id:combMap['Global Strategic Accts'],
       manager_id:james,
       email:'ben.rocha@ibm.com', slack:'@ben.r', location:'Dallas, TX',
-      color:'#6929c4', is_current_user:0, joined_date:'2021-04-01'
+      color:'#7e22ce', is_current_user:0, joined_date:'2021-04-01'
     });
     const ben = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -244,7 +244,7 @@ function seed() {
       market_id:mkt['Horizon'], comb_id:combMap['Growth Markets'],
       manager_id:null,
       email:'ingrid.larsen@ibm.com', slack:'@ingrid.l', location:'Toronto, ON',
-      color:'#da1e28', is_current_user:0, joined_date:'2016-06-01'
+      color:'#c026d3', is_current_user:0, joined_date:'2016-06-01'
     });
     const ingrid = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -254,7 +254,7 @@ function seed() {
       market_id:mkt['Horizon'], comb_id:combMap['Growth Markets'],
       manager_id:ingrid,
       email:'carlos.vega@ibm.com', slack:'@carlos.v', location:'Miami, FL',
-      color:'#009d9a', is_current_user:0, joined_date:'2020-02-01'
+      color:'#60a5fa', is_current_user:0, joined_date:'2020-02-01'
     });
     const carlos = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -264,7 +264,7 @@ function seed() {
       market_id:mkt['Horizon'], comb_id:combMap['Growth Markets'],
       manager_id:carlos,
       email:'yui.tanaka@ibm.com', slack:'@yui.t', location:'San Jose, CA',
-      color:'#009d9a', is_current_user:0, joined_date:'2022-08-01'
+      color:'#60a5fa', is_current_user:0, joined_date:'2022-08-01'
     });
 
     // ── Territory market ──
@@ -274,7 +274,7 @@ function seed() {
       market_id:mkt['Territory'], comb_id:combMap['SMB Territory'],
       manager_id:null,
       email:'sam.okonkwo@ibm.com', slack:'@sam.o', location:'Atlanta, GA',
-      color:'#e67e22', is_current_user:0, joined_date:'2018-11-01'
+      color:'#c026d3', is_current_user:0, joined_date:'2018-11-01'
     });
     const sam = db.prepare('SELECT last_insert_rowid() as id').get().id;
 
@@ -284,7 +284,7 @@ function seed() {
       market_id:mkt['Territory'], comb_id:combMap['SMB Territory'],
       manager_id:sam,
       email:'nina.hoffman@ibm.com', slack:'@nina.h', location:'Denver, CO',
-      color:'#f1a21b', is_current_user:0, joined_date:'2021-01-15'
+      color:'#6c63ff', is_current_user:0, joined_date:'2021-01-15'
     });
 
     return { jordan, sofia, marcus, rachel, amir, dev, lisa, omar, keisha, tanya, ben };
@@ -320,7 +320,7 @@ function seed() {
     VALUES (@name, @short_name, @industry, @stage, @value_usd, @owner_id, @notes, @champion, @renewal_date)
   `);
 
-  const jordan_id = p['jordan.lee@ibm.com'];
+  const jordan_id = p['sydney.chin@ibm.com'];
 
   const seedAccounts = db.transaction(() => {
     insertAcct.run({ name:'Acme Corp',         short_name:'Acme',     industry:'Manufacturing',      stage:'Closed Won',  value_usd:820000,  owner_id:jordan_id, notes:'Full watsonx deployment. Renewal in Q1. Champion: Sarah Mills (CTO).', champion:'Sarah Mills, CTO', renewal_date:'2025-01-15' });

@@ -126,7 +126,7 @@ function renderMarketSection(market, people) {
           <polygon points="7,0.5 13.5,4 13.5,12 7,15.5 0.5,12 0.5,4" fill="${market.color}"/>
         </svg>
         ${market.name} Market
-        <span class="exec-badge" style="background:${market.color};${market.name==='Territory'?'color:#161616':''}">${people.length} people</span>
+        <span class="exec-badge" style="background:${market.color}">${people.length} people</span>
       </div>
       <div class="hive-container" style="flex-direction:column;align-items:flex-start">
         ${hexRows}

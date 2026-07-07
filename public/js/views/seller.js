@@ -5,22 +5,36 @@ import { getPeople, getPerson } from '../api.js';
 import { openPerson } from '../panel.js';
 
 const ROLE_COLORS = {
-  exec:     '#da1e28',
-  director: '#8a3ffc',
-  manager:  '#f1a21b',
-  ae:       '#009d9a',
-  tse:      '#8a3ffc',
-  csm:      '#005d5d',
-  sdr:      '#6929c4',
-  partner:  '#da1e28',
-  other:    '#8d8d8d',
+  exec:     'var(--c-exec)',
+  director: 'var(--c-director)',
+  manager:  'var(--c-manager)',
+  ae:       'var(--c-peer)',
+  tse:      'var(--c-tech)',
+  csm:      'var(--c-csm)',
+  sdr:      'var(--c-sdr)',
+  partner:  'var(--c-partner)',
+  other:    'var(--c-other)',
+};
+
+// Role taxonomy — which function each role complements (mirrors the
+// Sales / Technical / Ecosystem hex-map role architecture)
+const ROLE_CATEGORY = {
+  exec:     'cat-sales',
+  director: 'cat-sales',
+  manager:  'cat-sales',
+  ae:       'cat-sales',
+  sdr:      'cat-sales',
+  tse:      'cat-tech',
+  csm:      'cat-tech',
+  partner:  'cat-support',
+  other:    'cat-support',
 };
 
 export async function renderSeller(container) {
   container.innerHTML = `
     <div class="page-header">
-      <div class="page-title">My Hive View</div>
-      <div class="page-sub">Your cell, your team, and where you fit in the larger comb</div>
+      <div class="page-title">Job View</div>
+      <div class="page-sub">Your management chain and the complementary roles in your cell</div>
     </div>
     <div class="tab-bar">
       <div class="tab active" data-tab="hier">Management Hierarchy</div>
@@ -75,16 +89,16 @@ async function renderHierarchy(me, people) {
 
   const legend = `
     <div class="role-legend">
-      <div class="rl-item"><div class="rl-dot" style="background:#da1e28"></div>VP / Exec</div>
-      <div class="rl-item"><div class="rl-dot" style="background:#8a3ffc"></div>Director</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--honey)"></div>Manager</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--ibm-blue)"></div>You</div>
-      <div class="rl-item"><div class="rl-dot" style="background:#009d9a"></div>Peer</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-exec)"></div>VP / Exec</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-director)"></div>Director</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-manager)"></div>Manager</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-you)"></div>You</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-peer)"></div>Peer</div>
     </div>
   `;
 
-  // Render chain (above current user)
-  const chainHtml = chain.slice(0, -1).map(p => `
+  // Render chain (above current user and above the "Your Manager" card, which is rendered separately below)
+  const chainHtml = chain.slice(0, -2).map(p => `
     <div class="org-level">
       ${orgCard(p, '')}
     </div>
@@ -127,10 +141,10 @@ async function renderCell(me, people) {
 
   const legend = `
     <div class="role-legend">
-      <div class="rl-item"><div class="rl-dot" style="background:var(--honey)"></div>Manager</div>
-      <div class="rl-item"><div class="rl-dot" style="background:var(--ibm-blue)"></div>You</div>
-      <div class="rl-item"><div class="rl-dot" style="background:#009d9a"></div>Peer AE</div>
-      <div class="rl-item"><div class="rl-dot" style="background:#8a3ffc"></div>Technical</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-manager)"></div>Manager</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-you)"></div>You</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-peer)"></div>Peer AE</div>
+      <div class="rl-item"><div class="rl-dot" style="background:var(--c-tech)"></div>Technical</div>
     </div>
   `;
 
@@ -150,7 +164,7 @@ async function renderCell(me, people) {
     <div class="hex-row">
       ${row.map(p => `
         <div class="hex-wrap" data-person-id="${p.id}">
-          <div class="hex" style="background:${p.is_current_user ? 'var(--ibm-blue)' : ROLE_COLORS[p.role_type] || '#8d8d8d'}">
+          <div class="hex ${ROLE_CATEGORY[p.role_type] || ''}" style="background:${p.is_current_user ? 'var(--c-you)' : ROLE_COLORS[p.role_type] || 'var(--c-other)'}">
             <div class="hex-name">${p.first_name} ${p.last_name.charAt(0)}.</div>
             <div class="hex-role">${p.role_type.toUpperCase()}</div>
           </div>
@@ -159,7 +173,15 @@ async function renderCell(me, people) {
     </div>
   `).join('');
 
-  container.innerHTML = legend + `<div class="hive-container">${hexRows}</div>`;
+  const catLegend = `
+    <div class="cat-legend">
+      <div class="cat-legend-item"><div class="cat-legend-marker cat-sales"></div>Sales Roles</div>
+      <div class="cat-legend-item"><div class="cat-legend-marker cat-tech"></div>Technical Roles</div>
+      <div class="cat-legend-item"><div class="cat-legend-marker cat-support"></div>Ecosystem Roles</div>
+    </div>
+  `;
+
+  container.innerHTML = legend + `<div class="hive-container">${hexRows}</div>` + catLegend;
 
   container.querySelectorAll('[data-person-id]').forEach(el => {
     el.addEventListener('click', () => openPerson(el.dataset.personId));
@@ -168,9 +190,9 @@ async function renderCell(me, people) {
 
 // ── Helper: single org card ────────────────────────────────────
 function orgCard(person, variant) {
-  const color = person.is_current_user ? 'var(--ibm-blue)' : ROLE_COLORS[person.role_type] || '#8d8d8d';
+  const color = person.is_current_user ? 'var(--c-you)' : ROLE_COLORS[person.role_type] || 'var(--c-other)';
   const badge = {
-    you:       `<div class="org-badge" style="background:#d0e2ff;color:var(--ibm-blue)">You</div>`,
+    you:       `<div class="org-badge" style="background:rgba(77,123,255,0.16);color:var(--c-you)">You</div>`,
     highlight: `<div class="org-badge">Your Manager</div>`,
     peer:      `<div class="org-badge">Peer</div>`,
     '':        `<div class="org-badge">${capitalize(person.role_type)}</div>`,

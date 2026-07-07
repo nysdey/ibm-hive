@@ -11,10 +11,11 @@
 <!-- TOP NAV -->
 <nav class="topnav">
   <div class="topnav-brand">
-    <svg class="logo-hex" viewBox="0 0 28 32" fill="none">
-      <polygon points="14,1 27,8 27,24 14,31 1,24 1,8" fill="#f1a21b" stroke="#f7c96e" stroke-width="1"/>
-      <text x="14" y="21" text-anchor="middle" font-size="12" font-weight="700" fill="#161616">H</text>
-    </svg>
+    <!-- Logo placeholder: drop your own square image at public/img/logo.png.
+         Until that file exists, this renders as a blue→purple gradient swatch. -->
+    <span class="logo-slot">
+      <img src="/img/logo.png" alt="" class="logo-img" onerror="this.remove()"/>
+    </span>
     IBM Hive
   </div>
   <div class="topnav-user">
@@ -30,20 +31,13 @@
     <div class="sidebar-section">
       <div class="sidebar-label">My Hive</div>
       <div class="nav-item active" data-view="seller">
-        <span class="nav-icon">⬡</span> Hive View
+        <span class="nav-icon">⬡</span> Job View
       </div>
       <div class="nav-item" data-view="network">
-        <span class="nav-icon">◎</span> My Network
+        <span class="nav-icon">◎</span> Connections
       </div>
       <div class="nav-item" data-view="accounts">
         <span class="nav-icon">◈</span> Accounts
-      </div>
-    </div>
-    <div class="sidebar-divider"></div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">Organization</div>
-      <div class="nav-item" data-view="exec">
-        <span class="nav-icon">⬡</span> Exec View
       </div>
     </div>
   </aside>
@@ -53,10 +47,14 @@
     <div id="view-seller" class="view active"></div>
     <div id="view-network" class="view"></div>
     <div id="view-accounts" class="view"></div>
-    <div id="view-exec" class="view"></div>
   </main>
 
 </div>
+
+<!-- FOOTER -->
+<footer class="app-footer">
+  Built by <strong>Sydney Chin</strong> for Intern Bobathon 2026
+</footer>
 
 <!-- DETAIL SLIDE-OVER PANEL -->
 <div class="panel-overlay" id="panelOverlay">
@@ -94,6 +92,49 @@
         </form>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT CONNECTION MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="connectionModal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Add Connection</div>
+      <div class="modal-close" id="modalClose">✕</div>
+    </div>
+    <form id="connectionForm" class="modal-body">
+      <label id="cfPersonRow">
+        Person
+        <select id="cfPerson"></select>
+      </label>
+      <label>
+        Relationship
+        <select id="cfRelationship">
+          <option value="close_ally">Close Ally</option>
+          <option value="partner">Partner</option>
+          <option value="cross_brand">Cross-brand</option>
+          <option value="client">Client</option>
+          <option value="peer">Peer</option>
+        </select>
+      </label>
+      <label>
+        How we met
+        <input id="cfHowWeMet" type="text" placeholder="e.g. Partner summit 2023"/>
+      </label>
+      <label>
+        Notes
+        <textarea id="cfNotes" rows="3" placeholder="Context, why this relationship matters…"></textarea>
+      </label>
+      <label class="modal-checkbox">
+        <input id="cfFollowup" type="checkbox"/> Needs follow-up
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="cfDelete" class="btn-danger" style="display:none">Delete</button>
+        <div style="flex:1"></div>
+        <button type="button" id="cfCancel" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
   </div>
 </div>
 

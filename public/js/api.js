@@ -30,6 +30,12 @@ async function patch(path, body) {
   return res.json();
 }
 
+async function del(path) {
+  const res = await fetch(BASE + path, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+  return res.json();
+}
+
 // ── People ──────────────────────────────────────────────────────
 export const getPeople   = (params = {}) => get('/people?' + new URLSearchParams(params));
 export const getPerson   = (id)          => get(`/people/${id}`);
@@ -42,6 +48,7 @@ export const getMarkets  = ()            => get('/markets');
 export const getNetwork       = (params = {}) => get('/network?' + new URLSearchParams(params));
 export const addConnection    = (body)        => post('/network', body);
 export const updateConnection = (id, body)    => patch(`/network/${id}`, body);
+export const deleteConnection = (id)          => del(`/network/${id}`);
 
 // ── Accounts ────────────────────────────────────────────────────
 export const getAccounts  = (params = {}) => get('/accounts?' + new URLSearchParams(params));

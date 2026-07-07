@@ -58,14 +58,15 @@ export async function openAccount(id) {
   _currentEntityType = 'account';
   _currentEntityId   = id;
 
+  // Concrete hex (not CSS vars) — setHeader appends an alpha suffix below.
   const stageColors = {
-    'Closed Won': '#198038',
-    'Negotiation': '#0f62fe',
-    'Proposal': '#8a3ffc',
-    'At Risk': '#da1e28',
-    'Prospect': '#8d8d8d',
+    'Closed Won': '#3b82f6',
+    'Negotiation': '#6366f1',
+    'Proposal': '#8b5cf6',
+    'At Risk': '#d946ef',
+    'Prospect': '#64748b',
   };
-  const col = stageColors[a.stage] || '#8d8d8d';
+  const col = stageColors[a.stage] || '#64748b';
 
   setHeader(
     a.name.slice(0, 2).toUpperCase(),

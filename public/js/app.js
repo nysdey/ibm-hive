@@ -5,7 +5,6 @@ import { getPeople }      from './api.js';
 import { renderSeller }   from './views/seller.js';
 import { renderNetwork }  from './views/network.js';
 import { renderAccounts } from './views/accounts.js';
-import { renderExec }     from './views/exec.js';
 
 // ── Boot: populate current user in nav ────────────────────────
 async function boot() {
@@ -26,7 +25,6 @@ const VIEW_RENDERERS = {
   seller:   renderSeller,
   network:  renderNetwork,
   accounts: renderAccounts,
-  exec:     renderExec,
 };
 
 const rendered = new Set();

@@ -5,11 +5,11 @@ import { getAccounts } from '../api.js';
 import { openAccount } from '../panel.js';
 
 const STAGE_COLORS = {
-  'Closed Won':  '#198038',
-  'Negotiation': '#0f62fe',
-  'Proposal':    '#8a3ffc',
-  'At Risk':     '#da1e28',
-  'Prospect':    '#8d8d8d',
+  'Closed Won':  'var(--stage-won)',
+  'Negotiation': 'var(--stage-negotiation)',
+  'Proposal':    'var(--stage-proposal)',
+  'At Risk':     'var(--stage-risk)',
+  'Prospect':    'var(--stage-prospect)',
 };
 
 const STAGES = ['Closed Won', 'Negotiation', 'Proposal', 'At Risk', 'Prospect'];
@@ -71,9 +71,9 @@ function renderStats(accounts) {
 
   el.innerHTML = `
     <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Accounts</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#198038">${fmt(closedWon)}</div><div class="stat-label">Closed Won</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--ibm-blue)">${fmt(pipeline)}</div><div class="stat-label">Active Pipeline</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#da1e28">${fmt(atRisk)}</div><div class="stat-label">At Risk</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--stage-won)">${fmt(closedWon)}</div><div class="stat-label">Closed Won</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--accent-blue)">${fmt(pipeline)}</div><div class="stat-label">Active Pipeline</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--stage-risk)">${fmt(atRisk)}</div><div class="stat-label">At Risk</div></div>
   `;
 }
 
@@ -91,7 +91,7 @@ function renderHive(accounts, activeStage) {
   hive.innerHTML = rows.map((row, ri) => `
     <div class="hex-row acct-row" style="${ri % 2 === 1 ? 'margin-left:44px' : ''}">
       ${row.map(a => {
-        const color   = STAGE_COLORS[a.stage] || '#8d8d8d';
+        const color   = STAGE_COLORS[a.stage] || 'var(--stage-prospect)';
         const dimmed  = activeStage && a.stage !== activeStage;
         const valStr  = a.value_usd ? '$' + (a.value_usd / 1000).toFixed(0) + 'K' : '—';
         return `
