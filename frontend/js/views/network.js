@@ -90,9 +90,12 @@ function spiralPositions(count) {
 }
 
 // ── Module state ──────────────────────────────────────────────────
-let _contacts   = [];
-let _container  = null;
-let _selected   = null;   // contact id for hover highlight
+let _contacts  = [];
+let _container = null;
+let _selected  = null;   // contact id currently selected (highlighted blue)
+let _drag      = null;   // { id, startX, startY, origCx, origCy, moved }
+let _ox        = 0;      // canvas-space "you" origin, refreshed each drawHive()
+let _oy        = 0;
 
 // ── Entry ─────────────────────────────────────────────────────────
 export function renderNetwork(container) {
@@ -112,6 +115,71 @@ export function renderNetwork(container) {
 
   document.getElementById('nwAddContact').addEventListener('click', () => openAddModal());
 
+  // Drag tracking lives at the window level and is wired once per view
+  // activation (renderNetwork only runs once — see app.js's view cache),
+  // rather than per-redraw, so it never stacks up duplicate listeners.
+  window.addEventListener('mousemove', onDragMove);
+  window.addEventListener('mouseup', onDragEnd);
+
+  drawHive();
+}
+
+// ── Drag handlers (wired once at window level) ────────────────────
+function onDragMove(e) {
+  if (!_drag) return;
+
+  const dx = e.clientX - _drag.startX;
+  const dy = e.clientY - _drag.startY;
+  if (!_drag.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+    _drag.moved = true;
+    document.body.style.userSelect = 'none'; // prevent text selection during drag
+  }
+  if (!_drag.moved) return;
+
+  const cx = _drag.origCx + dx;
+  const cy = _drag.origCy + dy;
+
+  // Move the hex group by translating it relative to its painted position
+  const g = document.querySelector(`.nw-hex-node[data-cid="${_drag.id}"]`);
+  if (g) {
+    const baseCx = parseFloat(g.dataset.cx);
+    const baseCy = parseFloat(g.dataset.cy);
+    g.setAttribute('transform', `translate(${(cx - baseCx).toFixed(1)},${(cy - baseCy).toFixed(1)})`);
+    g.style.cursor = 'grabbing';
+  }
+  // Rubber-band the connecting line
+  const line = document.getElementById(`nw-line-${_drag.id}`);
+  if (line) {
+    line.setAttribute('x2', cx.toFixed(1));
+    line.setAttribute('y2', cy.toFixed(1));
+  }
+}
+
+function onDragEnd(e) {
+  if (!_drag) return;
+  const { id, moved, startX, startY, origCx, origCy } = _drag;
+  _drag = null;
+  document.body.style.userSelect = '';
+
+  const g = document.querySelector(`.nw-hex-node[data-cid="${id}"]`);
+  if (g) g.style.cursor = 'grab';
+
+  if (!moved) {
+    // Tap with no movement → open the detail modal
+    const c = _contacts.find(x => x.id === id);
+    if (c) openDetailModal(c);
+    return;
+  }
+
+  // Real drag: save final position and redraw to commit it
+  const dx = e.clientX - startX;
+  const dy = e.clientY - startY;
+  const contact = _contacts.find(c => c.id === id);
+  if (contact) {
+    contact.x = (origCx + dx) - _ox;
+    contact.y = (origCy + dy) - _oy;
+    saveContacts(_contacts);
+  }
   drawHive();
 }
 
@@ -121,11 +189,18 @@ function drawHive() {
   if (!wrap) return;
 
   const contacts = _contacts;
-  const positions = spiralPositions(Math.max(contacts.length, 1));
+  const fallback = spiralPositions(Math.max(contacts.length, 1));
+
+  // A contact keeps its auto (spiral) slot until it's been dragged, at
+  // which point its own stored x/y — relative to the "you" origin —
+  // takes over permanently.
+  const positions = contacts.map((c, i) =>
+    (typeof c.x === 'number' && typeof c.y === 'number') ? { cx: c.x, cy: c.y } : fallback[i]
+  );
 
   // Compute bounding box
-  const allCX = [0, ...positions.slice(0, contacts.length).map(p => p.cx)];
-  const allCY = [0, ...positions.slice(0, contacts.length).map(p => p.cy)];
+  const allCX = [0, ...positions.map(p => p.cx)];
+  const allCY = [0, ...positions.map(p => p.cy)];
   const minX  = Math.min(...allCX);
   const minY  = Math.min(...allCY);
   const maxX  = Math.max(...allCX);
@@ -143,6 +218,7 @@ function drawHive() {
     const p  = positions[i];
     const opacity = 0.30;
     lines += `<line
+      id="nw-line-${c.id}"
       x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}"
       x2="${(ox + p.cx).toFixed(1)}" y2="${(oy + p.cy).toFixed(1)}"
       stroke="#4589ff" stroke-width="1.5" stroke-opacity="${opacity}"
@@ -204,7 +280,7 @@ function drawHive() {
     }
 
     hexes += `
-      <g class="nw-hex-node" data-cid="${c.id}" style="cursor:pointer">
+      <g class="nw-hex-node" data-cid="${c.id}" data-cx="${cx.toFixed(1)}" data-cy="${cy.toFixed(1)}" style="cursor:grab">
         <polygon points="${hexPts(cx, cy)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
         ${nameEl}
       </g>`;
@@ -228,21 +304,28 @@ function drawHive() {
       ${emptyHint}
     </svg>`;
 
-  // Events
+  _ox = ox;
+  _oy = oy;
+
+  // ── Per-node events ───────────────────────────────────────────
+  // hover highlight is handled by CSS .nw-hex-node:hover polygon — no redraw needed.
+  // mousedown starts a drag; the window-level mouseup decides click vs drag.
   wrap.querySelectorAll('.nw-hex-node').forEach(el => {
     const cid = el.dataset.cid;
-    el.addEventListener('mouseenter', () => {
-      _selected = cid;
-      drawHive();
-    });
-    el.addEventListener('mouseleave', () => {
-      _selected = null;
-      drawHive();
-    });
-    el.addEventListener('click', e => {
+
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault(); // stop browser native drag / text-select
       e.stopPropagation();
-      const c = _contacts.find(x => x.id === cid);
-      if (c) openDetailModal(c);
+      _drag = {
+        id:      cid,
+        startX:  e.clientX,
+        startY:  e.clientY,
+        origCx:  parseFloat(el.dataset.cx),
+        origCy:  parseFloat(el.dataset.cy),
+        moved:   false,
+      };
+      el.style.cursor = 'grabbing';
     });
   });
 }
@@ -336,6 +419,8 @@ function showModal({ title, contact, isNew }) {
       company:      document.getElementById('nwmCompany').value.trim(),
       relationship: document.getElementById('nwmRelationship').value,
       notes:        document.getElementById('nwmNotes').value.trim(),
+      // Preserve a dragged position — editing details shouldn't snap it back.
+      ...(typeof contact.x === 'number' ? { x: contact.x, y: contact.y } : {}),
     };
     if (isNew) {
       _contacts.push(updated);

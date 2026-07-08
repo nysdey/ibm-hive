@@ -4,6 +4,11 @@
    ───────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Hard-cap the page to the viewport so overflow:auto panels further down
+   (hive canvases, detail panels, scroll areas) actually scroll internally
+   instead of the whole body growing to fit their content. */
+html, body { height: 100%; overflow: hidden; }
+
 :root {
   /* IBM Carbon blue palette */
   --ibm-blue-10:  #edf5ff;
@@ -76,7 +81,6 @@ body {
   font-family: "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   font-size: 15px;
@@ -2128,83 +2132,93 @@ body {
   overflow: hidden;
 }
 
-/* Two-column: left=map, right=detail */
-.mt-layout {
+/* Two-column: hex clusters left, permanent detail panel right */
+.mt-hive-layout {
   display: flex;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
-.mt-left {
+.mt-hive-area {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 28px 32px 40px;
+  padding: 28px 32px 60px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 40px;
 }
 
-/* Team overview block */
-.mt-overview {
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  padding-bottom: 20px;
+/* One manager group. The manager sits alone as a header hex — it doesn't
+   need to tessellate with anything — and the reports below it form one
+   seamless, edge-to-edge honeycomb block. */
+.mth-cluster { display: flex; flex-direction: column; gap: 4px; }
+.mth-cluster-label {
+  font-size: 15px;
+  font-weight: 600;
 }
-.mt-overview-title {
-  font-size: 11px;
-  color: #525252;
+.mth-cluster-meta {
+  font-size: 13px;
   font-weight: 400;
-  margin-bottom: 14px;
+  color: var(--muted);
 }
-.mt-overview-grid {
-  display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
-}
-.mt-ov-block { display: flex; flex-direction: column; gap: 5px; }
-.mt-ov-label {
-  font-size: 10px;
-  color: #3a3a3a;
-  font-weight: 400;
-}
-.mt-ov-list { display: flex; flex-direction: column; gap: 2px; }
-.mt-ov-item { font-size: 12px; color: #8d8d8d; }
-.mt-ov-name { font-size: 12px; color: #c6c6c6; font-weight: 500; }
-
-/* Diagram + legend */
-.mt-diagram-wrap {
+.mth-manager-row { display: flex; justify-content: center; margin-bottom: 10px; }
+.mth-cluster-hexes {
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
-.mt-svg-scroll { overflow-x: auto; }
 
-/* Legend */
-.mt-legend {
+/* Hex rows — loose spacing, no tessellation */
+.mth-hex-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+
+/*
+ * Hex cell — outer wrapper clips to the hex shape and provides the border
+ * colour; inner .mth-hex insets by 1.5px (the border width) via margin
+ * and clips again to the same shape with the fill colour.
+ * This gives a perfectly even border on every edge with no blur.
+ */
+.mth-hex-wrap {
   display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-.mt-leg {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: #3a3a3a;
-}
-.mt-leg-line {
-  display: inline-block;
-  width: 28px;
-  height: 2px;
+  cursor: pointer;
+  width: 96px;
+  height: 83.14px;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background: rgba(255,255,255,0.70); /* border colour */
+  transition: background 0.12s, filter 0.12s;
   flex-shrink: 0;
 }
-.mt-leg-pair   { background: #4589ff; opacity: 0.6; }
-.mt-leg-report { background: rgba(255,255,255,0.18); }
+.mth-hex {
+  /* inset by 1.5px on all sides, re-clip to same hex shape for the fill */
+  margin: 1.5px;
+  flex: 1;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background: #2a2a2a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px 12px;
+  transition: filter 0.12s;
+}
+.mth-hex-wrap:hover .mth-hex { filter: brightness(1.35); }
+/* Manager hex: slightly thicker border (2.5px each side) */
+.mth-hex-manager { background: rgba(255,255,255,0.70); }
+.mth-hex-manager .mth-hex { margin: 2px; }
+.mth-hex-name {
+  font-size: 11px;
+  font-weight: 400;
+  color: #fff;
+  line-height: 1.3;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+.mth-hex-manager .mth-hex-name { font-size: 11px; font-weight: 500; }
+/* Selected: blue border */
+.mth-selected { background: #4589ff !important; }
+.mth-selected .mth-hex { background: #0d1f3c; }
 
 /* Right: detail panel */
 .mt-detail-panel {
-  width: 280px;
+  width: 300px;
   flex-shrink: 0;
   background: #0d0d0d;
   border-left: 1px solid rgba(255,255,255,0.07);
@@ -2217,11 +2231,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
-  font-size: 12px;
-  color: #3a3a3a;
+  padding: 32px 24px;
+  font-size: 13px;
+  color: var(--muted);
   text-align: center;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 /* Person detail content */
@@ -2229,36 +2243,38 @@ body {
   padding: 24px 20px 40px;
 }
 .mt-dp-name {
-  font-size: 18px;
-  font-weight: 300;
+  font-size: 19px;
+  font-weight: 400;
   color: #f4f4f4;
   letter-spacing: -0.2px;
   margin-bottom: 4px;
   line-height: 1.2;
 }
 .mt-dp-role {
-  font-size: 12px;
-  color: #525252;
+  font-size: 13px;
+  font-weight: 500;
   margin-bottom: 20px;
 }
 .mt-dp-row {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: 12px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  padding-top: 10px;
+  gap: 3px;
+  margin-bottom: 14px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 11px;
 }
 .mt-dp-label {
-  font-size: 10px;
-  color: #3a3a3a;
-  font-weight: 400;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
 }
 .mt-dp-value {
-  font-size: 12px;
-  color: #a8a8a8;
-  line-height: 1.5;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.55;
 }
+.mt-dp-link { color: var(--ibm-blue-40); text-decoration: none; }
+.mt-dp-link:hover { text-decoration: underline; }
 
 
 /* ── My Team page header ────────────────────────────────────────── */
@@ -2268,16 +2284,20 @@ body {
   flex-shrink: 0;
 }
 .mt-team-org {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 300;
   color: #f4f4f4;
   letter-spacing: -0.2px;
   margin-bottom: 4px;
 }
 .mt-team-seg {
-  font-size: 12px;
-  color: #525252;
+  font-size: 14px;
+  color: var(--muted);
 }
+
+/* ── View toggle (List / Hive) ──────────────────────────────────── */
+.mt-view-tabs { padding: 0 40px; }
+.mt-body-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 /* ── Scrollable body ────────────────────────────────────────────── */
 .mt-team-body {
@@ -2312,22 +2332,22 @@ body {
   min-width: 0;
 }
 .mt-group-name {
-  font-size: 15px;
-  font-weight: 400;
-  color: #e0e0e0;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 .mt-group-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .mt-group-meta {
-  font-size: 11px;
-  color: #3a3a3a;
+  font-size: 12.5px;
+  color: var(--muted);
   flex-shrink: 0;
 }
 .mt-group-count {
-  font-size: 11px;
-  color: #3a3a3a;
+  font-size: 12.5px;
+  color: var(--muted);
   flex-shrink: 0;
 }
 
@@ -2342,35 +2362,35 @@ body {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 6px 0;
+  padding: 7px 0;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   flex-wrap: wrap;
 }
 .mt-member-row:last-child { border-bottom: none; }
 .mt-member-name {
-  font-size: 13px;
-  color: #c6c6c6;
+  font-size: 15px;
+  color: var(--text-secondary);
   font-weight: 400;
-  min-width: 180px;
+  min-width: 190px;
   flex-shrink: 0;
 }
 .mt-member-me .mt-member-name { color: #78a9ff; }
 .mt-member-you {
-  font-size: 10px;
+  font-size: 11px;
   color: #4589ff;
-  opacity: 0.7;
+  opacity: 0.85;
   margin-left: 4px;
 }
 .mt-member-region {
-  font-size: 11px;
-  color: #525252;
-  min-width: 130px;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 140px;
   flex-shrink: 0;
 }
 .mt-member-territory {
-  font-size: 11px;
-  color: #3a3a3a;
-  line-height: 1.4;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2403,6 +2423,94 @@ body {
   display: inline-block;
   transform-origin: top center;
 }
+
+/* ── Org hive canvas scaffold ───────────────────────────────────── */
+.ohive-hive-canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 0 0 48px;
+}
+
+/* IBM root row — single centred hex */
+.ohive-root-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: -20.78px; /* overlap into the segment row */
+  position: relative;
+  z-index: 1;
+}
+
+/* Segment row — all segment hexes in one flat honeycomb row */
+.ohive-seg-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: -20.78px; /* overlap into the role area */
+}
+
+/* Expanded segment gets a highlighted ring */
+.ohive-node.ohive-seg-expanded .mth-hex {
+  box-shadow: 0 0 0 2px rgba(69,137,255,0.35);
+}
+
+/* Role clusters area — all expanded segment combs stacked */
+.ohive-roles-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding-top: 8px;
+  width: 100%;
+}
+
+/* Single segment's role cluster */
+.ohive-role-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Category-grouped cluster: sub-clusters side by side */
+.ohive-cat-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 32px;
+  justify-content: center;
+}
+.ohive-cat-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.ohive-cat-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: #525252;
+  padding-left: 4px;
+  margin-bottom: 2px;
+}
+
+/* Sub-text inside an org hex (client count, full role name) */
+.ohive-hex-sub {
+  display: block;
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  font-weight: 400;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+/* Root hex — slightly larger border weight */
+.ohive-hex-root .mth-hex-name { font-size: 16px; font-weight: 600; }
+
+/* Segment hex */
+.ohive-hex-seg .mth-hex-name { font-size: 12px; font-weight: 500; }
+
+/* Role function hex — abbr prominent, full name as sub */
+.ohive-node[data-node-type="function"] .mth-hex-name { font-size: 13px; font-weight: 600; }
 
 /* Zoom controls — top-right corner of hive area */
 .ohive-zoom-controls {
@@ -3335,4 +3443,9 @@ body {
   transition: background 0.1s, color 0.1s;
 }
 .nw-modal-delete:hover { background: rgba(255,80,80,0.1); }
+
+/* Hex node hover & cursor */
+.nw-hex-node { cursor: grab; }
+.nw-hex-node:hover polygon { filter: brightness(1.4); }
+.nw-hex-node:active { cursor: grabbing; }
 

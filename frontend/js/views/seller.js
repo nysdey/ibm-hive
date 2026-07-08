@@ -4,6 +4,13 @@
  * IBM Infrastructure – Select-T Activate
  * Four manager groups: Adrian Meghoo (BTS), Rob Mason (TSS),
  * Chris Kennedy (BTSS), Darryl Pope (Manager)
+ *
+ * Two ways to look at the same roster:
+ *  - List View  — grouped rows, name / region / territory
+ *  - Hive View  — each group as a tessellated cluster of hexagons
+ *                 (same hex styling as the Organization tab). Every
+ *                 hex shows just a name; click one for the full detail
+ *                 (territory, region, contact) in the side panel.
  */
 
 // ── Team data ─────────────────────────────────────────────────────
@@ -94,6 +101,15 @@ const MANAGER_GROUPS = [
   },
 ];
 
+function emailFor(name) {
+  return name.toLowerCase().replace(/[^a-z\s]/g, '').trim().split(/\s+/).join('.') + '@ibm.com';
+}
+
+const ROW_SIZE = 4;
+
+// ── View state ──────────────────────────────────────────────────
+let _activeView = 'list'; // 'list' | 'hive'
+
 // ── Entry ─────────────────────────────────────────────────────────
 export async function renderSeller(container) {
   container.innerHTML = `
@@ -102,11 +118,38 @@ export async function renderSeller(container) {
         <div class="mt-team-org">${ORG_META.name}</div>
         <div class="mt-team-seg">${ORG_META.segment}</div>
       </div>
-      <div class="mt-team-body">
-        ${MANAGER_GROUPS.map(g => renderGroup(g)).join('')}
+      <div class="tab-bar mt-view-tabs">
+        <div class="tab active" data-mt-view="list">List View</div>
+        <div class="tab" data-mt-view="hive">Hive View</div>
       </div>
+      <div id="mtBody" class="mt-body-wrap"></div>
     </div>
   `;
+
+  container.querySelectorAll('[data-mt-view]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      container.querySelectorAll('[data-mt-view]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      _activeView = tab.dataset.mtView;
+      renderBody();
+    });
+  });
+
+  renderBody();
+}
+
+function renderBody() {
+  const body = document.getElementById('mtBody');
+  if (!body) return;
+  body.innerHTML = _activeView === 'list' ? listViewHtml() : hiveViewHtml();
+  if (_activeView === 'hive') wireHiveView();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// List View
+// ═══════════════════════════════════════════════════════════════
+function listViewHtml() {
+  return `<div class="mt-team-body">${MANAGER_GROUPS.map(g => renderGroup(g)).join('')}</div>`;
 }
 
 function renderGroup(g) {
@@ -134,5 +177,124 @@ function renderGroup(g) {
         <div class="mt-group-count">${g.members.length} ${g.members.length === 1 ? 'report' : 'reports'}</div>
       </div>
       <div class="mt-member-list">${memberRows}</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Hive View
+// ═══════════════════════════════════════════════════════════════
+function hiveViewHtml() {
+  return `
+    <div class="mt-hive-layout">
+      <div class="mt-hive-area" id="mtHiveArea">
+        ${MANAGER_GROUPS.map(g => renderCluster(g)).join('')}
+      </div>
+      <div class="mt-detail-panel" id="mtDetail">${emptyDetailHtml()}</div>
+    </div>
+  `;
+}
+
+function emptyDetailHtml() {
+  return `
+    <div class="mt-detail-empty">
+      Click a hex to see that person's role, territory, and contact info.
+    </div>`;
+}
+
+function hexHtml(name, opts) {
+  const { color, isManager, key } = opts;
+  return `
+    <div class="mth-hex-wrap${isManager ? ' mth-hex-manager' : ''}" data-member-key="${key}"
+         style="background:${color}">
+      <div class="mth-hex">
+        <div class="mth-hex-name">${name}</div>
+      </div>
+    </div>`;
+}
+
+// Border color follows the Organization tab's convention exactly:
+// white by default, purple only for "you", regardless of tier — hierarchy
+// is conveyed by border weight and text size/weight, not by hue.
+function hexColor(name) {
+  return name === 'Sydney Chin' ? '#a855f7' : 'rgba(255,255,255,0.7)';
+}
+
+function renderCluster(g) {
+  // The manager sits alone above the comb — it doesn't need to tessellate
+  // with anything, so it lives outside the interlocking hex-row grid.
+  const managerRow = `
+    <div class="mth-manager-row">
+      ${hexHtml(g.manager, { color: hexColor(g.manager), isManager: true, key: `${g.id}:manager` })}
+    </div>`;
+
+  const rows = [];
+  for (let i = 0; i < g.members.length; i += ROW_SIZE) {
+    rows.push(g.members.slice(i, i + ROW_SIZE));
+  }
+  const memberRowsHtml = rows.map(row => `
+    <div class="mth-hex-row" style="justify-content:center">
+      ${row.map(m => {
+        const key = `${g.id}:${g.members.indexOf(m)}`;
+        return hexHtml(m.name, { color: hexColor(m.name), isManager: false, key });
+      }).join('')}
+    </div>`).join('');
+
+  const meta = [g.product ? `Product: ${g.product}` : null, g.market ? `Market: ${g.market}` : null]
+    .filter(Boolean).join(' · ');
+
+  return `
+    <div class="mth-cluster">
+      <div class="mth-cluster-label" style="color:${g.accentColor}">
+        ${g.manager} · ${g.title}${meta ? ` <span class="mth-cluster-meta">— ${meta}</span>` : ''}
+      </div>
+      ${managerRow}
+      <div class="mth-cluster-hexes">
+        ${memberRowsHtml}
+      </div>
+    </div>`;
+}
+
+function wireHiveView() {
+  const area = document.getElementById('mtHiveArea');
+  if (!area) return;
+  area.querySelectorAll('[data-member-key]').forEach(el => {
+    el.addEventListener('click', () => {
+      area.querySelectorAll('[data-member-key]').forEach(o => o.classList.remove('mth-selected'));
+      el.classList.add('mth-selected');
+      showMemberDetail(el.dataset.memberKey);
+    });
+  });
+}
+
+function showMemberDetail(key) {
+  const panel = document.getElementById('mtDetail');
+  if (!panel) return;
+
+  const [groupId, rest] = key.split(':');
+  const g = MANAGER_GROUPS.find(x => x.id === groupId);
+  if (!g) return;
+
+  const isManager = rest === 'manager';
+  const member = isManager ? { name: g.manager, territory: null, region: null } : g.members[Number(rest)];
+  const isYou = member.name === 'Sydney Chin';
+  const email = emailFor(member.name);
+
+  panel.innerHTML = `
+    <div class="mt-dp-content">
+      <div class="mt-dp-name">${member.name}${isYou ? ' <span class="odp-you-badge" style="margin-left:6px">You</span>' : ''}</div>
+      <div class="mt-dp-role" style="color:${g.accentColor}">${isManager ? g.title : `Reports to ${g.manager}`}</div>
+
+      ${!isManager ? mtRow('Team', `${g.manager} — ${g.title}`) : ''}
+      ${member.region ? mtRow('Region', member.region) : ''}
+      ${member.territory ? mtRow('Territory', member.territory) : ''}
+      ${mtRow('Email', `<a class="mt-dp-link" href="mailto:${email}">${email}</a>`)}
+    </div>`;
+}
+
+function mtRow(label, value) {
+  return `
+    <div class="mt-dp-row">
+      <div class="mt-dp-label">${label}</div>
+      <div class="mt-dp-value">${value}</div>
     </div>`;
 }
