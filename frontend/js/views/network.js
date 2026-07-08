@@ -1,41 +1,59 @@
 /**
- * network.js — Network tab
+ * network.js — My Combs tab
  *
- * Purpose: "Who do I know?"
- * Layout: full SVG honeycomb, you at center, contacts as hex nodes,
- *         lines connecting each contact back to you.
- * Click a contact hex → modal with editable details.
- * Contacts are custom-created (no dependency on backend people).
- * Data stored in localStorage under 'ibm_hive_network_v2'.
+ * Features:
+ *   - Collapsible left sidebar: search, comb list, "Add a comb"
+ *   - Collapse/expand edge tab
+ *   - Zoomable/pannable SVG canvas (wheel + toolbar buttons)
+ *   - Bee-to-bee mutual connection lines
+ *   - Floating "Add a bee" FAB
+ *   - Right detail panel: bee profile with notes log, combs membership, connections
+ *   - All Bees view: hive ↔ list toggle
  */
 
 // ── Persistence ───────────────────────────────────────────────────
-const STORE_KEY = 'ibm_hive_network_v2';
+const STORE_KEY   = 'ibm_hive_combs_v1';
+const ALL_BEES_ID = '__all_bees__';
 
-function loadContacts() {
+function loadData() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.combs)) return parsed;
+    }
   } catch {}
-  return [];
-  // Each contact: { id, name, role, company, relationship, notes }
+  return { combs: [] };
 }
 
-function saveContacts(contacts) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(contacts));
+function saveData(data) {
+  const toSave = { combs: data.combs.filter(c => c.id !== ALL_BEES_ID) };
+  localStorage.setItem(STORE_KEY, JSON.stringify(toSave));
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
+function combsWithAllBees(data) {
+  const realCombs = data.combs.filter(c => c.id !== ALL_BEES_ID);
+  // Deduplicate bees for All Bees view (a bee can appear in multiple combs)
+  const seen = new Set();
+  const allBees = realCombs.flatMap(c => c.bees).filter(b => {
+    if (seen.has(b.id)) return false;
+    seen.add(b.id);
+    return true;
+  });
+  return [
+    { id: ALL_BEES_ID, name: 'All Bees', bees: allBees, _virtual: true },
+    ...realCombs,
+  ];
 }
 
-// ── Hex geometry (flat-top, same as org.js) ───────────────────────
-const R   = 60;                        // hex radius
-const W   = R * 2;                     // hex width  (flat-top)
-const H   = R * Math.sqrt(3);          // hex height (flat-top)
-const GAP = 14;                        // gap between hexes
+function uid() { return Math.random().toString(36).slice(2, 10); }
 
-// Flat-top hex points: angle offset = 0
+// ── Hex geometry (flat-top) ───────────────────────────────────────
+const R   = 60;
+const W   = R * 2;
+const H   = R * Math.sqrt(3);
+const GAP = 14;
+
 function hexPts(cx, cy, r) {
   r = r || R;
   return Array.from({ length: 6 }, (_, i) => {
@@ -44,44 +62,19 @@ function hexPts(cx, cy, r) {
   }).join(' ');
 }
 
-// Spiral positions around a center hex (flat-top axial coords)
-// Returns [{cx, cy}] for up to N surrounding slots
 function spiralPositions(count) {
-  const step = W + GAP;          // center-to-center horizontal
-  const vert = H + GAP;          // center-to-center vertical
-  // Six directions in flat-top offset coords
-  const dirs = [
-    [step,        0         ],   // E
-    [step * 0.5,  vert * 0.5],   // SE (approx cube-to-offset)
-    [-step * 0.5, vert * 0.5],   // SW
-    [-step,       0         ],   // W
-    [-step * 0.5, -vert * 0.5],  // NW
-    [step * 0.5,  -vert * 0.5],  // NE
-  ];
-
-  // Use flat-top cube coordinate ring generation
-  // ring r = r*(step) from center
+  const step = W + GAP;
+  const vert = H + GAP;
   const positions = [];
   let ring = 1;
   while (positions.length < count) {
-    // Start at top-right of ring
     let q = ring, r2 = 0, s = -ring;
-    const cubeToXY = (q, r2) => {
-      const x = step * q + step * 0.5 * r2;
-      const y = vert * 0.5 * r2;
-      return { cx: x, cy: y };
-    };
-    // Walk the ring in 6 directions
-    const ringDirs = [
-      [0,  1, -1],  [-1, 1, 0],  [-1, 0, 1],
-      [0, -1,  1],  [1, -1, 0],  [1,  0, -1],
-    ];
+    const cubeToXY = (q, r2) => ({ cx: step * q + step * 0.5 * r2, cy: vert * 0.5 * r2 });
+    const dirs = [[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1],[1,-1,0],[1,0,-1]];
     for (let d = 0; d < 6; d++) {
       for (let i = 0; i < ring; i++) {
         positions.push(cubeToXY(q, r2));
-        q += ringDirs[d][0];
-        r2 += ringDirs[d][1];
-        s += ringDirs[d][2];
+        q += dirs[d][0]; r2 += dirs[d][1]; s += dirs[d][2];
       }
     }
     ring++;
@@ -90,56 +83,277 @@ function spiralPositions(count) {
 }
 
 // ── Module state ──────────────────────────────────────────────────
-let _contacts  = [];
-let _container = null;
-let _selected  = null;   // contact id currently selected (highlighted blue)
-let _drag      = null;   // { id, startX, startY, origCx, origCy, moved }
-let _ox        = 0;      // canvas-space "you" origin, refreshed each drawHive()
-let _oy        = 0;
+let _data             = { combs: [] };
+let _activeComb       = ALL_BEES_ID;
+let _container        = null;
+let _selected         = null;
+let _drag             = null;
+let _ox               = 0;
+let _oy               = 0;
+let _sidebarCollapsed = false;
+let _detailBee        = null;
+let _detailOwner      = null;
+let _searchQuery      = '';
+let _scale            = 1;          // zoom level
+let _pan              = { x: 0, y: 0 }; // canvas pan
+let _isPanning        = false;
+let _panStart         = { x: 0, y: 0 };
+let _allBeesView      = 'hive';     // 'hive' | 'list'
 
 // ── Entry ─────────────────────────────────────────────────────────
 export function renderNetwork(container) {
-  _container = container;
-  _contacts  = loadContacts();
-  _selected  = null;
+  _container   = container;
+  _data        = loadData();
+  _selected    = null;
+  _drag        = null;
+  _detailBee   = null;
+  _detailOwner = null;
+
+  if (!_activeComb) _activeComb = ALL_BEES_ID;
 
   container.innerHTML = `
     <div class="nw-page">
-      <div class="nw-toolbar">
-        <span class="nw-toolbar-title">My Network</span>
-        <button class="nw-add-btn" id="nwAddContact">+ Add contact</button>
+      <div class="nw-body">
+
+        <!-- Left sidebar -->
+        <div class="nw-combs-sidebar${_sidebarCollapsed ? ' collapsed' : ''}" id="nwCombsSidebar">
+          <div class="nw-sidebar-header">
+            <span class="nw-sidebar-title">My Combs</span>
+          </div>
+          <div class="nw-sidebar-search-wrap">
+            <svg class="nw-sidebar-search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <circle cx="6.5" cy="6.5" r="5" stroke="#525252" stroke-width="1.5"/>
+              <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="#525252" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input class="nw-sidebar-search" id="nwSearch" type="text"
+              placeholder="Search bees…" value="${esc(_searchQuery)}"/>
+          </div>
+          <div class="nw-comb-list" id="nwCombList"></div>
+          <div class="nw-sidebar-actions">
+            <button class="nw-sidebar-action-btn" id="nwAddBee">+ Add a bee</button>
+            <button class="nw-sidebar-action-btn" id="nwNewComb">+ Add a comb</button>
+          </div>
+        </div>
+
+        <!-- Collapse/expand edge tab -->
+        <button class="nw-sidebar-edge-tab" id="nwEdgeTab"
+          title="${_sidebarCollapsed ? 'Expand' : 'Collapse'} sidebar">
+          <span id="nwEdgeTabIcon">${_sidebarCollapsed ? '›' : '‹'}</span>
+        </button>
+
+        <!-- Canvas + detail panel wrapper -->
+        <div class="nw-canvas-detail-wrap">
+
+          <!-- Zoom toolbar -->
+          <div class="nw-zoom-bar">
+            <button class="nw-zoom-btn" id="nwZoomIn"  title="Zoom in">+</button>
+            <button class="nw-zoom-btn" id="nwZoomOut" title="Zoom out">−</button>
+            <button class="nw-zoom-btn" id="nwZoomReset" title="Reset zoom" style="font-size:10px;padding:0 6px">FIT</button>
+          </div>
+
+          <!-- Hive / List toggle (only shown for All Bees) -->
+          <div class="nw-view-toggle" id="nwViewToggle"
+            style="display:${_activeComb === ALL_BEES_ID ? 'flex' : 'none'}">
+            <button class="nw-view-toggle-btn${_allBeesView === 'hive' ? ' active' : ''}"
+              id="nwToggleHive">Hive</button>
+            <button class="nw-view-toggle-btn${_allBeesView === 'list' ? ' active' : ''}"
+              id="nwToggleList">List</button>
+          </div>
+
+          <div class="nw-canvas-wrap" id="nwCanvasWrap"></div>
+
+          <!-- Bee detail panel -->
+          <div class="nw-detail-panel" id="nwDetailPanel">
+            <div class="nw-dp-header" id="nwDpHeader">
+              <img class="nw-dp-hex" id="nwDpHex" src="/img/bee.svg" alt="bee"/>
+              <div class="nw-dp-title">
+                <div class="nw-dp-name" id="nwDpName">—</div>
+                <div class="nw-dp-role" id="nwDpRole">—</div>
+                <div class="nw-dp-rel"  id="nwDpRel" style="display:none"></div>
+              </div>
+              <button class="nw-dp-close" id="nwDpClose">✕</button>
+            </div>
+            <div class="nw-dp-body" id="nwDpBody"></div>
+          </div>
+
+        </div>
       </div>
-      <div class="nw-canvas-wrap" id="nwCanvasWrap"></div>
     </div>
   `;
 
-  document.getElementById('nwAddContact').addEventListener('click', () => openAddModal());
+  // Edge tab
+  document.getElementById('nwEdgeTab').addEventListener('click', () => {
+    _sidebarCollapsed = !_sidebarCollapsed;
+    document.getElementById('nwCombsSidebar').classList.toggle('collapsed', _sidebarCollapsed);
+    document.getElementById('nwEdgeTab').title = _sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    document.getElementById('nwEdgeTabIcon').textContent = _sidebarCollapsed ? '›' : '‹';
+  });
 
-  // Drag tracking lives at the window level and is wired once per view
-  // activation (renderNetwork only runs once — see app.js's view cache),
-  // rather than per-redraw, so it never stacks up duplicate listeners.
-  window.addEventListener('mousemove', onDragMove);
-  window.addEventListener('mouseup', onDragEnd);
+  // Search
+  document.getElementById('nwSearch').addEventListener('input', e => {
+    _searchQuery = e.target.value;
+    renderSidebar();
+    renderCanvas();
+  });
 
-  drawHive();
+  // Add a comb
+  document.getElementById('nwNewComb').addEventListener('click', () => openNewCombModal());
+
+  // Add a bee FAB
+  document.getElementById('nwAddBee').addEventListener('click', () => {
+    const realCombs = _data.combs.filter(c => c.id !== ALL_BEES_ID);
+    if (_activeComb === ALL_BEES_ID && realCombs.length === 0) {
+      openNewCombModal(true);
+    } else {
+      openAddBeeModal();
+    }
+  });
+
+  // Zoom buttons
+  document.getElementById('nwZoomIn').addEventListener('click', () => adjustZoom(0.2));
+  document.getElementById('nwZoomOut').addEventListener('click', () => adjustZoom(-0.2));
+  document.getElementById('nwZoomReset').addEventListener('click', () => { _scale = 1; _pan = { x: 0, y: 0 }; renderCanvas(); });
+
+  // Hive/List toggle
+  document.getElementById('nwToggleHive').addEventListener('click', () => {
+    _allBeesView = 'hive';
+    document.getElementById('nwToggleHive').classList.add('active');
+    document.getElementById('nwToggleList').classList.remove('active');
+    renderCanvas();
+  });
+  document.getElementById('nwToggleList').addEventListener('click', () => {
+    _allBeesView = 'list';
+    document.getElementById('nwToggleList').classList.add('active');
+    document.getElementById('nwToggleHive').classList.remove('active');
+    renderCanvas();
+  });
+
+  // Close detail panel clicking canvas background
+  document.getElementById('nwCanvasWrap').addEventListener('click', e => {
+    if (e.target === document.getElementById('nwCanvasWrap')) closeDetailPanel();
+  });
+
+  document.getElementById('nwDpClose').addEventListener('click', closeDetailPanel);
+
+  // Wheel zoom
+  const canvasWrap = document.getElementById('nwCanvasWrap');
+  canvasWrap.addEventListener('wheel', e => {
+    e.preventDefault();
+    adjustZoom(e.deltaY < 0 ? 0.12 : -0.12);
+  }, { passive: false });
+
+  // Canvas pan (middle-click or space+drag — space not needed, just middle click)
+  canvasWrap.addEventListener('mousedown', e => {
+    if (e.button === 1) { // middle mouse
+      e.preventDefault();
+      _isPanning = true;
+      _panStart  = { x: e.clientX - _pan.x, y: e.clientY - _pan.y };
+      canvasWrap.style.cursor = 'grabbing';
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    onDragMove(e);
+    if (_isPanning) {
+      _pan = { x: e.clientX - _panStart.x, y: e.clientY - _panStart.y };
+      applyTransform();
+    }
+  });
+  window.addEventListener('mouseup', e => {
+    onDragEnd(e);
+    if (_isPanning && e.button === 1) {
+      _isPanning = false;
+      canvasWrap.style.cursor = '';
+    }
+  });
+
+  renderSidebar();
+  renderCanvas();
 }
 
-// ── Drag handlers (wired once at window level) ────────────────────
+// ── Zoom helpers ──────────────────────────────────────────────────
+function adjustZoom(delta) {
+  _scale = Math.min(3, Math.max(0.2, _scale + delta));
+  applyTransform();
+}
+
+function applyTransform() {
+  const g = document.getElementById('nwHiveG');
+  if (g) {
+    g.setAttribute('transform', `translate(${_pan.x},${_pan.y}) scale(${_scale})`);
+  }
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('nwCombList');
+  if (!list) return;
+
+  const combs = combsWithAllBees(_data);
+  const q = _searchQuery.trim().toLowerCase();
+
+  list.innerHTML = combs.map(comb => {
+    const isActive  = comb.id === _activeComb;
+    const isVirtual = comb._virtual;
+    const matchCount = q
+      ? comb.bees.filter(b => b.name.toLowerCase().includes(q)).length
+      : comb.bees.length;
+
+    return `
+      <div class="nw-comb-item${isActive ? ' active' : ''}${isVirtual ? ' nw-comb-all' : ''}"
+           data-comb-id="${comb.id}">
+        <div class="nw-comb-item-name">${esc(comb.name)}</div>
+        <div class="nw-comb-item-count">${matchCount} ${matchCount === 1 ? 'bee' : 'bees'}${q && !isVirtual ? ' match' : ''}</div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('.nw-comb-item').forEach(el => {
+    el.addEventListener('click', () => {
+      _activeComb = el.dataset.combId;
+      _selected   = null;
+      closeDetailPanel();
+      renderSidebar();
+      // Show/hide toggle for All Bees
+      const toggle = document.getElementById('nwViewToggle');
+      if (toggle) toggle.style.display = _activeComb === ALL_BEES_ID ? 'flex' : 'none';
+      renderCanvas();
+    });
+
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      if (el.dataset.combId === ALL_BEES_ID) return;
+      const comb = _data.combs.find(c => c.id === el.dataset.combId);
+      if (comb) openEditCombModal(comb);
+    });
+  });
+}
+
+// ── Canvas router ─────────────────────────────────────────────────
+function renderCanvas() {
+  if (_activeComb === ALL_BEES_ID && _allBeesView === 'list') {
+    drawListView();
+  } else {
+    drawHive();
+  }
+}
+
+// ── Drag handlers (hex node dragging) ────────────────────────────
 function onDragMove(e) {
   if (!_drag) return;
-
   const dx = e.clientX - _drag.startX;
   const dy = e.clientY - _drag.startY;
   if (!_drag.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
     _drag.moved = true;
-    document.body.style.userSelect = 'none'; // prevent text selection during drag
+    document.body.style.userSelect = 'none';
   }
   if (!_drag.moved) return;
 
-  const cx = _drag.origCx + dx;
-  const cy = _drag.origCy + dy;
+  // Adjust for zoom
+  const adx = dx / _scale;
+  const ady = dy / _scale;
+  const cx = _drag.origCx + adx;
+  const cy = _drag.origCy + ady;
 
-  // Move the hex group by translating it relative to its painted position
   const g = document.querySelector(`.nw-hex-node[data-cid="${_drag.id}"]`);
   if (g) {
     const baseCx = parseFloat(g.dataset.cx);
@@ -147,7 +361,6 @@ function onDragMove(e) {
     g.setAttribute('transform', `translate(${(cx - baseCx).toFixed(1)},${(cy - baseCy).toFixed(1)})`);
     g.style.cursor = 'grabbing';
   }
-  // Rubber-band the connecting line
   const line = document.getElementById(`nw-line-${_drag.id}`);
   if (line) {
     line.setAttribute('x2', cx.toFixed(1));
@@ -164,98 +377,158 @@ function onDragEnd(e) {
   const g = document.querySelector(`.nw-hex-node[data-cid="${id}"]`);
   if (g) g.style.cursor = 'grab';
 
+  const ownerComb = _activeComb === ALL_BEES_ID
+    ? _data.combs.find(c => c.bees.some(b => b.id === id))
+    : activeComb();
+  if (!ownerComb) return;
+
   if (!moved) {
-    // Tap with no movement → open the detail modal
-    const c = _contacts.find(x => x.id === id);
-    if (c) openDetailModal(c);
+    const bee = ownerComb.bees.find(b => b.id === id);
+    if (bee) openDetailPanel(bee, ownerComb);
     return;
   }
 
-  // Real drag: save final position and redraw to commit it
-  const dx = e.clientX - startX;
-  const dy = e.clientY - startY;
-  const contact = _contacts.find(c => c.id === id);
-  if (contact) {
-    contact.x = (origCx + dx) - _ox;
-    contact.y = (origCy + dy) - _oy;
-    saveContacts(_contacts);
+  const dx = (e.clientX - startX) / _scale;
+  const dy = (e.clientY - startY) / _scale;
+  const bee = ownerComb.bees.find(b => b.id === id);
+  if (bee) {
+    bee.x = (origCx + dx) - _ox;
+    bee.y = (origCy + dy) - _oy;
+    saveData(_data);
   }
   drawHive();
 }
 
-// ── Draw SVG hive ─────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────
+function activeComb() {
+  if (_activeComb === ALL_BEES_ID) return combsWithAllBees(_data)[0];
+  return _data.combs.find(c => c.id === _activeComb) || null;
+}
+
+function relColor(rel) {
+  const map = {
+    'Mentor':           '#a855f7',
+    'Technical Expert': '#6c63ff',
+    'Manager':          '#d946ef',
+    'Counterpart':      '#60a5fa',
+    'Partner':          '#e879f9',
+    'Peer':             '#4589ff',
+    'Client':           '#34d399',
+    'Other':            '#525252',
+  };
+  return map[rel] || '#525252';
+}
+
+/** Return all real combs a bee (by id) belongs to */
+function combsForBee(beeId) {
+  return _data.combs.filter(c => c.id !== ALL_BEES_ID && c.bees.some(b => b.id === beeId));
+}
+
+// ── Draw: SVG hive ────────────────────────────────────────────────
 function drawHive() {
   const wrap = document.getElementById('nwCanvasWrap');
   if (!wrap) return;
+  wrap.classList.remove('list-mode');
 
-  const contacts = _contacts;
-  const fallback = spiralPositions(Math.max(contacts.length, 1));
+  const comb = activeComb();
+  const q    = _searchQuery.trim().toLowerCase();
+  let bees   = comb ? [...comb.bees] : [];
+  if (q) bees = bees.filter(b => b.name.toLowerCase().includes(q));
 
-  // A contact keeps its auto (spiral) slot until it's been dragged, at
-  // which point its own stored x/y — relative to the "you" origin —
-  // takes over permanently.
-  const positions = contacts.map((c, i) =>
-    (typeof c.x === 'number' && typeof c.y === 'number') ? { cx: c.x, cy: c.y } : fallback[i]
+  const fallback  = spiralPositions(Math.max(bees.length, 1));
+  const positions = bees.map((b, i) =>
+    (typeof b.x === 'number' && typeof b.y === 'number') ? { cx: b.x, cy: b.y } : fallback[i]
   );
 
-  // Compute bounding box
   const allCX = [0, ...positions.map(p => p.cx)];
   const allCY = [0, ...positions.map(p => p.cy)];
-  const minX  = Math.min(...allCX);
-  const minY  = Math.min(...allCY);
-  const maxX  = Math.max(...allCX);
-  const maxY  = Math.max(...allCY);
+  const minX = Math.min(...allCX), minY = Math.min(...allCY);
+  const maxX = Math.max(...allCX), maxY = Math.max(...allCY);
 
-  const PAD   = R + 48;
-  const svgW  = (maxX - minX) + W + PAD * 2;
-  const svgH  = (maxY - minY) + H + PAD * 2;
-  const ox    = PAD + (-minX) + (W / 2);  // offset to center "you" at origin→canvas
-  const oy    = PAD + (-minY) + (H / 2);
+  const PAD  = R + 48;
+  const svgW = (maxX - minX) + W + PAD * 2;
+  const svgH = (maxY - minY) + H + PAD * 2;
+  const ox   = PAD + (-minX) + (W / 2);
+  const oy   = PAD + (-minY) + (H / 2);
 
-  // ── Lines (you → each contact) ───────────────────────────────
+  // Build id→position lookup for connections
+  const posMap = {};
+  bees.forEach((b, i) => { posMap[b.id] = { cx: ox + positions[i].cx, cy: oy + positions[i].cy }; });
+
+  // Center-to-bee lines
   let lines = '';
-  contacts.forEach((c, i) => {
-    const p  = positions[i];
-    const opacity = 0.30;
-    lines += `<line
-      id="nw-line-${c.id}"
+  bees.forEach((b, i) => {
+    const p = positions[i];
+    lines += `<line id="nw-line-${b.id}"
       x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}"
       x2="${(ox + p.cx).toFixed(1)}" y2="${(oy + p.cy).toFixed(1)}"
-      stroke="#4589ff" stroke-width="1.5" stroke-opacity="${opacity}"
-      stroke-linecap="round"/>`;
+      stroke="#4589ff" stroke-width="1.5" stroke-opacity="0.22" stroke-linecap="round"/>`;
   });
 
-  // ── "You" hex ────────────────────────────────────────────────
-  const YOU_LABEL = 'Sydney';
-  const YOU_SUB   = 'BTSS';
+  // Bee-to-bee mutual connection lines
+  const drawnEdges = new Set();
+  bees.forEach(b => {
+    const conns = (b.connections || []).filter(c => c.type === 'mutual');
+    conns.forEach(c => {
+      const edgeKey = [b.id, c.targetId].sort().join('|');
+      if (drawnEdges.has(edgeKey)) return;
+      drawnEdges.add(edgeKey);
+      const from = posMap[b.id];
+      const to   = posMap[c.targetId];
+      if (from && to) {
+        lines += `<line
+          x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
+          x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
+          stroke="#a855f7" stroke-width="1" stroke-opacity="0.45" stroke-dasharray="4,4" stroke-linecap="round"/>`;
+      }
+    });
+  });
+
+  // Transient connection lines (different style)
+  bees.forEach(b => {
+    const conns = (b.connections || []).filter(c => c.type === 'transient');
+    conns.forEach(c => {
+      const edgeKey = [b.id, c.targetId].sort().join('|') + ':t';
+      if (drawnEdges.has(edgeKey)) return;
+      drawnEdges.add(edgeKey);
+      const from = posMap[b.id];
+      const to   = posMap[c.targetId];
+      if (from && to) {
+        lines += `<line
+          x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
+          x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
+          stroke="#34d399" stroke-width="1" stroke-opacity="0.40" stroke-dasharray="2,5" stroke-linecap="round"/>`;
+      }
+    });
+  });
+
+  // "You" hex
   let hexes = `
     <g class="nw-you-node" style="cursor:default">
       <polygon points="${hexPts(ox, oy)}" fill="#2a2a2a" stroke="#a855f7" stroke-width="2.5"/>
       <text x="${ox}" y="${(oy - 8).toFixed(1)}" text-anchor="middle"
         fill="#ffffff" font-size="13" font-weight="600"
-        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${YOU_LABEL}</text>
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">Sydney</text>
       <text x="${ox}" y="${(oy + 10).toFixed(1)}" text-anchor="middle"
         fill="rgba(255,255,255,0.45)" font-size="10"
-        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${YOU_SUB}</text>
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">BTSS</text>
     </g>`;
 
-  // ── Contact hexes ─────────────────────────────────────────────
-  contacts.forEach((c, i) => {
+  bees.forEach((b, i) => {
     const p     = positions[i];
     const cx    = ox + p.cx;
     const cy    = oy + p.cy;
-    const isSel = _selected === c.id;
+    const isSel = _selected === b.id;
 
-    const stroke    = isSel ? '#4589ff' : 'rgba(255,255,255,0.70)';
-    const sw        = isSel ? 2.5 : 1.5;
-    const fill      = isSel ? '#0a1a36' : '#2a2a2a';
+    const stroke = isSel ? '#4589ff' : 'rgba(255,255,255,0.65)';
+    const sw     = isSel ? 2.5 : 1.5;
+    const fill   = isSel ? '#0a1a36' : '#1e1e1e';
 
-    // Wrap long names: first/last on separate lines
-    const nameParts  = c.name.trim().split(' ');
-    const firstName  = nameParts[0] || '';
-    const restName   = nameParts.slice(1).join(' ');
-    const hasTwo     = restName.length > 0;
-    const roleTxt    = c.role ? (c.role.length > 14 ? c.role.slice(0, 13) + '…' : c.role) : '';
+    const nameParts = b.name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const restName  = nameParts.slice(1).join(' ');
+    const hasTwo    = restName.length > 0;
+    const roleTxt   = b.role ? (b.role.length > 14 ? b.role.slice(0, 13) + '…' : b.role) : '';
 
     let nameEl;
     if (hasTwo) {
@@ -267,7 +540,7 @@ function drawHive() {
           fill="#ffffff" font-size="11" font-weight="500"
           font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(restName)}</text>
         ${roleTxt ? `<text x="${cx.toFixed(1)}" y="${(cy + 17).toFixed(1)}" text-anchor="middle"
-          fill="rgba(255,255,255,0.40)" font-size="9"
+          fill="rgba(255,255,255,0.38)" font-size="9"
           font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(roleTxt)}</text>` : ''}`;
     } else {
       nameEl = `
@@ -275,22 +548,21 @@ function drawHive() {
           fill="#ffffff" font-size="11" font-weight="500"
           font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(firstName)}</text>
         ${roleTxt ? `<text x="${cx.toFixed(1)}" y="${(cy + 12).toFixed(1)}" text-anchor="middle"
-          fill="rgba(255,255,255,0.40)" font-size="9"
+          fill="rgba(255,255,255,0.38)" font-size="9"
           font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(roleTxt)}</text>` : ''}`;
     }
 
     hexes += `
-      <g class="nw-hex-node" data-cid="${c.id}" data-cx="${cx.toFixed(1)}" data-cy="${cy.toFixed(1)}" style="cursor:grab">
+      <g class="nw-hex-node" data-cid="${b.id}" data-cx="${cx.toFixed(1)}" data-cy="${cy.toFixed(1)}" style="cursor:grab">
         <polygon points="${hexPts(cx, cy)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
         ${nameEl}
       </g>`;
   });
 
-  // Empty state hint
-  const emptyHint = contacts.length === 0
+  const emptyHint = bees.length === 0
     ? `<text x="${ox}" y="${(oy + R + 36).toFixed(1)}" text-anchor="middle"
         fill="#3a3a3a" font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif"
-        pointer-events="none">Click "+ Add contact" to build your network</text>`
+        pointer-events="none">${q ? 'No bees match your search' : 'Click "Add a bee" to add bees to this comb'}</text>`
     : '';
 
   wrap.innerHTML = `
@@ -299,23 +571,21 @@ function drawHive() {
       viewBox="0 0 ${svgW.toFixed(0)} ${svgH.toFixed(0)}"
       xmlns="http://www.w3.org/2000/svg"
       style="display:block;overflow:visible">
-      <g>${lines}</g>
-      <g>${hexes}</g>
-      ${emptyHint}
+      <g id="nwHiveG" transform="translate(${_pan.x},${_pan.y}) scale(${_scale})">
+        <g>${lines}</g>
+        <g>${hexes}</g>
+        ${emptyHint}
+      </g>
     </svg>`;
 
   _ox = ox;
   _oy = oy;
 
-  // ── Per-node events ───────────────────────────────────────────
-  // hover highlight is handled by CSS .nw-hex-node:hover polygon — no redraw needed.
-  // mousedown starts a drag; the window-level mouseup decides click vs drag.
   wrap.querySelectorAll('.nw-hex-node').forEach(el => {
     const cid = el.dataset.cid;
-
     el.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
-      e.preventDefault(); // stop browser native drag / text-select
+      e.preventDefault();
       e.stopPropagation();
       _drag = {
         id:      cid,
@@ -330,109 +600,619 @@ function drawHive() {
   });
 }
 
-// ── Add Contact Modal ─────────────────────────────────────────────
-function openAddModal() {
-  showModal({
-    title: 'Add contact',
-    contact: { id: uid(), name: '', role: '', company: '', relationship: '', notes: '' },
-    isNew: true,
+// ── Draw: List view (All Bees) ────────────────────────────────────
+function drawListView() {
+  const wrap = document.getElementById('nwCanvasWrap');
+  if (!wrap) return;
+  wrap.classList.add('list-mode');
+
+  const comb = combsWithAllBees(_data)[0]; // All Bees
+  const q    = _searchQuery.trim().toLowerCase();
+  let bees   = comb ? [...comb.bees] : [];
+  if (q) bees = bees.filter(b => b.name.toLowerCase().includes(q));
+
+  if (bees.length === 0) {
+    wrap.innerHTML = `<div class="nw-list-empty">${q ? 'No bees match your search.' : 'No bees added yet. Click "Add a bee" to get started.'}</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="nw-list-view">
+      ${bees.map(b => {
+        const color = relColor(b.relationship);
+        const combNames = combsForBee(b.id).map(c => esc(c.name)).join(', ');
+        return `
+          <div class="nw-list-row" data-bid="${b.id}">
+            <img class="nw-list-bee-img" src="/img/bee.svg" alt="bee"/>
+            <div class="nw-list-info">
+              <div class="nw-list-name">${esc(b.name)}</div>
+              <div class="nw-list-meta">${[b.role, b.company].filter(Boolean).map(esc).join(' · ') || '—'}</div>
+              ${combNames ? `<div class="nw-list-combs">${combNames}</div>` : ''}
+            </div>
+            ${b.relationship ? `<div class="nw-list-rel" style="border-color:${color};color:${color}">${esc(b.relationship)}</div>` : ''}
+          </div>`;
+      }).join('')}
+    </div>`;
+
+  wrap.querySelectorAll('.nw-list-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const bid = el.dataset.bid;
+      const ownerComb = _data.combs.find(c => c.bees.some(b => b.id === bid));
+      if (!ownerComb) return;
+      const bee = ownerComb.bees.find(b => b.id === bid);
+      if (bee) openDetailPanel(bee, ownerComb);
+    });
   });
 }
 
-// ── Detail / Edit Modal ───────────────────────────────────────────
-function openDetailModal(contact) {
-  showModal({ title: contact.name || 'Contact', contact: { ...contact }, isNew: false });
+// ── Bee detail panel ──────────────────────────────────────────────
+function openDetailPanel(bee, ownerComb) {
+  _detailBee   = bee;
+  _detailOwner = ownerComb;
+  _selected    = bee.id;
+
+  drawHive();
+
+  const panel = document.getElementById('nwDetailPanel');
+  if (!panel) return;
+
+  document.getElementById('nwDpName').textContent = bee.name || '—';
+  document.getElementById('nwDpRole').textContent =
+    [bee.role, bee.company].filter(Boolean).join(' · ') || '—';
+
+  const relEl = document.getElementById('nwDpRel');
+  if (bee.relationship) {
+    relEl.textContent = bee.relationship;
+    relEl.style.display = 'inline-block';
+    relEl.style.borderColor = color;
+    relEl.style.color = color;
+  } else {
+    relEl.style.display = 'none';
+  }
+
+  renderDetailPanelBody(bee, ownerComb);
+  panel.classList.add('open');
 }
 
-function showModal({ title, contact, isNew }) {
-  // Remove any existing modal
-  document.getElementById('nwModal')?.remove();
+function renderDetailPanelBody(bee, ownerComb) {
+  const body = document.getElementById('nwDpBody');
+  if (!body) return;
 
-  const REL_TYPES = ['Mentor', 'Technical Expert', 'Manager', 'Counterpart', 'Partner', 'Peer', 'Client', 'Other'];
+  const notes = normaliseNotes(bee.notes);
+
+  // Combs this bee belongs to
+  const memberCombs = combsForBee(bee.id);
+  const combsHtml = memberCombs.length
+    ? memberCombs.map(c => `<span class="nw-dp-comb-badge">${esc(c.name)}</span>`).join('')
+    : '<span style="color:#525252;font-size:12px">Not in any comb</span>';
+
+  // Connections
+  const allBees = _data.combs.flatMap(c => c.bees);
+  const conns   = (bee.connections || []).map(c => {
+    const target = allBees.find(b => b.id === c.targetId);
+    if (!target) return '';
+    const typeLabel = c.type === 'transient' ? 'Met through' : 'Mutual';
+    const typeColor = c.type === 'transient' ? '#34d399' : '#a855f7';
+    return `<div class="nw-dp-conn-row" data-target-id="${target.id}" style="cursor:pointer">
+      <img class="nw-dp-conn-bee-img" src="/img/bee.svg" alt="bee"/>
+      <div class="nw-dp-conn-info">
+        <div class="nw-dp-conn-name">${esc(target.name)}</div>
+        <div class="nw-dp-conn-type" style="color:${typeColor}">${typeLabel}${c.note ? ` · ${esc(c.note)}` : ''}</div>
+      </div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  body.innerHTML = `
+    <div class="nw-dp-section">
+      <div class="nw-dp-section-title">Details</div>
+      ${bee.company      ? `<div class="nw-dp-row"><span class="nw-dp-label">Company</span><span class="nw-dp-value">${esc(bee.company)}</span></div>` : ''}
+      ${bee.role         ? `<div class="nw-dp-row"><span class="nw-dp-label">Role</span><span class="nw-dp-value">${esc(bee.role)}</span></div>` : ''}
+      ${bee.email        ? `<div class="nw-dp-row"><span class="nw-dp-label">Email</span><a class="nw-dp-link" href="mailto:${esc(bee.email)}">${esc(bee.email)}</a></div>` : ''}
+      ${bee.location     ? `<div class="nw-dp-row"><span class="nw-dp-label">Location</span><span class="nw-dp-value">${esc(bee.location)}</span></div>` : ''}
+      ${bee.relationship ? `<div class="nw-dp-row"><span class="nw-dp-label">Relationship</span><span class="nw-dp-value">${esc(bee.relationship)}</span></div>` : ''}
+      ${bee.metThrough   ? `<div class="nw-dp-row"><span class="nw-dp-label">Met via</span><span class="nw-dp-value">${esc(bee.metThrough)}</span></div>` : ''}
+    </div>
+
+    <div class="nw-dp-section">
+      <div class="nw-dp-section-title">In Combs</div>
+      <div class="nw-dp-comb-badges">${combsHtml}</div>
+    </div>
+
+    ${conns ? `
+    <div class="nw-dp-section">
+      <div class="nw-dp-section-title">Connections</div>
+      <div class="nw-dp-conns-list">${conns}</div>
+    </div>` : ''}
+
+    <div class="nw-dp-section">
+      <div class="nw-dp-section-title">Notes</div>
+      <div id="nwDpNotesList" class="nw-dp-notes-list">
+        ${notes.length === 0
+          ? `<div class="nw-dp-notes-empty">No notes yet.</div>`
+          : notes.slice().reverse().map(n => `
+              <div class="nw-dp-note">
+                <div class="nw-dp-note-text">${esc(n.text)}</div>
+                <div class="nw-dp-note-date">${formatDate(n.date)}</div>
+              </div>`).join('')}
+      </div>
+      <div class="nw-dp-note-input-row">
+        <input class="nw-dp-note-input" id="nwDpNoteInput" type="text" placeholder="Add a note…"/>
+        <button class="nw-dp-note-submit" id="nwDpNoteSubmit">Add</button>
+      </div>
+    </div>
+
+    <div class="nw-dp-actions">
+      <button class="nw-dp-btn-edit"     id="nwDpEdit">Edit</button>
+      <button class="nw-dp-btn-add-from" id="nwDpAddFrom">Add a bee</button>
+      <button class="nw-dp-btn-conn"     id="nwDpAddConn">+ Connection</button>
+      <button class="nw-dp-btn-delete"   id="nwDpDelete">Delete</button>
+    </div>
+  `;
+
+  // Add note
+  const addNote = () => {
+    const input = document.getElementById('nwDpNoteInput');
+    const text  = input.value.trim();
+    if (!text) return;
+    const notes = normaliseNotes(bee.notes);
+    notes.push({ text, date: new Date().toISOString() });
+    bee.notes = notes;
+    persistBee(bee);
+    renderDetailPanelBody(bee, ownerComb);
+  };
+  document.getElementById('nwDpNoteSubmit').addEventListener('click', addNote);
+  document.getElementById('nwDpNoteInput').addEventListener('keydown', e => { if (e.key === 'Enter') addNote(); });
+
+  document.getElementById('nwDpEdit').addEventListener('click', () => {
+    closeDetailPanel();
+    openEditBeeModal(bee, ownerComb);
+  });
+
+  // "Add a bee" from this bee's panel — opens add modal pre-connected to current bee
+  document.getElementById('nwDpAddFrom').addEventListener('click', () => {
+    openAddBeeFromModal(bee, ownerComb);
+  });
+
+  document.getElementById('nwDpAddConn').addEventListener('click', () => openAddConnectionModal(bee, ownerComb));
+
+  // Click a connection row to open that bee's panel
+  body.querySelectorAll('.nw-dp-conn-row[data-target-id]').forEach(row => {
+    row.addEventListener('click', () => {
+      const tid  = row.dataset.targetId;
+      const tComb = _data.combs.find(c => c.bees.some(b => b.id === tid));
+      if (!tComb) return;
+      const tBee = tComb.bees.find(b => b.id === tid);
+      if (tBee) openDetailPanel(tBee, tComb);
+    });
+  });
+
+  document.getElementById('nwDpDelete').addEventListener('click', () => {
+    const realComb = ownerComb && ownerComb.id !== ALL_BEES_ID
+      ? _data.combs.find(c => c.id === ownerComb.id)
+      : _data.combs.find(c => c.bees.some(b => b.id === bee.id));
+    if (realComb) {
+      realComb.bees = realComb.bees.filter(b => b.id !== bee.id);
+      saveData(_data);
+    }
+    closeDetailPanel();
+    renderSidebar();
+    renderCanvas();
+  });
+}
+
+function closeDetailPanel() {
+  _detailBee   = null;
+  _detailOwner = null;
+  _selected    = null;
+  const panel  = document.getElementById('nwDetailPanel');
+  if (panel) panel.classList.remove('open');
+  renderCanvas();
+}
+
+/** Persist a mutated bee object back into _data */
+function persistBee(bee) {
+  for (const comb of _data.combs) {
+    const idx = comb.bees.findIndex(b => b.id === bee.id);
+    if (idx !== -1) { comb.bees[idx] = bee; }
+  }
+  saveData(_data);
+}
+
+// ── Add connection modal ──────────────────────────────────────────
+
+// ── Add a bee directly from another bee's panel ───────────────────
+/**
+ * Opens the "Add a bee" modal and, on save, automatically creates
+ * a mutual connection between the new bee and sourceBee.
+ */
+function openAddBeeFromModal(sourceBee, sourceComb) {
+  const newId  = uid();
+  const newBee = { id: newId, name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [], connections: [] };
+
+  // Reuse showBeeModal in "add" mode
+  showBeeModal({
+    title:     `Add a bee connected to ${sourceBee.name || 'this bee'}`,
+    bee:       newBee,
+    isNew:     true,
+    ownerComb: sourceComb,
+    _afterSave: (saved, targetComb) => {
+      // Wire mutual connection both ways
+      saved.connections = [...(saved.connections || []), { targetId: sourceBee.id, type: 'mutual', note: '' }];
+      sourceBee.connections = [...(sourceBee.connections || []), { targetId: saved.id, type: 'mutual', note: '' }];
+      // Persist both
+      const idx = targetComb.bees.findIndex(b => b.id === saved.id);
+      if (idx !== -1) targetComb.bees[idx] = saved;
+      persistBee(sourceBee);
+      saveData(_data);
+      renderSidebar();
+      renderCanvas();
+      openDetailPanel(saved, targetComb);
+    },
+  });
+}
+
+
+function openAddConnectionModal(bee, ownerComb) {
+  document.getElementById('nwConnModal')?.remove();
+
+  // Available targets: all bees except this one
+  const allBees = _data.combs.flatMap(c => c.bees).filter(b => b.id !== bee.id);
+  // Deduplicate
+  const seen = new Set();
+  const targets = allBees.filter(b => { if (seen.has(b.id)) return false; seen.add(b.id); return true; });
 
   const overlay = document.createElement('div');
-  overlay.id = 'nwModal';
+  overlay.id        = 'nwConnModal';
+  overlay.className = 'nw-modal-overlay';
+  overlay.innerHTML = `
+    <div class="nw-modal">
+      <div class="nw-modal-header">
+        <div class="nw-modal-title">Add connection for ${esc(bee.name)}</div>
+        <button class="nw-modal-close" id="nwConnClose">✕</button>
+      </div>
+      <div class="nw-modal-body">
+        <label class="nw-modal-label">
+          Connect to
+          <select class="nw-modal-select" id="nwConnTarget">
+            <option value="">— select a bee —</option>
+            ${targets.map(t => `<option value="${t.id}">${esc(t.name)}${t.company ? ' · ' + esc(t.company) : ''}</option>`).join('')}
+          </select>
+        </label>
+        <label class="nw-modal-label">
+          Connection type
+          <select class="nw-modal-select" id="nwConnType">
+            <option value="mutual">Mutual connection</option>
+            <option value="transient">Transient — met through this person</option>
+          </select>
+        </label>
+        <label class="nw-modal-label">
+          Note <span style="font-weight:300;color:#3d3d3d">(optional)</span>
+          <input class="nw-modal-input" id="nwConnNote" type="text" placeholder="e.g. both worked at IBM Austin"/>
+        </label>
+      </div>
+      <div class="nw-modal-footer">
+        <div style="flex:1"></div>
+        <button class="nw-modal-cancel" id="nwConnCancel">Cancel</button>
+        <button class="nw-modal-save"   id="nwConnSave">Add connection</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.getElementById('nwConnClose').addEventListener('click', close);
+  document.getElementById('nwConnCancel').addEventListener('click', close);
+
+  document.getElementById('nwConnSave').addEventListener('click', () => {
+    const targetId = document.getElementById('nwConnTarget').value;
+    if (!targetId) { document.getElementById('nwConnTarget').focus(); return; }
+    const type = document.getElementById('nwConnType').value;
+    const note = document.getElementById('nwConnNote').value.trim();
+
+    // Prevent duplicates
+    const existing = (bee.connections || []).find(c => c.targetId === targetId && c.type === type);
+    if (existing) { close(); return; }
+
+    bee.connections = [...(bee.connections || []), { targetId, type, note }];
+    persistBee(bee);
+    close();
+    openDetailPanel(bee, ownerComb);
+    renderCanvas();
+  });
+}
+
+// ── Notes helpers ─────────────────────────────────────────────────
+function normaliseNotes(notes) {
+  if (!notes) return [];
+  if (Array.isArray(notes)) return notes;
+  if (typeof notes === 'string' && notes.trim()) {
+    return [{ text: notes.trim(), date: new Date().toISOString() }];
+  }
+  return [];
+}
+
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch { return ''; }
+}
+
+function initials(name) {
+  return (name || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+}
+
+// ── New/Edit Comb Modal ───────────────────────────────────────────
+function openNewCombModal(thenAddBee = false) {
+  showCombModal({ title: 'New comb', name: '', description: '', isNew: true, thenAddBee });
+}
+
+function openEditCombModal(comb) {
+  showCombModal({ title: 'Edit comb', name: comb.name, description: comb.description || '', isNew: false, combId: comb.id });
+}
+
+function showCombModal({ title, name, description, isNew, combId, thenAddBee = false }) {
+  document.getElementById('nwCombModal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id        = 'nwCombModal';
   overlay.className = 'nw-modal-overlay';
   overlay.innerHTML = `
     <div class="nw-modal">
       <div class="nw-modal-header">
         <div class="nw-modal-title">${esc(title)}</div>
-        <button class="nw-modal-close" id="nwModalClose">✕</button>
+        <button class="nw-modal-close" id="nwCombModalClose">✕</button>
       </div>
       <div class="nw-modal-body">
         <label class="nw-modal-label">
-          Name
-          <input class="nw-modal-input" id="nwmName" type="text" placeholder="Full name" value="${esc(contact.name)}"/>
+          Comb name
+          <input class="nw-modal-input" id="nwCombName" type="text"
+            placeholder="e.g. Partners, Clients, Mentors" value="${esc(name)}"/>
         </label>
         <label class="nw-modal-label">
-          Role / Title
-          <input class="nw-modal-input" id="nwmRole" type="text" placeholder="e.g. Solutions Architect" value="${esc(contact.role || '')}"/>
-        </label>
-        <label class="nw-modal-label">
-          Company
-          <input class="nw-modal-input" id="nwmCompany" type="text" placeholder="e.g. IBM, Partner Co." value="${esc(contact.company || '')}"/>
-        </label>
-        <label class="nw-modal-label">
-          Relationship
-          <select class="nw-modal-select" id="nwmRelationship">
-            <option value="">— select —</option>
-            ${REL_TYPES.map(r => `<option value="${r}"${contact.relationship === r ? ' selected' : ''}>${r}</option>`).join('')}
-          </select>
-        </label>
-        <label class="nw-modal-label">
-          Notes
-          <textarea class="nw-modal-textarea" id="nwmNotes" rows="3" placeholder="Context, how you met, why this relationship matters…">${esc(contact.notes || '')}</textarea>
+          Description <span style="font-weight:300;color:#3d3d3d">(optional)</span>
+          <textarea class="nw-modal-textarea" id="nwCombDesc" rows="2"
+            placeholder="What's this comb for?">${esc(description)}</textarea>
         </label>
       </div>
       <div class="nw-modal-footer">
-        ${!isNew ? `<button class="nw-modal-delete" id="nwmDelete">Delete</button>` : ''}
+        ${!isNew ? `<button class="nw-modal-delete" id="nwCombDelete">Delete comb</button>` : ''}
         <div style="flex:1"></div>
-        <button class="nw-modal-cancel" id="nwModalCancel">Cancel</button>
-        <button class="nw-modal-save" id="nwmSave">Save</button>
+        <button class="nw-modal-cancel" id="nwCombCancel">Cancel</button>
+        <button class="nw-modal-save"   id="nwCombSave">Save</button>
       </div>
     </div>`;
 
   document.body.appendChild(overlay);
-
-  const close = () => { overlay.remove(); _selected = null; drawHive(); };
+  const close = () => overlay.remove();
 
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.getElementById('nwModalClose').addEventListener('click', close);
-  document.getElementById('nwModalCancel').addEventListener('click', close);
+  document.getElementById('nwCombModalClose').addEventListener('click', close);
+  document.getElementById('nwCombCancel').addEventListener('click', close);
+
+  document.getElementById('nwCombDelete')?.addEventListener('click', () => {
+    _data.combs = _data.combs.filter(c => c.id !== combId);
+    if (_activeComb === combId) _activeComb = ALL_BEES_ID;
+    saveData(_data);
+    close();
+    renderSidebar();
+    renderCanvas();
+  });
+
+  document.getElementById('nwCombSave').addEventListener('click', () => {
+    const combName = document.getElementById('nwCombName').value.trim();
+    if (!combName) { document.getElementById('nwCombName').focus(); return; }
+    const combDesc = document.getElementById('nwCombDesc').value.trim();
+
+    if (isNew) {
+      const newComb = { id: uid(), name: combName, description: combDesc, bees: [] };
+      _data.combs.push(newComb);
+      _activeComb = newComb.id;
+    } else {
+      const comb = _data.combs.find(c => c.id === combId);
+      if (comb) { comb.name = combName; comb.description = combDesc; }
+    }
+    saveData(_data);
+    close();
+    renderSidebar();
+    renderCanvas();
+    if (isNew && thenAddBee) openAddBeeModal();
+  });
+
+  setTimeout(() => document.getElementById('nwCombName')?.focus(), 60);
+}
+
+// ── Add / Edit Bee Modal ──────────────────────────────────────────
+function openAddBeeModal() {
+  showBeeModal({
+    title: 'Add a bee',
+    bee:   { id: uid(), name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [], connections: [] },
+    isNew: true,
+  });
+}
+
+function openEditBeeModal(bee, ownerComb) {
+  showBeeModal({ title: 'Edit bee', bee: { ...bee }, isNew: false, ownerComb });
+}
+
+function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
+  document.getElementById('nwBeeModal')?.remove();
+
+  const REL_TYPES = ['Mentor', 'Technical Expert', 'Manager', 'Counterpart', 'Partner', 'Peer', 'Client', 'Other'];
+
+  // For import: collect existing bees from other combs (not already in target comb)
+  const targetCombId = ownerComb ? ownerComb.id
+    : (_activeComb !== ALL_BEES_ID ? _activeComb : (_data.combs[0]?.id || null));
+  const targetComb = _data.combs.find(c => c.id === targetCombId);
+  const existingIds = new Set(targetComb ? targetComb.bees.map(b => b.id) : []);
+
+  const importCandidates = [];
+  const seen = new Set();
+  _data.combs.forEach(c => {
+    if (c.id === targetCombId) return;
+    c.bees.forEach(b => {
+      if (!seen.has(b.id) && !existingIds.has(b.id)) {
+        seen.add(b.id);
+        importCandidates.push(b);
+      }
+    });
+  });
+
+  const importSection = isNew && importCandidates.length > 0 ? `
+    <div class="nw-modal-divider">— or import existing bee —</div>
+    <label class="nw-modal-label">
+      Import from another comb
+      <select class="nw-modal-select" id="nwmImport">
+        <option value="">— choose a bee to import —</option>
+        ${importCandidates.map(b => `<option value="${b.id}">${esc(b.name)}${b.company ? ' · '+esc(b.company) : ''}</option>`).join('')}
+      </select>
+    </label>` : '';
+
+  const overlay = document.createElement('div');
+  overlay.id        = 'nwBeeModal';
+  overlay.className = 'nw-modal-overlay';
+  overlay.innerHTML = `
+    <div class="nw-modal" style="max-width:460px">
+      <div class="nw-modal-header">
+        <div class="nw-modal-title">${esc(title)}</div>
+        <button class="nw-modal-close" id="nwBeeModalClose">✕</button>
+      </div>
+      <div class="nw-modal-body">
+        <label class="nw-modal-label">
+          Name
+          <input class="nw-modal-input" id="nwmName" type="text" placeholder="Full name" value="${esc(bee.name)}"/>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label class="nw-modal-label">
+            Role / Title
+            <input class="nw-modal-input" id="nwmRole" type="text" placeholder="Solutions Architect" value="${esc(bee.role || '')}"/>
+          </label>
+          <label class="nw-modal-label">
+            Company
+            <input class="nw-modal-input" id="nwmCompany" type="text" placeholder="IBM, Partner Co." value="${esc(bee.company || '')}"/>
+          </label>
+          <label class="nw-modal-label">
+            Email
+            <input class="nw-modal-input" id="nwmEmail" type="text" placeholder="name@company.com" value="${esc(bee.email || '')}"/>
+          </label>
+          <label class="nw-modal-label">
+            Location
+            <input class="nw-modal-input" id="nwmLocation" type="text" placeholder="Austin, TX" value="${esc(bee.location || '')}"/>
+          </label>
+        </div>
+        <label class="nw-modal-label">
+          Relationship
+          <select class="nw-modal-select" id="nwmRelationship">
+            <option value="">— select —</option>
+            ${REL_TYPES.map(r => `<option value="${r}"${bee.relationship === r ? ' selected' : ''}>${r}</option>`).join('')}
+          </select>
+        </label>
+        <label class="nw-modal-label">
+          How we met / Met through
+          <input class="nw-modal-input" id="nwmMetThrough" type="text"
+            placeholder="e.g. IBM partner summit, intro from Jane" value="${esc(bee.metThrough || '')}"/>
+        </label>
+        ${importSection}
+      </div>
+      <div class="nw-modal-footer">
+        ${!isNew ? `<button class="nw-modal-delete" id="nwmDelete">Delete</button>` : ''}
+        <div style="flex:1"></div>
+        <button class="nw-modal-cancel" id="nwBeeModalCancel">Cancel</button>
+        <button class="nw-modal-save"   id="nwmSave">${isNew ? 'Add bee' : 'Save'}</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.getElementById('nwBeeModalClose').addEventListener('click', close);
+  document.getElementById('nwBeeModalCancel').addEventListener('click', close);
+
+  // Import select auto-fills the form
+  const importSel = document.getElementById('nwmImport');
+  if (importSel) {
+    importSel.addEventListener('change', () => {
+      const beeId = importSel.value;
+      if (!beeId) return;
+      const src = importCandidates.find(b => b.id === beeId);
+      if (!src) return;
+      document.getElementById('nwmName').value        = src.name        || '';
+      document.getElementById('nwmRole').value        = src.role        || '';
+      document.getElementById('nwmCompany').value     = src.company     || '';
+      document.getElementById('nwmEmail').value       = src.email       || '';
+      document.getElementById('nwmLocation').value    = src.location    || '';
+      document.getElementById('nwmMetThrough').value  = src.metThrough  || '';
+      const relSel = document.getElementById('nwmRelationship');
+      relSel.value = src.relationship || '';
+      // Store the imported bee's id so we can reuse it
+      overlay.dataset.importId = src.id;
+    });
+  }
 
   document.getElementById('nwmDelete')?.addEventListener('click', () => {
-    _contacts = _contacts.filter(c => c.id !== contact.id);
-    saveContacts(_contacts);
+    const comb = ownerComb || activeComb();
+    if (comb && comb.id !== ALL_BEES_ID) {
+      comb.bees = comb.bees.filter(b => b.id !== bee.id);
+      saveData(_data);
+    }
+    renderSidebar();
     close();
+    renderCanvas();
   });
 
   document.getElementById('nwmSave').addEventListener('click', () => {
     const name = document.getElementById('nwmName').value.trim();
-    if (!name) {
-      document.getElementById('nwmName').focus();
-      return;
-    }
+    if (!name) { document.getElementById('nwmName').focus(); return; }
+
+    // If importing, reuse the imported bee's id so connections stay intact
+    const finalId = (isNew && overlay.dataset.importId) ? overlay.dataset.importId : bee.id;
+
     const updated = {
-      id:           contact.id,
+      id:           finalId,
       name,
       role:         document.getElementById('nwmRole').value.trim(),
       company:      document.getElementById('nwmCompany').value.trim(),
+      email:        document.getElementById('nwmEmail').value.trim(),
+      location:     document.getElementById('nwmLocation').value.trim(),
       relationship: document.getElementById('nwmRelationship').value,
-      notes:        document.getElementById('nwmNotes').value.trim(),
-      // Preserve a dragged position — editing details shouldn't snap it back.
-      ...(typeof contact.x === 'number' ? { x: contact.x, y: contact.y } : {}),
+      metThrough:   document.getElementById('nwmMetThrough').value.trim(),
+      notes:        normaliseNotes(bee.notes),
+      connections:  bee.connections || [],
+      ...(typeof bee.x === 'number' ? { x: bee.x, y: bee.y } : {}),
     };
-    if (isNew) {
-      _contacts.push(updated);
-    } else {
-      const idx = _contacts.findIndex(c => c.id === contact.id);
-      if (idx !== -1) _contacts[idx] = updated;
+
+    let targetComb = ownerComb || null;
+    if (!targetComb || targetComb.id === ALL_BEES_ID) {
+      const realCombs = _data.combs.filter(c => c.id !== ALL_BEES_ID);
+      targetComb = _activeComb !== ALL_BEES_ID
+        ? _data.combs.find(c => c.id === _activeComb)
+        : realCombs[0] || null;
     }
-    saveContacts(_contacts);
-    close();
+    if (!targetComb) { close(); return; }
+
+    if (isNew) {
+      targetComb.bees.push(updated);
+    } else {
+      const idx = targetComb.bees.findIndex(b => b.id === bee.id);
+      if (idx !== -1) targetComb.bees[idx] = updated;
+    }
+
+    if (_afterSave) {
+      // Let caller handle save/render/panel
+      close();
+      _afterSave(updated, targetComb);
+    } else {
+      saveData(_data);
+      renderSidebar();
+      close();
+      renderCanvas();
+      if (_detailBee && _detailBee.id === updated.id) {
+        openDetailPanel(updated, targetComb);
+      }
+    }
   });
 
-  // Focus name field
   setTimeout(() => document.getElementById('nwmName')?.focus(), 60);
 }
 
@@ -442,5 +1222,6 @@ function esc(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

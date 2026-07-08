@@ -295,7 +295,7 @@ export async function renderOrg(container) {
       <div class="ohive-detail-panel" id="ohiveDetail">
         <div class="ohive-detail-empty">
           <div class="ohive-detail-welcome">
-            <div class="ohive-detail-welcome-title">IBM Hive</div>
+            <div class="ohive-detail-welcome-title">IBM Colonies</div>
             <div class="ohive-detail-welcome-body">Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM's go-to-market motion.</div>
             <div class="ohive-detail-welcome-tip">Your current role is highlighted in purple.</div>
           </div>
@@ -805,7 +805,7 @@ function showDetail(id, type, data) {
     panel.innerHTML = `
       <div class="ohive-detail-empty">
         <div class="ohive-detail-welcome">
-          <div class="ohive-detail-welcome-title">IBM Hive</div>
+          <div class="ohive-detail-welcome-title">IBM Colonies</div>
           <div class="ohive-detail-welcome-body">Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM's go-to-market motion.</div>
           <div class="ohive-detail-welcome-tip">Your current role is highlighted in purple.</div>
         </div>
