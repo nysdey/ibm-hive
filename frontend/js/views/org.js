@@ -108,7 +108,18 @@ const SEGMENTS = [
     label: 'Select Horizon',
     sub: '1,589 clients',
     desc: 'Current IBM clients with potential for future growth and expansion. With dedicated support, Horizon accounts become the next Strategic Clients. Higher-touch than Territory. Examples: Regional banks, mid-size manufacturers, healthcare systems.',
+    groupByCategory: true,
     functions: [
+      {
+        id: 'ae-h', abbr: 'AE', label: 'Account Executive',
+        purpose: 'Primary client relationship owner. Coordinates all IBM resources and owns the overall commercial outcome for Horizon accounts.',
+        worksWith: ['ATL', 'CSE', 'Client Engineering'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: true,
+        salesMotion: 'Full-cycle account ownership from Prospect to Renewal',
+        segment: 'Select Horizon',
+        category: 'Sales Roles',
+      },
       {
         id: 'cse-h', abbr: 'CSE', label: 'Customer Success Engineer',
         purpose: 'Drive technical adoption in Horizon accounts. Partners with ATL to identify expansion opportunities and ensure value realization.',
@@ -117,6 +128,7 @@ const SEGMENTS = [
         ownsAccounts: false,
         salesMotion: 'Post-Close → Adoption → Expansion',
         segment: 'Select Horizon',
+        category: 'Sales Roles',
       },
       {
         id: 'atl-h', abbr: 'ATL', label: 'Account Technical Leader',
@@ -126,6 +138,7 @@ const SEGMENTS = [
         ownsAccounts: false,
         salesMotion: 'Discovery → Architecture → Ongoing advisory',
         segment: 'Select Horizon',
+        category: 'Technical Roles',
       },
       {
         id: 'ce-h', abbr: 'CE', label: 'Client Engineering',
@@ -135,15 +148,7 @@ const SEGMENTS = [
         ownsAccounts: false,
         salesMotion: 'Technical Evaluation → PoC → Production readiness',
         segment: 'Select Horizon',
-      },
-      {
-        id: 'ae-h', abbr: 'AE', label: 'Account Executive',
-        purpose: 'Primary client relationship owner. Coordinates all IBM resources and owns the overall commercial outcome for Horizon accounts.',
-        worksWith: ['ATL', 'CSE', 'Client Engineering'],
-        reportsThrough: 'Colony VP',
-        ownsAccounts: true,
-        salesMotion: 'Full-cycle account ownership from Prospect to Renewal',
-        segment: 'Select Horizon',
+        category: 'Technical Roles',
       },
     ],
   },
@@ -153,6 +158,7 @@ const SEGMENTS = [
     sub: '420K clients',
     desc: 'Digital-first, scaled sales model. Clients buy primarily Technology or Consulting, often through Ecosystem partners. Divided into Select Territory Growth (1,796 clients) and Select Territory Activate. Examples: Small and mid-size businesses, startups, SMB retail, local government.',
     youAreHere: true,
+    groupByCategory: true,
     functions: [
       {
         id: 'btss-t', abbr: 'BTSS', label: 'Brand Technical Sales Specialist',
@@ -164,6 +170,7 @@ const SEGMENTS = [
         segment: 'Select Territory',
         youAreHere: true,
         products: 'Focused on 1–12 products within a specialty (e.g. PowerVS, FlashSystem, Fusion, z16, LinuxONE)',
+        category: 'Sales Roles',
       },
       {
         id: 'tss-t', abbr: 'TSS', label: 'Territory Sales Specialist',
@@ -173,6 +180,7 @@ const SEGMENTS = [
         ownsAccounts: true,
         salesMotion: 'Prospecting → Discovery → Paired close with BTSS',
         segment: 'Select Territory',
+        category: 'Sales Roles',
       },
       {
         id: 'sdr-t', abbr: 'SDR', label: 'Sales Development Rep',
@@ -182,6 +190,7 @@ const SEGMENTS = [
         ownsAccounts: false,
         salesMotion: 'Outbound → Qualification → Handoff to TSS/BTSS',
         segment: 'Select Territory',
+        category: 'Sales Roles',
       },
       {
         id: 'csm-t', abbr: 'CSM', label: 'Customer Success Manager',
@@ -191,24 +200,7 @@ const SEGMENTS = [
         ownsAccounts: false,
         salesMotion: 'Post-Close → Adoption → Renewal → Expansion',
         segment: 'Select Territory',
-      },
-      {
-        id: 'tps-t', abbr: 'TPS', label: 'Technology Partner Specialist',
-        purpose: 'Manage and enable Business Partner relationships for a technology domain. Drive partner-sourced pipeline and co-sell execution.',
-        worksWith: ['BTSS', 'TSS', 'Business Partners'],
-        reportsThrough: 'Colony VP',
-        ownsAccounts: false,
-        salesMotion: 'Partner enablement → Co-sell → Channel close',
-        segment: 'Select Territory',
-      },
-      {
-        id: 'pts-t', abbr: 'PTS', label: 'Partner Technical Specialist',
-        purpose: 'Provide technical enablement and pre-sales support to Business Partners. Runs demos and POCs with partners on behalf of IBM.',
-        worksWith: ['TPS', 'BTSS', 'Business Partners'],
-        reportsThrough: 'Colony VP',
-        ownsAccounts: false,
-        salesMotion: 'Partner Technical Enablement → Partner-led POC → Channel close',
-        segment: 'Select Territory',
+        category: 'Technical Roles',
       },
       {
         id: 'sme-t', abbr: 'Tech SME', label: 'Technical Subject Matter Expert',
@@ -218,6 +210,27 @@ const SEGMENTS = [
         ownsAccounts: false,
         salesMotion: 'Engaged on-demand at any technical escalation point',
         segment: 'Select Territory',
+        category: 'Technical Roles',
+      },
+      {
+        id: 'tps-t', abbr: 'TPS', label: 'Technology Partner Specialist',
+        purpose: 'Manage and enable Business Partner relationships for a technology domain. Drive partner-sourced pipeline and co-sell execution.',
+        worksWith: ['BTSS', 'TSS', 'Business Partners'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Partner enablement → Co-sell → Channel close',
+        segment: 'Select Territory',
+        category: 'Ecosystem Roles',
+      },
+      {
+        id: 'pts-t', abbr: 'PTS', label: 'Partner Technical Specialist',
+        purpose: 'Provide technical enablement and pre-sales support to Business Partners. Runs demos and POCs with partners on behalf of IBM.',
+        worksWith: ['TPS', 'BTSS', 'Business Partners'],
+        reportsThrough: 'Colony VP',
+        ownsAccounts: false,
+        salesMotion: 'Partner Technical Enablement → Partner-led POC → Channel close',
+        segment: 'Select Territory',
+        category: 'Ecosystem Roles',
       },
       {
         id: 'bp-t', abbr: 'BP', label: 'Business Partners',
@@ -227,6 +240,7 @@ const SEGMENTS = [
         ownsAccounts: true,
         salesMotion: 'Channel-led selling → Partner close → IBM co-sell support',
         segment: 'Select Territory',
+        category: 'Ecosystem Roles',
       },
     ],
   },
@@ -250,8 +264,13 @@ function hexPts(cx, cy, r = R) {
 // ─────────────────────────────────────────────────────────────────
 // View state
 // ─────────────────────────────────────────────────────────────────
-let _expandedSegments = new Set();
-let _selectedId       = null;   // currently selected node id
+let _expandedSegments  = new Set();
+let _selectedId        = null;   // currently selected node id
+let _panelCollapsed    = false;
+let _zoom              = 1;
+const ZOOM_STEP        = 0.15;
+const ZOOM_MIN         = 0.4;
+const ZOOM_MAX         = 2.5;
 
 // ─────────────────────────────────────────────────────────────────
 // Entry point
@@ -259,12 +278,20 @@ let _selectedId       = null;   // currently selected node id
 export async function renderOrg(container) {
   _expandedSegments = new Set();
   _selectedId       = null;
+  _panelCollapsed   = false;
+  _zoom             = 1;
 
   container.innerHTML = `
     <div class="ohive-layout">
-      <div class="ohive-hive-area">
+      <div class="ohive-hive-area" id="ohiveHiveArea">
+        <div class="ohive-zoom-controls" id="ohiveZoomControls">
+          <button class="ohive-zoom-btn" id="ohiveZoomIn" title="Zoom in">+</button>
+          <button class="ohive-zoom-btn" id="ohiveZoomReset" title="Reset zoom">⊙</button>
+          <button class="ohive-zoom-btn" id="ohiveZoomOut" title="Zoom out">−</button>
+        </div>
         <div class="ohive-canvas" id="ohiveCanvas"></div>
       </div>
+      <button class="ohive-panel-toggle" id="ohivePanelToggle" title="Toggle detail panel">&#x276D;</button>
       <div class="ohive-detail-panel" id="ohiveDetail">
         <div class="ohive-detail-empty">
           <div class="ohive-detail-welcome">
@@ -277,7 +304,36 @@ export async function renderOrg(container) {
     </div>
   `;
 
+  document.getElementById('ohiveZoomIn')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _zoom = Math.min(ZOOM_MAX, parseFloat((_zoom + ZOOM_STEP).toFixed(2)));
+    applyZoom();
+  });
+  document.getElementById('ohiveZoomOut')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _zoom = Math.max(ZOOM_MIN, parseFloat((_zoom - ZOOM_STEP).toFixed(2)));
+    applyZoom();
+  });
+  document.getElementById('ohiveZoomReset')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _zoom = 1;
+    applyZoom();
+  });
+  document.getElementById('ohivePanelToggle')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _panelCollapsed = !_panelCollapsed;
+    const layout = container.querySelector('.ohive-layout');
+    const toggle = document.getElementById('ohivePanelToggle');
+    layout?.classList.toggle('ohive-panel-collapsed', _panelCollapsed);
+    if (toggle) toggle.innerHTML = _panelCollapsed ? '&#x276C;' : '&#x276D;';
+  });
+
   redraw();
+}
+
+function applyZoom() {
+  const canvas = document.getElementById('ohiveCanvas');
+  if (canvas) canvas.style.transform = `scale(${_zoom})`;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -300,9 +356,26 @@ function buildLayout() {
   const clusterWidths = {};
   SEGMENTS.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
-    const n    = seg.functions.length;
-    const cols = Math.min(n, COLS_PER_ROW);
-    clusterWidths[seg.id] = cols * CS + (cols - 1) * GAP;
+    if (seg.groupByCategory) {
+      // All categories laid out side-by-side; total width = sum of each category's width + gaps between them
+      const CAT_GAP = GAP * 1.5;
+      const categoryMap = {};
+      seg.functions.forEach(fn => {
+        const cat = fn.category || 'Other';
+        if (!categoryMap[cat]) categoryMap[cat] = 0;
+        categoryMap[cat]++;
+      });
+      const catCounts = Object.values(categoryMap);
+      const totalW = catCounts.reduce((sum, n, i) => {
+        const cols = Math.min(n, COLS_PER_ROW);
+        return sum + cols * CS + (cols - 1) * GAP + (i > 0 ? CAT_GAP : 0);
+      }, 0);
+      clusterWidths[seg.id] = totalW;
+    } else {
+      const n    = seg.functions.length;
+      const cols = Math.min(n, COLS_PER_ROW);
+      clusterWidths[seg.id] = cols * CS + (cols - 1) * GAP;
+    }
   });
 
   const maxW  = Math.max(segTotalW, ...Object.values(clusterWidths), 0);
@@ -343,36 +416,111 @@ function buildLayout() {
   SEGMENTS.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
 
-    const fns  = seg.functions;
-    const cols = Math.min(fns.length, COLS_PER_ROW);
-    const rows = Math.ceil(fns.length / cols);
-    const clusterW      = cols * CS + (cols - 1) * GAP;
-    const clusterStartX = svgCX - clusterW / 2 + CS / 2;
+    const CATEGORY_LABEL_H = 26; // height reserved above the hex row for the category label
+    const CAT_GAP          = GAP * 1.5; // horizontal gap between category groups
 
-    fns.forEach((fn, fi) => {
-      const col     = fi % cols;
-      const row     = Math.floor(fi / cols);
-      const offsetX = (row % 2 === 1) ? CS / 2 : 0;
-      const cx      = clusterStartX + col * (CS + GAP) + offsetX;
-      const cy      = curY + row * (RS + GAP);
-
-      nodes.push({
-        id: fn.id, label: fn.abbr, sub: fn.label,
-        type: 'function', cx, cy,
-        isSelected: _selectedId === fn.id,
-        youAreHere: fn.youAreHere || false,
-        isExpanded: false, data: fn,
-        segId: seg.id,
+    if (seg.groupByCategory) {
+      // Group functions by category, preserving insertion order
+      const categoryOrder = [];
+      const categoryMap   = {};
+      seg.functions.forEach(fn => {
+        const cat = fn.category || 'Other';
+        if (!categoryMap[cat]) { categoryMap[cat] = []; categoryOrder.push(cat); }
+        categoryMap[cat].push(fn);
       });
-      pos[fn.id] = { cx, cy };
-      // Segment → role line
-      const segPos = pos[seg.id];
-      if (segPos) {
-        lines_data.push({ x1: segPos.cx, y1: segPos.cy + R, x2: cx, y2: cy - R, kind: 'seg-role' });
-      }
-    });
 
-    curY += rows * (RS + GAP) + GAP;
+      // Compute total width of all groups side-by-side so we can centre the whole band
+      const groupWidths = categoryOrder.map(cat => {
+        const n    = categoryMap[cat].length;
+        const cols = Math.min(n, COLS_PER_ROW);
+        return cols * CS + (cols - 1) * GAP;
+      });
+      const totalBandW = groupWidths.reduce((s, w, i) => s + w + (i > 0 ? CAT_GAP : 0), 0);
+      let groupStartX  = svgCX - totalBandW / 2 + CS / 2; // left-centre of first hex in first group
+
+      // All groups share the same vertical band — find the tallest group for row height
+      const maxRows = Math.max(...categoryOrder.map(cat => {
+        const n    = categoryMap[cat].length;
+        const cols = Math.min(n, COLS_PER_ROW);
+        return Math.ceil(n / cols);
+      }));
+
+      // Place category label + hexes in a single horizontal band
+      categoryOrder.forEach((cat, ci) => {
+        const fns     = categoryMap[cat];
+        const cols    = Math.min(fns.length, COLS_PER_ROW);
+        const groupW  = groupWidths[ci];
+        const groupCX = groupStartX + groupW / 2 - CS / 2; // centre of this group
+
+        // Category label — sits just above the hexes, left-aligned to the group
+        const labelX = groupStartX - CS / 2;
+        nodes.push({
+          id: `cat-${seg.id}-${ci}`, label: cat, sub: null,
+          type: 'category-label',
+          cx: groupCX, cy: curY + CATEGORY_LABEL_H / 2,
+          clusterX: labelX,
+          isSelected: false, youAreHere: false, isExpanded: false, data: null,
+          segId: seg.id,
+        });
+
+        // Hexes for this category
+        fns.forEach((fn, fi) => {
+          const col = fi % cols;
+          const row = Math.floor(fi / cols);
+          const cx  = groupStartX + col * (CS + GAP);
+          const cy  = curY + CATEGORY_LABEL_H + row * (RS + GAP);
+
+          nodes.push({
+            id: fn.id, label: fn.abbr, sub: fn.label,
+            type: 'function', cx, cy,
+            isSelected: _selectedId === fn.id,
+            youAreHere: fn.youAreHere || false,
+            isExpanded: false, data: fn,
+            segId: seg.id,
+          });
+          pos[fn.id] = { cx, cy };
+          const segPos = pos[seg.id];
+          if (segPos) {
+            lines_data.push({ x1: segPos.cx, y1: segPos.cy + R, x2: cx, y2: cy - R, kind: 'seg-role' });
+          }
+        });
+
+        groupStartX += groupW + CAT_GAP;
+      });
+
+      curY += CATEGORY_LABEL_H + maxRows * (RS + GAP) + GAP;
+    } else {
+      const fns  = seg.functions;
+      const cols = Math.min(fns.length, COLS_PER_ROW);
+      const rows = Math.ceil(fns.length / cols);
+      const clusterW      = cols * CS + (cols - 1) * GAP;
+      const clusterStartX = svgCX - clusterW / 2 + CS / 2;
+
+      fns.forEach((fn, fi) => {
+        const col     = fi % cols;
+        const row     = Math.floor(fi / cols);
+        const offsetX = (row % 2 === 1) ? CS / 2 : 0;
+        const cx      = clusterStartX + col * (CS + GAP) + offsetX;
+        const cy      = curY + row * (RS + GAP);
+
+        nodes.push({
+          id: fn.id, label: fn.abbr, sub: fn.label,
+          type: 'function', cx, cy,
+          isSelected: _selectedId === fn.id,
+          youAreHere: fn.youAreHere || false,
+          isExpanded: false, data: fn,
+          segId: seg.id,
+        });
+        pos[fn.id] = { cx, cy };
+        // Segment → role line
+        const segPos = pos[seg.id];
+        if (segPos) {
+          lines_data.push({ x1: segPos.cx, y1: segPos.cy + R, x2: cx, y2: cy - R, kind: 'seg-role' });
+        }
+      });
+
+      curY += rows * (RS + GAP) + GAP;
+    }
   });
 
   const svgH = curY + R + PAD_Y;
@@ -448,6 +596,19 @@ function redraw() {
 
   let hexes = '';
   nodes.forEach(n => {
+    // Category label — render as a plain dim text divider, aligned to the hex cluster
+    if (n.type === 'category-label') {
+      // Use the same cluster left-edge as the hexes below it
+      const labelX = n.clusterX !== undefined ? n.clusterX : n.cx;
+      hexes += `
+        <g pointer-events="none">
+          <text x="${labelX.toFixed(1)}" y="${(n.cy + 5).toFixed(1)}"
+            text-anchor="start" fill="rgba(255,255,255,0.30)" font-size="11" font-weight="400"
+            font-family="IBM Plex Sans,system-ui,sans-serif">${n.label}</text>
+        </g>`;
+      return;
+    }
+
     const isRoot = n.type === 'root';
     const isSeg  = n.type === 'segment';
     const isFn   = n.type === 'function';
@@ -601,12 +762,32 @@ function showDetail(id, type, data) {
   }
 
   if (type === 'segment') {
-    const rows = data.functions.map(f =>
-      `<div class="odp-role-row">
-        <span class="odp-role-abbr">${f.abbr}</span>
-        <span class="odp-role-label">${f.label}</span>
-      </div>`
-    ).join('');
+    let rolesHtml = '';
+    if (data.groupByCategory) {
+      const categoryOrder = [];
+      const categoryMap   = {};
+      data.functions.forEach(f => {
+        const cat = f.category || 'Other';
+        if (!categoryMap[cat]) { categoryMap[cat] = []; categoryOrder.push(cat); }
+        categoryMap[cat].push(f);
+      });
+      rolesHtml = categoryOrder.map(cat => {
+        const rows = categoryMap[cat].map(f =>
+          `<div class="odp-role-row">
+            <span class="odp-role-abbr">${f.abbr}</span>
+            <span class="odp-role-label">${f.label}</span>
+          </div>`
+        ).join('');
+        return `<div class="odp-cat-heading">${cat}</div><div class="odp-role-list">${rows}</div>`;
+      }).join('');
+    } else {
+      rolesHtml = `<div class="odp-role-list">${data.functions.map(f =>
+        `<div class="odp-role-row">
+          <span class="odp-role-abbr">${f.abbr}</span>
+          <span class="odp-role-label">${f.label}</span>
+        </div>`
+      ).join('')}</div>`;
+    }
     panel.innerHTML = `
       <div class="odp-content">
         <div class="odp-type-badge">Client segment</div>
@@ -614,7 +795,7 @@ function showDetail(id, type, data) {
         <div class="odp-sub">${data.sub}</div>
         <div class="odp-desc">${data.desc}</div>
         <div class="odp-section-title">Roles in this segment</div>
-        <div class="odp-role-list">${rows}</div>
+        ${rolesHtml}
         <div class="odp-hint">Click a role to see how it connects to others.</div>
       </div>`;
     return;
