@@ -18,7 +18,7 @@ const SEGMENTS = [
   {
     id: 'enterprise',
     label: 'Enterprise',
-    sub: '143 clients',
+    sub: '143 Clients',
     desc: 'IBM\'s top accounts with joint coverage between Technology and Consulting. Clients qualify based on significant investment across both Technology and Consulting. Highest-touch account model with dedicated Client Engineering squads. Examples: JPMorgan Chase, ExxonMobil, General Motors, Boeing.',
     functions: [
       {
@@ -62,7 +62,7 @@ const SEGMENTS = [
   {
     id: 'strategic',
     label: 'Strategic',
-    sub: '446 clients',
+    sub: '446 Clients',
     desc: 'Clients that have made strategic bets or have a sizeable footprint with IBM in Technology. Dedicated coverage with director-level oversight. Examples: Fidelity Investments, Anthem, Lockheed Martin, FedEx.',
     functions: [
       {
@@ -106,7 +106,7 @@ const SEGMENTS = [
   {
     id: 'horizon',
     label: 'Select Horizon',
-    sub: '1,589 clients',
+    sub: '1,589 Clients',
     desc: 'Current IBM clients with potential for future growth and expansion. With dedicated support, Horizon accounts become the next Strategic Clients. Higher-touch than Territory. Examples: Regional banks, mid-size manufacturers, healthcare systems.',
     groupByCategory: true,
     functions: [
@@ -155,7 +155,7 @@ const SEGMENTS = [
   {
     id: 'territory',
     label: 'Select Territory',
-    sub: '420K clients',
+    sub: '420k Clients',
     desc: 'Digital-first, scaled sales model. Clients buy primarily Technology or Consulting, often through Ecosystem partners. Divided into Select Territory Growth (1,796 clients) and Select Territory Activate. Examples: Small and mid-size businesses, startups, SMB retail, local government.',
     youAreHere: true,
     groupByCategory: true,
@@ -324,8 +324,35 @@ export async function renderOrg(container) {
     _panelCollapsed = !_panelCollapsed;
     const layout = container.querySelector('.ohive-layout');
     const toggle = document.getElementById('ohivePanelToggle');
+    const detail = document.getElementById('ohiveDetail');
     layout?.classList.toggle('ohive-panel-collapsed', _panelCollapsed);
     if (toggle) toggle.innerHTML = _panelCollapsed ? '&#x276C;' : '&#x276D;';
+    // The hive area's available width changes as the panel slides in/out,
+    // so the role clusters need to re-pack. Redraw now for responsiveness
+    // and again once the width transition settles for a pixel-perfect fit.
+    redraw();
+    detail?.addEventListener('transitionend', () => redraw(), { once: true });
+  });
+
+  // Trackpad pinch-to-zoom: browsers report a trackpad pinch gesture as a
+  // wheel event with ctrlKey set. Plain two-finger scroll (no ctrlKey)
+  // is left alone so it keeps panning the canvas via native scrolling.
+  const hiveArea = document.getElementById('ohiveHiveArea');
+  hiveArea?.addEventListener('wheel', e => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.01);
+    _zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, _zoom * factor));
+    applyZoom();
+  }, { passive: false });
+
+  // Re-pack role clusters if the window itself is resized.
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (document.getElementById('ohiveCanvas')) redraw();
+    }, 150);
   });
 
   redraw();
@@ -339,7 +366,63 @@ function applyZoom() {
 // ─────────────────────────────────────────────────────────────────
 // Layout builder
 // ─────────────────────────────────────────────────────────────────
-const COLS_PER_ROW = 4;
+const COLS_PER_ROW        = 4;
+const CATEGORY_LABEL_H    = 26; // height reserved above a category's hex row for its label
+const CAT_GAP             = GAP * 1.5; // horizontal gap between category groups
+
+// How much horizontal room the hive actually has right now — shrinks
+// when the detail panel is open, grows when it's collapsed. Category
+// groups wrap to a new row (see packCategoryRows) once they no longer
+// fit, rather than overflowing off-screen behind the panel.
+function getAvailableWidth() {
+  const hiveArea = document.getElementById('ohiveHiveArea');
+  const raw = hiveArea ? hiveArea.clientWidth : 900;
+  return Math.max(CS + 40, (raw || 900) - 64);
+}
+
+// Bin-packs a groupByCategory segment's role categories into as few rows
+// as fit within availW — one row when there's room (the "three tiers"
+// case: root → segments → roles), wrapping a clump of categories down
+// to additional rows only when the available width forces it.
+function packCategoryRows(seg, availW) {
+  const categoryOrder = [];
+  const categoryMap   = {};
+  seg.functions.forEach(fn => {
+    const cat = fn.category || 'Other';
+    if (!categoryMap[cat]) { categoryMap[cat] = []; categoryOrder.push(cat); }
+    categoryMap[cat].push(fn);
+  });
+
+  const cats = categoryOrder.map(cat => {
+    const fns  = categoryMap[cat];
+    const cols = Math.min(fns.length, COLS_PER_ROW);
+    const rows = Math.ceil(fns.length / cols);
+    const w    = cols * CS + (cols - 1) * GAP;
+    return { cat, fns, cols, rows, w };
+  });
+
+  const rows = [];
+  let curRow = [];
+  let curRowW = 0;
+  cats.forEach(c => {
+    const addW = c.w + (curRow.length > 0 ? CAT_GAP : 0);
+    if (curRow.length > 0 && curRowW + addW > availW) {
+      rows.push(curRow);
+      curRow = [c];
+      curRowW = c.w;
+    } else {
+      curRow.push(c);
+      curRowW += addW;
+    }
+  });
+  if (curRow.length) rows.push(curRow);
+
+  return rows.map(row => ({
+    cats: row,
+    rowWidth:  row.reduce((s, c, i) => s + c.w + (i > 0 ? CAT_GAP : 0), 0),
+    rowHeight: CATEGORY_LABEL_H + Math.max(...row.map(c => c.rows)) * (RS + GAP),
+  }));
+}
 
 function buildLayout() {
   const nodes     = [];
@@ -348,29 +431,21 @@ function buildLayout() {
 
   const PAD_X = R + 48;
   const PAD_Y = R + 36;
+  const availW = getAvailableWidth();
 
   const segCount  = SEGMENTS.length;
   const segTotalW = segCount * CS + (segCount - 1) * GAP;
 
-  // Cluster widths for expanded segments
+  // Pre-compute grouped-row layouts once so the width used to size the
+  // canvas and the positions used to place hexes never disagree.
+  const groupedRowsBySeg = {};
   const clusterWidths = {};
   SEGMENTS.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
     if (seg.groupByCategory) {
-      // All categories laid out side-by-side; total width = sum of each category's width + gaps between them
-      const CAT_GAP = GAP * 1.5;
-      const categoryMap = {};
-      seg.functions.forEach(fn => {
-        const cat = fn.category || 'Other';
-        if (!categoryMap[cat]) categoryMap[cat] = 0;
-        categoryMap[cat]++;
-      });
-      const catCounts = Object.values(categoryMap);
-      const totalW = catCounts.reduce((sum, n, i) => {
-        const cols = Math.min(n, COLS_PER_ROW);
-        return sum + cols * CS + (cols - 1) * GAP + (i > 0 ? CAT_GAP : 0);
-      }, 0);
-      clusterWidths[seg.id] = totalW;
+      const rows = packCategoryRows(seg, availW);
+      groupedRowsBySeg[seg.id] = rows;
+      clusterWidths[seg.id] = Math.max(...rows.map(r => r.rowWidth));
     } else {
       const n    = seg.functions.length;
       const cols = Math.min(n, COLS_PER_ROW);
@@ -416,79 +491,56 @@ function buildLayout() {
   SEGMENTS.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
 
-    const CATEGORY_LABEL_H = 26; // height reserved above the hex row for the category label
-    const CAT_GAP          = GAP * 1.5; // horizontal gap between category groups
-
     if (seg.groupByCategory) {
-      // Group functions by category, preserving insertion order
-      const categoryOrder = [];
-      const categoryMap   = {};
-      seg.functions.forEach(fn => {
-        const cat = fn.category || 'Other';
-        if (!categoryMap[cat]) { categoryMap[cat] = []; categoryOrder.push(cat); }
-        categoryMap[cat].push(fn);
-      });
+      const rows = groupedRowsBySeg[seg.id] || [];
 
-      // Compute total width of all groups side-by-side so we can centre the whole band
-      const groupWidths = categoryOrder.map(cat => {
-        const n    = categoryMap[cat].length;
-        const cols = Math.min(n, COLS_PER_ROW);
-        return cols * CS + (cols - 1) * GAP;
-      });
-      const totalBandW = groupWidths.reduce((s, w, i) => s + w + (i > 0 ? CAT_GAP : 0), 0);
-      let groupStartX  = svgCX - totalBandW / 2 + CS / 2; // left-centre of first hex in first group
+      // Each row of categories is centred independently and stacked
+      // vertically — one row when everything fits (three tiers total),
+      // extra rows only for the clump that didn't fit on the row above.
+      rows.forEach(row => {
+        let groupStartX = svgCX - row.rowWidth / 2 + CS / 2; // left-centre of first hex in this row
 
-      // All groups share the same vertical band — find the tallest group for row height
-      const maxRows = Math.max(...categoryOrder.map(cat => {
-        const n    = categoryMap[cat].length;
-        const cols = Math.min(n, COLS_PER_ROW);
-        return Math.ceil(n / cols);
-      }));
+        row.cats.forEach(c => {
+          const groupCX = groupStartX + c.w / 2 - CS / 2; // centre of this group
+          const labelX  = groupStartX - CS / 2;
 
-      // Place category label + hexes in a single horizontal band
-      categoryOrder.forEach((cat, ci) => {
-        const fns     = categoryMap[cat];
-        const cols    = Math.min(fns.length, COLS_PER_ROW);
-        const groupW  = groupWidths[ci];
-        const groupCX = groupStartX + groupW / 2 - CS / 2; // centre of this group
-
-        // Category label — sits just above the hexes, left-aligned to the group
-        const labelX = groupStartX - CS / 2;
-        nodes.push({
-          id: `cat-${seg.id}-${ci}`, label: cat, sub: null,
-          type: 'category-label',
-          cx: groupCX, cy: curY + CATEGORY_LABEL_H / 2,
-          clusterX: labelX,
-          isSelected: false, youAreHere: false, isExpanded: false, data: null,
-          segId: seg.id,
-        });
-
-        // Hexes for this category
-        fns.forEach((fn, fi) => {
-          const col = fi % cols;
-          const row = Math.floor(fi / cols);
-          const cx  = groupStartX + col * (CS + GAP);
-          const cy  = curY + CATEGORY_LABEL_H + row * (RS + GAP);
-
+          // Category label — sits just above the hexes, left-aligned to the group
           nodes.push({
-            id: fn.id, label: fn.abbr, sub: fn.label,
-            type: 'function', cx, cy,
-            isSelected: _selectedId === fn.id,
-            youAreHere: fn.youAreHere || false,
-            isExpanded: false, data: fn,
+            id: `cat-${seg.id}-${c.cat}`, label: c.cat, sub: null,
+            type: 'category-label',
+            cx: groupCX, cy: curY + CATEGORY_LABEL_H / 2,
+            clusterX: labelX,
+            isSelected: false, youAreHere: false, isExpanded: false, data: null,
             segId: seg.id,
           });
-          pos[fn.id] = { cx, cy };
-          const segPos = pos[seg.id];
-          if (segPos) {
-            lines_data.push({ x1: segPos.cx, y1: segPos.cy + R, x2: cx, y2: cy - R, kind: 'seg-role' });
-          }
+
+          // Hexes for this category
+          c.fns.forEach((fn, fi) => {
+            const col = fi % c.cols;
+            const frow = Math.floor(fi / c.cols);
+            const cx  = groupStartX + col * (CS + GAP);
+            const cy  = curY + CATEGORY_LABEL_H + frow * (RS + GAP);
+
+            nodes.push({
+              id: fn.id, label: fn.abbr, sub: fn.label,
+              type: 'function', cx, cy,
+              isSelected: _selectedId === fn.id,
+              youAreHere: fn.youAreHere || false,
+              isExpanded: false, data: fn,
+              segId: seg.id,
+            });
+            pos[fn.id] = { cx, cy };
+            const segPos = pos[seg.id];
+            if (segPos) {
+              lines_data.push({ x1: segPos.cx, y1: segPos.cy + R, x2: cx, y2: cy - R, kind: 'seg-role' });
+            }
+          });
+
+          groupStartX += c.w + CAT_GAP;
         });
 
-        groupStartX += groupW + CAT_GAP;
+        curY += row.rowHeight + GAP;
       });
-
-      curY += CATEGORY_LABEL_H + maxRows * (RS + GAP) + GAP;
     } else {
       const fns  = seg.functions;
       const cols = Math.min(fns.length, COLS_PER_ROW);
@@ -596,15 +648,15 @@ function redraw() {
 
   let hexes = '';
   nodes.forEach(n => {
-    // Category label — render as a plain dim text divider, aligned to the hex cluster
+    // Category label — a real heading for the role grouping (Sales / Technical / Ecosystem Roles)
     if (n.type === 'category-label') {
       // Use the same cluster left-edge as the hexes below it
       const labelX = n.clusterX !== undefined ? n.clusterX : n.cx;
       hexes += `
         <g pointer-events="none">
           <text x="${labelX.toFixed(1)}" y="${(n.cy + 5).toFixed(1)}"
-            text-anchor="start" fill="rgba(255,255,255,0.30)" font-size="11" font-weight="400"
-            font-family="IBM Plex Sans,system-ui,sans-serif">${n.label}</text>
+            text-anchor="start" fill="rgba(255,255,255,0.85)" font-size="13" font-weight="600"
+            letter-spacing="0.2" font-family="IBM Plex Sans,system-ui,sans-serif">${n.label}</text>
         </g>`;
       return;
     }
@@ -632,7 +684,7 @@ function redraw() {
 
     // Text: always white
     const labelColor = '#ffffff';
-    const subColor   = 'rgba(255,255,255,0.45)';
+    const subColor   = 'rgba(255,255,255,0.72)';
 
     const labelFontSize   = isRoot ? 16 : isFn ? 14 : 13;
     const labelFontWeight = isRoot || isSel ? 700 : 500;
@@ -652,10 +704,10 @@ function redraw() {
     ).join('');
 
     const subLines = n.sub ? wrapText(n.sub, 11) : [];
-    const subBaseY = labelBaseY + labelLines.length * lineH + 3;
+    const subBaseY = labelBaseY + labelLines.length * lineH + 4;
     const subEl = subLines.map((line, i) =>
-      `<text x="${n.cx.toFixed(1)}" y="${(subBaseY + i * 13).toFixed(1)}"
-        text-anchor="middle" fill="${subColor}" font-size="10"
+      `<text x="${n.cx.toFixed(1)}" y="${(subBaseY + i * 14).toFixed(1)}"
+        text-anchor="middle" fill="${subColor}" font-size="11.5"
         font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${line}</text>`
     ).join('');
 
@@ -790,11 +842,11 @@ function showDetail(id, type, data) {
     }
     panel.innerHTML = `
       <div class="odp-content">
-        <div class="odp-type-badge">Client segment</div>
+        <div class="odp-type-badge">Client Segment</div>
         <div class="odp-title">${data.label}</div>
         <div class="odp-sub">${data.sub}</div>
         <div class="odp-desc">${data.desc}</div>
-        <div class="odp-section-title">Roles in this segment</div>
+        <div class="odp-section-title">Roles in This Segment</div>
         ${rolesHtml}
         <div class="odp-hint">Click a role to see how it connects to others.</div>
       </div>`;
@@ -813,12 +865,12 @@ function showDetail(id, type, data) {
         ${data.youAreHere ? '<div class="odp-you-badge">You are here</div>' : ''}
         <div class="odp-desc">${data.purpose}</div>
 
-        <div class="odp-section-title">Works with</div>
+        <div class="odp-section-title">Works With</div>
         <div class="odp-works-tags">${ww || '—'}</div>
         <div class="odp-works-hint">Highlighted in hive above</div>
 
         ${field('Quota', data.ownsAccounts ? 'Owns accounts — carries quota' : 'Supports quota — does not own accounts')}
-        ${field('Sales motion', data.salesMotion)}
+        ${field('Sales Motion', data.salesMotion)}
         ${data.products ? field('Products', data.products) : ''}
       </div>`;
   }
