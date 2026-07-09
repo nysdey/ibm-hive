@@ -62,6 +62,25 @@ function hexPts(cx, cy, r) {
   }).join(' ');
 }
 
+/**
+ * Render a stack of text lines centered as a single block on (cx, cy).
+ * Uses dominant-baseline="central" per line so the block centers correctly
+ * regardless of how many lines or font sizes are mixed in.
+ */
+function hexTextBlock(cx, cy, lines) {
+  const withH  = lines.map(l => ({ ...l, h: l.size + 4 }));
+  const totalH = withH.reduce((sum, l) => sum + l.h, 0);
+  let cursor = cy - totalH / 2;
+  return withH.map(l => {
+    const lineCY = cursor + l.h / 2;
+    cursor += l.h;
+    return `<text x="${cx.toFixed(1)}" y="${lineCY.toFixed(1)}" text-anchor="middle"
+      dominant-baseline="central" fill="${l.color}" font-size="${l.size}"
+      font-weight="${l.weight || 400}"
+      font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${l.text}</text>`;
+  }).join('');
+}
+
 function spiralPositions(count) {
   const step = W + GAP;
   const vert = H + GAP;
@@ -97,7 +116,9 @@ let _searchQuery      = '';
 let _scale            = 1;          // zoom level
 let _pan              = { x: 0, y: 0 }; // canvas pan
 let _isPanning        = false;
+let _panMoved         = false;
 let _panStart         = { x: 0, y: 0 };
+let _panStartClient   = { x: 0, y: 0 };
 let _allBeesView      = 'hive';     // 'hive' | 'list'
 
 // ── Entry ─────────────────────────────────────────────────────────
@@ -117,9 +138,6 @@ export function renderNetwork(container) {
 
         <!-- Left sidebar -->
         <div class="nw-combs-sidebar${_sidebarCollapsed ? ' collapsed' : ''}" id="nwCombsSidebar">
-          <div class="nw-sidebar-header">
-            <span class="nw-sidebar-title">My Combs</span>
-          </div>
           <div class="nw-sidebar-search-wrap">
             <svg class="nw-sidebar-search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none">
               <circle cx="6.5" cy="6.5" r="5" stroke="#525252" stroke-width="1.5"/>
@@ -144,28 +162,34 @@ export function renderNetwork(container) {
         <!-- Canvas + detail panel wrapper -->
         <div class="nw-canvas-detail-wrap">
 
-          <!-- Zoom toolbar -->
-          <div class="nw-zoom-bar">
-            <button class="nw-zoom-btn" id="nwZoomIn"  title="Zoom in">+</button>
-            <button class="nw-zoom-btn" id="nwZoomOut" title="Zoom out">−</button>
-            <button class="nw-zoom-btn" id="nwZoomReset" title="Reset zoom" style="font-size:10px;padding:0 6px">FIT</button>
-          </div>
+          <!-- Canvas area — zoom/toggle controls are scoped to this so they
+               shrink alongside the canvas (not overlap) when the detail
+               panel opens, same as the Colonies hive area. -->
+          <div class="nw-canvas-area">
 
-          <!-- Hive / List toggle (only shown for All Bees) -->
-          <div class="nw-view-toggle" id="nwViewToggle"
-            style="display:${_activeComb === ALL_BEES_ID ? 'flex' : 'none'}">
-            <button class="nw-view-toggle-btn${_allBeesView === 'hive' ? ' active' : ''}"
-              id="nwToggleHive">Hive</button>
-            <button class="nw-view-toggle-btn${_allBeesView === 'list' ? ' active' : ''}"
-              id="nwToggleList">List</button>
-          </div>
+            <!-- Zoom toolbar -->
+            <div class="nw-zoom-bar">
+              <button class="nw-zoom-btn" id="nwZoomIn"  title="Zoom in">+</button>
+              <button class="nw-zoom-btn" id="nwZoomReset" title="Reset zoom">⊙</button>
+              <button class="nw-zoom-btn" id="nwZoomOut" title="Zoom out">−</button>
+            </div>
 
-          <div class="nw-canvas-wrap" id="nwCanvasWrap"></div>
+            <!-- Hive / List toggle (only shown for All Bees) -->
+            <div class="nw-view-toggle" id="nwViewToggle"
+              style="display:${_activeComb === ALL_BEES_ID ? 'flex' : 'none'}">
+              <button class="nw-view-toggle-btn${_allBeesView === 'hive' ? ' active' : ''}"
+                id="nwToggleHive">Hive</button>
+              <button class="nw-view-toggle-btn${_allBeesView === 'list' ? ' active' : ''}"
+                id="nwToggleList">List</button>
+            </div>
+
+            <div class="nw-canvas-wrap" id="nwCanvasWrap"></div>
+          </div>
 
           <!-- Bee detail panel -->
           <div class="nw-detail-panel" id="nwDetailPanel">
             <div class="nw-dp-header" id="nwDpHeader">
-              <img class="nw-dp-hex" id="nwDpHex" src="/img/bee.svg" alt="bee"/>
+              <img class="nw-dp-hex" id="nwDpHex" src="/img/bee.png" alt="bee"/>
               <div class="nw-dp-title">
                 <div class="nw-dp-name" id="nwDpName">—</div>
                 <div class="nw-dp-role" id="nwDpRole">—</div>
@@ -230,6 +254,7 @@ export function renderNetwork(container) {
 
   // Close detail panel clicking canvas background
   document.getElementById('nwCanvasWrap').addEventListener('click', e => {
+    if (_panMoved) return; // was a drag-to-pan, not a real click
     if (e.target === document.getElementById('nwCanvasWrap')) closeDetailPanel();
   });
 
@@ -242,28 +267,37 @@ export function renderNetwork(container) {
     adjustZoom(e.deltaY < 0 ? 0.12 : -0.12);
   }, { passive: false });
 
-  // Canvas pan (middle-click or space+drag — space not needed, just middle click)
+  // Canvas pan — click-drag (left button) or middle-click, on empty diagram
+  // background. Individual hex nodes stop propagation on their own mousedown,
+  // so this only fires when the drag starts on the canvas itself.
   canvasWrap.addEventListener('mousedown', e => {
-    if (e.button === 1) { // middle mouse
-      e.preventDefault();
-      _isPanning = true;
-      _panStart  = { x: e.clientX - _pan.x, y: e.clientY - _pan.y };
-      canvasWrap.style.cursor = 'grabbing';
-    }
+    if (canvasWrap.classList.contains('list-mode')) return;
+    if (e.button !== 0 && e.button !== 1) return;
+    e.preventDefault();
+    _isPanning     = true;
+    _panMoved      = false;
+    _panStartClient = { x: e.clientX, y: e.clientY };
+    _panStart       = { x: e.clientX - _pan.x, y: e.clientY - _pan.y };
+    canvasWrap.style.cursor = 'grabbing';
   });
 
   window.addEventListener('mousemove', e => {
     onDragMove(e);
     if (_isPanning) {
+      if (!_panMoved && (Math.abs(e.clientX - _panStartClient.x) > 3 || Math.abs(e.clientY - _panStartClient.y) > 3)) {
+        _panMoved = true;
+        document.body.style.userSelect = 'none';
+      }
       _pan = { x: e.clientX - _panStart.x, y: e.clientY - _panStart.y };
       applyTransform();
     }
   });
   window.addEventListener('mouseup', e => {
     onDragEnd(e);
-    if (_isPanning && e.button === 1) {
+    if (_isPanning) {
       _isPanning = false;
       canvasWrap.style.cursor = '';
+      document.body.style.userSelect = '';
     }
   });
 
@@ -506,12 +540,10 @@ function drawHive() {
   let hexes = `
     <g class="nw-you-node" style="cursor:default">
       <polygon points="${hexPts(ox, oy)}" fill="#2a2a2a" stroke="#a855f7" stroke-width="2.5"/>
-      <text x="${ox}" y="${(oy - 8).toFixed(1)}" text-anchor="middle"
-        fill="#ffffff" font-size="13" font-weight="600"
-        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">Sydney</text>
-      <text x="${ox}" y="${(oy + 10).toFixed(1)}" text-anchor="middle"
-        fill="rgba(255,255,255,0.45)" font-size="10"
-        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">BTSS</text>
+      ${hexTextBlock(ox, oy, [
+        { text: 'Sydney', size: 13, weight: 600, color: '#ffffff' },
+        { text: 'BTSS',   size: 10, weight: 400, color: 'rgba(255,255,255,0.45)' },
+      ])}
     </g>`;
 
   bees.forEach((b, i) => {
@@ -530,27 +562,10 @@ function drawHive() {
     const hasTwo    = restName.length > 0;
     const roleTxt   = b.role ? (b.role.length > 14 ? b.role.slice(0, 13) + '…' : b.role) : '';
 
-    let nameEl;
-    if (hasTwo) {
-      nameEl = `
-        <text x="${cx.toFixed(1)}" y="${(cy - 12).toFixed(1)}" text-anchor="middle"
-          fill="#ffffff" font-size="11" font-weight="500"
-          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(firstName)}</text>
-        <text x="${cx.toFixed(1)}" y="${(cy + 2).toFixed(1)}" text-anchor="middle"
-          fill="#ffffff" font-size="11" font-weight="500"
-          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(restName)}</text>
-        ${roleTxt ? `<text x="${cx.toFixed(1)}" y="${(cy + 17).toFixed(1)}" text-anchor="middle"
-          fill="rgba(255,255,255,0.38)" font-size="9"
-          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(roleTxt)}</text>` : ''}`;
-    } else {
-      nameEl = `
-        <text x="${cx.toFixed(1)}" y="${(cy - 4).toFixed(1)}" text-anchor="middle"
-          fill="#ffffff" font-size="11" font-weight="500"
-          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(firstName)}</text>
-        ${roleTxt ? `<text x="${cx.toFixed(1)}" y="${(cy + 12).toFixed(1)}" text-anchor="middle"
-          fill="rgba(255,255,255,0.38)" font-size="9"
-          font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${esc(roleTxt)}</text>` : ''}`;
-    }
+    const nameLines = [{ text: esc(firstName), size: 11, weight: 500, color: '#ffffff' }];
+    if (hasTwo)  nameLines.push({ text: esc(restName), size: 11, weight: 500, color: '#ffffff' });
+    if (roleTxt) nameLines.push({ text: esc(roleTxt),  size: 9,  weight: 400, color: 'rgba(255,255,255,0.38)' });
+    const nameEl = hexTextBlock(cx, cy, nameLines);
 
     hexes += `
       <g class="nw-hex-node" data-cid="${b.id}" data-cx="${cx.toFixed(1)}" data-cy="${cy.toFixed(1)}" style="cursor:grab">
@@ -623,7 +638,7 @@ function drawListView() {
         const combNames = combsForBee(b.id).map(c => esc(c.name)).join(', ');
         return `
           <div class="nw-list-row" data-bid="${b.id}">
-            <img class="nw-list-bee-img" src="/img/bee.svg" alt="bee"/>
+            <img class="nw-list-bee-img" src="/img/bee.png" alt="bee"/>
             <div class="nw-list-info">
               <div class="nw-list-name">${esc(b.name)}</div>
               <div class="nw-list-meta">${[b.role, b.company].filter(Boolean).map(esc).join(' · ') || '—'}</div>
@@ -662,6 +677,7 @@ function openDetailPanel(bee, ownerComb) {
 
   const relEl = document.getElementById('nwDpRel');
   if (bee.relationship) {
+    const color = relColor(bee.relationship);
     relEl.textContent = bee.relationship;
     relEl.style.display = 'inline-block';
     relEl.style.borderColor = color;
@@ -694,7 +710,7 @@ function renderDetailPanelBody(bee, ownerComb) {
     const typeLabel = c.type === 'transient' ? 'Met through' : 'Mutual';
     const typeColor = c.type === 'transient' ? '#34d399' : '#a855f7';
     return `<div class="nw-dp-conn-row" data-target-id="${target.id}" style="cursor:pointer">
-      <img class="nw-dp-conn-bee-img" src="/img/bee.svg" alt="bee"/>
+      <img class="nw-dp-conn-bee-img" src="/img/bee.png" alt="bee"/>
       <div class="nw-dp-conn-info">
         <div class="nw-dp-conn-name">${esc(target.name)}</div>
         <div class="nw-dp-conn-type" style="color:${typeColor}">${typeLabel}${c.note ? ` · ${esc(c.note)}` : ''}</div>

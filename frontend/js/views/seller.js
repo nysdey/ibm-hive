@@ -26,7 +26,7 @@ const MANAGER_GROUPS = [
     product:     null,
     market:      'Comms / Distribution',
     products:    ['PowerVS', 'FlashSystem', 'Fusion'],
-    accentColor: '#4589ff',
+    accentColor: '#4589ff', // IBM blue
     members: [
       { name: 'John Tatum',           territory: 'CA South, AL, GA, MS, HI',          region: null },
       { name: 'Emmanuel Garit',        territory: 'FL',                                 region: null },
@@ -51,7 +51,7 @@ const MANAGER_GROUPS = [
     product:     null,
     market:      'Comms / Distribution',
     products:    [],
-    accentColor: '#0ea5e9',
+    accentColor: '#4589ff', // IBM blue
     members: [
       { name: 'Ryan Hlinegarder', territory: 'NY, NJ, PA',                              region: null },
       { name: 'Ross Holley',      territory: 'ME, NH, MA, CT, RI',                       region: null },
@@ -72,7 +72,7 @@ const MANAGER_GROUPS = [
     product:     'Storage',
     market:      null,
     products:    ['Storage'],
-    accentColor: '#a855f7',
+    accentColor: '#4589ff', // IBM blue
     members: [
       { name: 'David Masefield',  territory: 'NY, PA, NJ, CT, MA, NH, VT, ME, RI',                                          region: 'Northeast'        },
       { name: 'Jeff Anderson',    territory: 'VA, WV, KY, TN, NC, SC, GA, AL, MS, FL',                                       region: 'Southeast'        },
@@ -87,7 +87,7 @@ const MANAGER_GROUPS = [
     product:     null,
     market:      null,
     products:    [],
-    accentColor: '#6c63ff',
+    accentColor: '#4589ff', // IBM blue
     members: [
       { name: 'Adam Ezzaoudi',       territory: null, region: null },
       { name: 'Adiel Dereje',        territory: null, region: null },
@@ -237,19 +237,19 @@ function wireListView(body) {
 }
 
 function renderGroup(g) {
-  const metaParts = [
+  const metaParts = [...new Set([
     g.market  ? g.market  : null,
     g.product ? g.product : null,
     ...(g.products && g.products.length ? g.products : []),
-  ].filter(Boolean);
+  ].filter(Boolean))];
 
   const memberRows = g.members.map((m, idx) => {
     const isSydney = m.name === 'Sydney Chin';
+    const metaLine = [m.region, m.territory].filter(Boolean).join(' — ');
     return `
       <div class="mt-member-row${isSydney ? ' mt-member-me' : ''}" data-group="${g.id}" data-idx="${idx}" style="cursor:pointer">
-        <span class="mt-member-name">${m.name}${isSydney ? ' <span class="mt-member-you">you</span>' : ''}</span>
-        ${m.region ? `<span class="mt-member-region">${m.region}</span>` : ''}
-        ${m.territory ? `<span class="mt-member-territory">${m.territory}</span>` : ''}
+        <div class="mt-member-name">${m.name}${isSydney ? ' <span class="mt-member-you">you</span>' : ''}</div>
+        ${metaLine ? `<div class="mt-member-meta-line">${esc(metaLine)}</div>` : ''}
       </div>`;
   }).join('');
 
@@ -257,10 +257,10 @@ function renderGroup(g) {
     <div class="mt-group" data-group-id="${g.id}">
       <div class="mt-group-header" style="border-left-color:${g.accentColor}">
         <div class="mt-group-manager">
-          <span class="mt-group-name">${g.manager}</span>
-          <span class="mt-group-title" style="color:${g.accentColor}">${g.title}</span>
-          ${metaParts.length ? `<span class="mt-group-meta">${metaParts.map(esc).join(' · ')}</span>` : ''}
-          <span class="mt-group-count">${g.members.length} ${g.members.length === 1 ? 'report' : 'reports'}</span>
+          <div class="mt-group-name">${g.manager}</div>
+          <div class="mt-group-title" style="color:${g.accentColor}">${g.title}</div>
+          ${metaParts.length ? `<div class="mt-group-meta">${metaParts.map(esc).join(' · ')}</div>` : ''}
+          <div class="mt-group-count">${g.members.length} ${g.members.length === 1 ? 'report' : 'reports'}</div>
         </div>
       </div>
       <div class="mt-member-list">${memberRows}</div>
@@ -293,7 +293,7 @@ function hexHtml(name, opts) {
 }
 
 function hexColor(name) {
-  return name === 'Sydney Chin' ? '#a855f7' : 'rgba(255,255,255,0.12)';
+  return name === 'Sydney Chin' ? '#a855f7' : 'rgba(255,255,255,0.70)';
 }
 
 function renderCluster(g) {
@@ -493,7 +493,7 @@ function wirePairingsView() {
     <text x="${leftX + CARD_W / 2}" y="${TOP_PAD + 18}" text-anchor="middle"
       fill="#4589ff" font-size="12" font-weight="600" font-family="IBM Plex Sans,system-ui,sans-serif">BTSS</text>
     <text x="${rightX + CARD_W / 2}" y="${TOP_PAD + 18}" text-anchor="middle"
-      fill="#0ea5e9" font-size="12" font-weight="600" font-family="IBM Plex Sans,system-ui,sans-serif">TSS</text>`;
+      fill="#4589ff" font-size="12" font-weight="600" font-family="IBM Plex Sans,system-ui,sans-serif">TSS</text>`;
 
   // BTSS cards
   let btssCards = '';

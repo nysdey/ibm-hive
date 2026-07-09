@@ -689,27 +689,37 @@ function redraw() {
     const labelFontSize   = isRoot ? 16 : isFn ? 14 : 13;
     const labelFontWeight = isRoot || isSel ? 700 : 500;
 
+    // Vertically center the whole (label block + sub block) as a unit on the
+    // hex's true center, regardless of how many lines either block wraps to.
+    // dominant-baseline="central" anchors each line on its own visual middle,
+    // so the only math needed is laying out line *slots*, not baselines.
     const labelLines  = wrapText(n.label, isRoot ? 10 : 8);
-    const lineH       = labelFontSize + 3;
+    const subLines    = n.sub ? wrapText(n.sub, 11) : [];
+
+    const lineH    = labelFontSize + 3;
+    const subLineH = 14;
+    const blockGap = subLines.length ? 5 : 0;
+
     const labelBlockH = labelLines.length * lineH;
-    const labelBaseY  = n.sub
-      ? n.cy - labelBlockH / 2 - 6
-      : n.cy - labelBlockH / 2 + labelFontSize * 0.35;
+    const subBlockH   = subLines.length * subLineH;
+    const totalH      = labelBlockH + blockGap + subBlockH;
+    const blockTop    = n.cy - totalH / 2;
 
-    const labelEl = labelLines.map((line, i) =>
-      `<text x="${n.cx.toFixed(1)}" y="${(labelBaseY + i * lineH).toFixed(1)}"
-        text-anchor="middle" fill="${labelColor}"
+    const labelEl = labelLines.map((line, i) => {
+      const lineCY = blockTop + i * lineH + lineH / 2;
+      return `<text x="${n.cx.toFixed(1)}" y="${lineCY.toFixed(1)}"
+        text-anchor="middle" dominant-baseline="central" fill="${labelColor}"
         font-size="${labelFontSize}" font-weight="${labelFontWeight}"
-        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${line}</text>`
-    ).join('');
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${line}</text>`;
+    }).join('');
 
-    const subLines = n.sub ? wrapText(n.sub, 11) : [];
-    const subBaseY = labelBaseY + labelLines.length * lineH + 4;
-    const subEl = subLines.map((line, i) =>
-      `<text x="${n.cx.toFixed(1)}" y="${(subBaseY + i * 14).toFixed(1)}"
-        text-anchor="middle" fill="${subColor}" font-size="11.5"
-        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${line}</text>`
-    ).join('');
+    const subTop = blockTop + labelBlockH + blockGap;
+    const subEl = subLines.map((line, i) => {
+      const lineCY = subTop + i * subLineH + subLineH / 2;
+      return `<text x="${n.cx.toFixed(1)}" y="${lineCY.toFixed(1)}"
+        text-anchor="middle" dominant-baseline="central" fill="${subColor}" font-size="11.5"
+        font-family="IBM Plex Sans,system-ui,sans-serif" pointer-events="none">${line}</text>`;
+    }).join('');
 
     // No expand dot — the lines communicating segment→role is enough
 
