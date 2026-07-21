@@ -433,11 +433,19 @@ export async function renderNetwork(container) {
           <!-- Bee detail panel -->
           <div class="nw-detail-panel" id="nwDetailPanel">
             <div class="nw-dp-header" id="nwDpHeader">
-              <img class="nw-dp-hex" id="nwDpHex" src="/img/bee.png" alt="bee"/>
               <div class="nw-dp-title">
                 <div class="nw-dp-name" id="nwDpName">—</div>
                 <div class="nw-dp-role" id="nwDpRole">—</div>
                 <div class="nw-dp-rel"  id="nwDpRel" style="display:none"></div>
+              </div>
+              <div class="nw-dp-menu-wrap">
+                <button class="nw-dp-menu-trigger" id="nwDpMenuTrigger" aria-label="Bee options">⋮</button>
+                <div class="nw-dp-menu" id="nwDpMenu">
+                  <button id="nwDpEdit">Edit bee</button>
+                  <button id="nwDpAddFrom">Add connected bee</button>
+                  <button id="nwDpAddConn">Add connection</button>
+                  <button id="nwDpDelete">Delete bee</button>
+                </div>
               </div>
               <button class="nw-dp-close" id="nwDpClose">✕</button>
             </div>
@@ -946,7 +954,12 @@ function renderDetailPanelBody(bee, ownerComb) {
         <div class="nw-dp-conn-name">${esc(target.name)}</div>
         <div class="nw-dp-conn-type" style="color:${typeColor}">${typeLabel}${c.note ? ` · ${esc(c.note)}` : ''}</div>
       </div>
-      <button class="nw-dp-tie-edit" data-edit-edge="${c.id}">Edit</button>
+      <div class="nw-dp-tie-menu-wrap">
+        <button class="nw-dp-tie-edit" data-tie-menu="${c.id}" aria-label="Connection options">⋮</button>
+        <div class="nw-dp-tie-menu">
+          <button data-edit-edge="${c.id}">Edit connection</button>
+        </div>
+      </div>
     </div>`;
   }).filter(Boolean).join('');
 
@@ -989,13 +1002,14 @@ function renderDetailPanelBody(bee, ownerComb) {
       </div>
     </div>
 
-    <div class="nw-dp-actions">
-      <button class="nw-dp-btn-edit"     id="nwDpEdit">Edit</button>
-      <button class="nw-dp-btn-add-from" id="nwDpAddFrom">Add a bee</button>
-      <button class="nw-dp-btn-conn"     id="nwDpAddConn">+ Connection</button>
-      <button class="nw-dp-btn-delete"   id="nwDpDelete">Delete</button>
-    </div>
   `;
+
+  const menuTrigger = document.getElementById('nwDpMenuTrigger');
+  const menu = document.getElementById('nwDpMenu');
+  menuTrigger.onclick = e => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  };
 
   // Add note
   const addNote = () => {
@@ -1012,17 +1026,17 @@ function renderDetailPanelBody(bee, ownerComb) {
   document.getElementById('nwDpNoteSubmit').addEventListener('click', addNote);
   document.getElementById('nwDpNoteInput').addEventListener('keydown', e => { if (e.key === 'Enter') addNote(); });
 
-  document.getElementById('nwDpEdit').addEventListener('click', () => {
+  document.getElementById('nwDpEdit').onclick = () => {
     closeDetailPanel();
     openEditBeeModal(bee, ownerComb);
-  });
+  };
 
   // "Add a bee" connected to this bee
-  document.getElementById('nwDpAddFrom').addEventListener('click', () => {
+  document.getElementById('nwDpAddFrom').onclick = () => {
     openAddBeeFromModal(bee, ownerComb);
-  });
+  };
 
-  document.getElementById('nwDpAddConn').addEventListener('click', () => openAddConnectionModal(bee, ownerComb));
+  document.getElementById('nwDpAddConn').onclick = () => openAddConnectionModal(bee, ownerComb);
 
   // Click a connection row to open that bee's panel
   body.querySelectorAll('.nw-dp-conn-row[data-target-id]').forEach(row => {
@@ -1030,6 +1044,16 @@ function renderDetailPanelBody(bee, ownerComb) {
       if (row.dataset.targetId === SELF_ID) return;
       const tBee = getPerson(row.dataset.targetId);
       if (tBee) openDetailPanel(tBee, combById(_activeComb));
+    });
+  });
+  body.querySelectorAll('[data-tie-menu]').forEach(button => {
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      const current = button.parentElement.querySelector('.nw-dp-tie-menu');
+      body.querySelectorAll('.nw-dp-tie-menu.open').forEach(item => {
+        if (item !== current) item.classList.remove('open');
+      });
+      current?.classList.toggle('open');
     });
   });
   body.querySelectorAll('[data-edit-edge]').forEach(btn => {
@@ -1040,7 +1064,7 @@ function renderDetailPanelBody(bee, ownerComb) {
     });
   });
 
-  document.getElementById('nwDpDelete').addEventListener('click', () => {
+  document.getElementById('nwDpDelete').onclick = () => {
     if (ownerComb && ownerComb.id !== ALL_BEES_ID) {
       // Remove from just this comb (purged globally if left with no comb).
       removeFromComb(bee.id, ownerComb.id);
@@ -1052,7 +1076,7 @@ function renderDetailPanelBody(bee, ownerComb) {
     closeDetailPanel();
     renderSidebar();
     renderCanvas();
-  });
+  };
 }
 
 function closeDetailPanel() {

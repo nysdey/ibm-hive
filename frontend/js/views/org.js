@@ -292,13 +292,77 @@ const PRODUCT_CATEGORIES = [
   },
   {
     id: 'portfolio-infrastructure', label: 'Infrastructure', sub: 'Systems Portfolio',
-    desc: 'Enterprise compute, storage, and cloud infrastructure designed for resilient, data-intensive, and AI workloads.',
+    desc: 'Secure, AI-ready servers, storage, and infrastructure software for hybrid-cloud environments. In Select Territory, coverage is organized around BTSS Brand Products, broader TSS portfolio coverage, and a specialist IBM Z motion.',
+    youAreHere: true,
+    groupByCategory: true,
     functions: [
-      { id:'product-z', abbr:'IBM Z', label:'Enterprise Mainframe', purpose:'Run high-volume, secure, mission-critical transaction and AI workloads.', worksWith:['LinuxONE','Storage','Red Hat'], products:'IBM z17, IBM Z software' },
-      { id:'product-linuxone', abbr:'LinuxONE', label:'Enterprise Linux Server', purpose:'Consolidate Linux and cloud-native workloads with security and efficiency.', worksWith:['IBM Z','OpenShift','Storage'], products:'IBM LinuxONE' },
-      { id:'product-power', abbr:'Power', label:'Enterprise Compute', purpose:'Run mission-critical applications, databases, and AI workloads on Power architecture.', worksWith:['PowerVS','Storage','IBM Cloud'], products:'IBM Power, AIX, IBM i' },
-      { id:'product-powervs', abbr:'PowerVS', label:'Power Virtual Server', purpose:'Extend Power workloads into IBM Cloud with consistent architecture and operations.', worksWith:['Power','IBM Cloud','Storage'], products:'IBM Power Virtual Server' },
-      { id:'product-storage', abbr:'Storage', label:'Data Storage', purpose:'Protect and activate enterprise data across hybrid cloud and AI environments.', worksWith:['IBM Z','Power','watsonx'], products:'FlashSystem, Storage Scale, Fusion, Defender' },
+      {
+        id:'product-powervs', abbr:'PowerVS', label:'Power Virtual Server', category:'BTSS Brand Products',
+        youAreHere: true,
+        purpose:'Configurable, multitenant virtual IBM Power servers connected to IBM Cloud services. PowerVS extends Power workloads into cloud consumption and hybrid operating models.',
+        worksWith:['Power','FlashSystem','Fusion','IBM Cloud'], products:'IBM Power Virtual Server, Power Virtual Server Hybrid Package',
+        seller:'Infrastructure BTSS leads technical discovery, demos, solution validation, and progression. TSS coordinates the broader territory and commercial motion.',
+        salesMotion:'Workload discovery → sizing → architecture → migration plan → cloud consumption',
+        buyer:'Power, AIX, IBM i, SAP, and hybrid-cloud infrastructure teams',
+      },
+      {
+        id:'product-flashsystem', abbr:'FlashSystem', label:'Primary Storage', category:'BTSS Brand Products',
+        youAreHere: true,
+        purpose:'AI-assisted enterprise flash storage for application performance, operational simplicity, data modernization, and cyber resilience.',
+        worksWith:['Fusion','Storage Defender','Storage Insights','Power','IBM Z'], products:'IBM FlashSystem family, FlashCore Modules',
+        seller:'Infrastructure BTSS leads storage discovery, sizing, demos, technical validation, and competitive positioning. TSS owns the wider account and territory motion.',
+        salesMotion:'Capacity and workload discovery → sizing → resilience design → proposal → deployment',
+        buyer:'Storage, infrastructure, database, virtualization, and cyber-resilience teams',
+      },
+      {
+        id:'product-fusion', abbr:'Fusion', label:'Container and AI Infrastructure', category:'BTSS Brand Products',
+        youAreHere: true,
+        purpose:'Turnkey infrastructure that brings data, AI, containers, and applications together for production-ready hybrid and AI outcomes.',
+        worksWith:['FlashSystem','OpenShift','watsonx','Storage Defender'], products:'IBM Fusion, Fusion software and appliances',
+        seller:'Infrastructure BTSS leads the technical motion around OpenShift, data services, AI readiness, demos, and solution validation. TSS supports territory progression.',
+        salesMotion:'Platform discovery → OpenShift and data architecture → workshop or demo → validation → expansion',
+        buyer:'Platform engineering, OpenShift, data, AI, and application modernization teams',
+      },
+      {
+        id:'product-power', abbr:'Power', label:'Enterprise Compute', category:'TSS Portfolio Coverage',
+        purpose:'High-performance, scalable, and reliable servers for mission-critical applications, databases, and AI workloads.',
+        worksWith:['PowerVS','FlashSystem','IBM Cloud'], products:'IBM Power servers, AIX, IBM i, Power Linux',
+        seller:'TSS leads the Select Territory commercial coverage and brings in Power or technical specialists when deeper architecture expertise is required.',
+        salesMotion:'Installed-base and workload review → refresh or expansion → configuration → commercial close',
+        buyer:'Infrastructure, SAP, Oracle, AIX, IBM i, and line-of-business application teams',
+      },
+      {
+        id:'product-storage-defender', abbr:'Defender', label:'Storage Defender', category:'TSS Portfolio Coverage',
+        purpose:'Data-resilience software that helps clients detect threats early and prove that recoveries are clean, secure, and reliable.',
+        worksWith:['FlashSystem','Storage Insights','Fusion'], products:'IBM Storage Defender',
+        seller:'TSS carries the broader commercial motion and engages Storage specialists or BTSS support when technical validation is needed.',
+        salesMotion:'Cyber-resilience assessment → recovery requirements → solution design → validation → close',
+        buyer:'Security, backup, storage, risk, and business-continuity teams',
+      },
+      {
+        id:'product-storage-insights', abbr:'Insights', label:'Storage Insights and Spectrum Control', category:'TSS Portfolio Coverage',
+        purpose:'Visibility, analytics, monitoring, and management software for optimizing heterogeneous storage infrastructure.',
+        worksWith:['FlashSystem','Storage Defender','Fusion'], products:'IBM Storage Insights, IBM Spectrum Control',
+        seller:'TSS positions the portfolio value and coordinates specialist support for assessments, monitoring strategy, or complex estates.',
+        salesMotion:'Estate discovery → visibility assessment → monitoring design → trial or proposal → adoption',
+        buyer:'Storage operations, infrastructure operations, capacity planning, and FinOps teams',
+      },
+      {
+        id:'product-z', abbr:'IBM Z', label:'Enterprise Mainframe', category:'IBM Z Specialist Motion',
+        purpose:'Telum-powered enterprise infrastructure for high-volume transactions, trusted AI, security, and mission-critical operating systems and software.',
+        worksWith:['LinuxONE','FlashSystem','Storage Defender','Red Hat'], products:'IBM z17, z/OS, IBM Z software',
+        seller:'Specialized IBM Z sellers and technical specialists lead this motion. Select Territory TSS identifies opportunities and coordinates the specialist team rather than treating Z as ordinary cross-brand coverage.',
+        salesMotion:'Installed-base strategy → capacity and workload planning → architecture → financing and migration planning → specialist close',
+        buyer:'Mainframe, core systems, payments, security, operations, and enterprise architecture leaders',
+      },
+      {
+        id:'product-linuxone', abbr:'LinuxONE', label:'Enterprise Linux Server', category:'IBM Z Specialist Motion',
+        purpose:'Enterprise-grade Linux infrastructure powered by IBM Telum technology for secure, consolidated, cloud-native, and AI workloads.',
+        worksWith:['IBM Z','OpenShift','FlashSystem','Red Hat'], products:'IBM LinuxONE',
+        seller:'IBM Z and LinuxONE specialists lead architecture and technical validation. TSS discovers demand and brings the specialist team into the account.',
+        salesMotion:'Linux estate discovery → consolidation or modernization case → architecture → workload validation → specialist close',
+        buyer:'Linux platform, cloud platform, security, infrastructure, and application modernization teams',
+      },
     ],
   },
 ];
@@ -503,7 +567,9 @@ function packCategoryRows(seg, availW) {
   return rows.map(row => ({
     cats: row,
     rowWidth:  row.reduce((s, c, i) => s + c.w + (i > 0 ? CAT_GAP : 0), 0),
-    rowHeight: CATEGORY_LABEL_H + Math.max(...row.map(c => c.rows)) * (RS + GAP),
+    // Include the hexagon's upper radius after the heading row. Without this,
+    // category labels sit behind the first row of point-up hexagons.
+    rowHeight: CATEGORY_LABEL_H + R + Math.max(...row.map(c => c.rows)) * (RS + GAP),
   }));
 }
 
@@ -603,7 +669,7 @@ function buildLayout() {
             const col = fi % c.cols;
             const frow = Math.floor(fi / c.cols);
             const cx  = groupStartX + col * (CS + GAP);
-            const cy  = curY + CATEGORY_LABEL_H + frow * (RS + GAP);
+            const cy  = curY + CATEGORY_LABEL_H + R + frow * (RS + GAP);
 
             nodes.push({
               id: fn.id, label: fn.abbr, sub: fn.label,
@@ -970,6 +1036,9 @@ function showDetail(id, type, data) {
         ${isProducts ? '' : field('Quota', data.ownsAccounts ? 'Owns accounts — carries quota' : 'Supports quota — does not own accounts')}
         ${isProducts ? '' : field('Sales Motion', data.salesMotion)}
         ${data.products ? field('Products', data.products) : ''}
+        ${isProducts && data.seller ? field('Select Territory Coverage', data.seller) : ''}
+        ${isProducts && data.salesMotion ? field('Sales Motion', data.salesMotion) : ''}
+        ${isProducts && data.buyer ? field('Typical Buyers', data.buyer) : ''}
       </div>`;
   }
 }

@@ -4645,3 +4645,173 @@ body {
 .nw-detail-panel .nw-dp-conn-type {
   color: #fff;
 }
+
+/* Visual-system cleanup: sentence case, restrained typography, and outlines
+   instead of shaded cards. Acronyms remain uppercase in their source text. */
+body * {
+  text-transform: none !important;
+}
+
+.mt-view-btn.active,
+.nw-view-toggle-btn.active,
+.ohive-chart-switch-btn.active {
+  background: transparent;
+  box-shadow: inset 0 -2px 0 #4589ff;
+}
+
+/* My Team and My Combs share one Bee profile scale and structure. */
+.mt-detail-panel,
+.nw-detail-panel.open {
+  width: 300px;
+  background: #0d0d0d;
+}
+.nw-dp-header {
+  display: block;
+  padding: 24px 20px 0;
+  border-bottom: 0;
+  background: transparent;
+}
+.nw-dp-title { padding-right: 52px; }
+.nw-dp-name,
+.mt-dp-name {
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
+  color: #f4f4f4;
+}
+.nw-dp-role,
+.mt-dp-role {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  margin-top: 4px;
+  margin-bottom: 20px;
+}
+.nw-dp-rel,
+.mt-dp-you-badge {
+  background: transparent;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.nw-dp-body,
+.mt-dp-content {
+  padding: 24px 20px 40px;
+}
+.nw-dp-body { gap: 18px; }
+.nw-dp-section-title,
+.mt-hs-heading {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #fff;
+  padding: 0 0 8px;
+  margin: 0;
+  border: 0;
+}
+.nw-dp-row,
+.mt-dp-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  padding-top: 11px;
+  margin-bottom: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 13px;
+}
+.nw-dp-label,
+.mt-dp-label {
+  min-width: 0;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #fff;
+}
+.nw-dp-value,
+.mt-dp-value,
+.nw-dp-link,
+.mt-dp-link {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.nw-dp-note,
+.mt-note-item,
+.nw-dp-comb-badge {
+  background: transparent;
+}
+.nw-dp-comb-badge {
+  color: #fff;
+  border-color: rgba(255,255,255,0.24);
+}
+.nw-dp-note-input,
+.mt-note-input { background: transparent; }
+
+/* Profile actions use the same compact, borderless overflow menu. */
+.nw-dp-menu-wrap {
+  position: absolute;
+  top: 16px;
+  right: 42px;
+  z-index: 8;
+}
+.nw-dp-menu-trigger,
+.nw-dp-tie-edit {
+  width: 22px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #a8a8a8;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nw-dp-menu-trigger:hover,
+.nw-dp-tie-edit:hover { color: #fff; background: transparent; }
+.nw-dp-menu,
+.nw-dp-tie-menu {
+  display: none;
+  position: absolute;
+  top: 30px;
+  right: 0;
+  width: 160px;
+  z-index: 30;
+  background: #111;
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+}
+.nw-dp-menu.open,
+.nw-dp-tie-menu.open { display: flex; flex-direction: column; }
+.nw-dp-menu button,
+.nw-dp-tie-menu button {
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.nw-dp-menu button:last-child,
+.nw-dp-tie-menu button:last-child { border-bottom: 0; }
+.nw-dp-menu button:hover,
+.nw-dp-tie-menu button:hover { background: transparent; color: #78a9ff; }
+.nw-dp-tie-menu-wrap { position: relative; flex-shrink: 0; }
+.nw-dp-tie-menu { top: 26px; }
+.nw-dp-actions { display: none; }
+
+.mt-dp-menu-wrap { top: 16px; }
+.mt-team-menu {
+  width: 160px;
+  background: #111;
+  border-color: rgba(255,255,255,0.18);
+}
+.mt-team-menu button {
+  color: #fff;
+  font-size: 13px;
+}
+.mt-team-menu button:hover { background: transparent; color: #78a9ff; }
