@@ -2,6 +2,7 @@
  * app.js — boot, authentication gate, navigation, and view orchestration
  */
 import { renderOrg }    from './views/org.js';
+import { renderWorkflow } from './views/workflow.js';
 import { renderSeller } from './views/seller.js';
 import { renderNetwork} from './views/network.js';
 import {
@@ -154,6 +155,7 @@ function wireProfileDropdown() {
 // ── View registry ────────────────────────────────────────────────
 const VIEW_RENDERERS = {
   org:     renderOrg,
+  workflow: renderWorkflow,
   cell:    renderSeller,
   network: renderNetwork,
 };

@@ -203,6 +203,15 @@ function loadTeamGroups() {
 function saveTeamGroups() { localStorage.setItem(TEAM_KEY, JSON.stringify(MANAGER_GROUPS)); }
 let MANAGER_GROUPS = loadTeamGroups();
 
+const MANAGEMENT_MANAGERS = [
+  { name:'Aaron Carman', role:'TSS Manager', groupId:'tss-fss', reports:['Amber Cowan','Camden Webster','Delisha Alexander','Herman Leonard','Joe Broadway','Joer Bombase','LB Butler','Nick Hoang','Rick Monroy','Robert Battrick','Ryan Keegan','Tim Zhou'] },
+  { name:'Alan Kidd', role:'BTSS Manager', groupId:'btss-industrial', reports:['Anish Omprakash','Chad Benton','Christopher Murphy','Dana Clark','Frank Tringali','Jeff Burnett','Ken Williams','Matt Panora','Meredith McCurdy','Michael Moreno','Nana Kwame Afriyie Peasah','Thorston Thorpe','Yonis Saleh','Aiden Lundy'] },
+  { name:'Cale Webster', role:'BTSS Manager', groupId:'btss-fss', reports:['Aditya Phadke','Anjali James','Ari Benoit','Cary Slaker','Diamond Charlotin','Jack Mathison','Marques Walker','Steven Gasinski','Sherman Brewster','Spencer Fenelon','Toby LaCoste'] },
+  { name:'Chris Kennedy', role:'BTSS Manager', groupId:'btss', reports:['Annie Sanderson','Armada Veraepalli','Demetrius Bell Jr','Jacob Kim','John Haschke','John Tatum','Mark Hoffman','Mark James','Morgan McKeithan','Roshan Dave','Sydney Chin','Tyler Reinsmith'] },
+  { name:'Michael Slade', role:'TSS Manager', groupId:'tss-industrial', reports:['Alfredo Salman','Barry Long','Eddie Finnell','Gary Motmans','Gavin Moore','Greg Harris','Joel Mwesigwa','John Poulos','Kelsey Zehnder','Mark Arnold','Neal Echols','Rezell Simmons','Robert Bailey Sr','Skylar Solga','Travis Jones'] },
+  { name:'Rob Mason', role:'TSS Manager', groupId:'tss', reports:['Hayden King','Jackson France','Luke Chandler','Negusu Mulu','Patrick McBride','Rick Morse','Robert Brendle','Ross Holley','Ryan Hinegardner'] },
+];
+
 /**
  * BTSS ↔ TSS territory pairings.
  * Derived from overlapping state coverage.
@@ -272,8 +281,12 @@ function formatNoteDate(iso) {
 }
 
 // ── View state ──────────────────────────────────────────────────
-let _activeView = 'list'; // 'list' | 'hive' | 'pairings'
+let _activeView = 'list'; // 'list' | 'management' | 'pairings'
 let _showTerritories = false;
+let _managementExpanded = null;
+let _managementSelected = null;
+let _managementZoom = 1;
+let _managementPanelCollapsed = false;
 
 // ── Entry ─────────────────────────────────────────────────────────
 export async function renderSeller(container) {
@@ -286,7 +299,7 @@ export async function renderSeller(container) {
         </div>
         <div class="mt-view-btns" id="mtViewBtns">
           <button class="mt-view-btn${_activeView === 'list' ? ' active' : ''}" data-view="list">List</button>
-          <button class="mt-view-btn${_activeView === 'hive' ? ' active' : ''}" data-view="hive">Hive</button>
+          <button class="mt-view-btn${_activeView === 'management' ? ' active' : ''}" data-view="management">Management</button>
           <button class="mt-view-btn${_activeView === 'pairings' ? ' active' : ''}" data-view="pairings">Pairings</button>
           <button class="mt-view-btn${_activeView === 'territory' ? ' active' : ''}" data-view="territory">Territory Coverage</button>
         </div>
@@ -314,8 +327,8 @@ function renderBody() {
   if (_activeView === 'list') {
     body.innerHTML = listViewHtml();
     wireListView(body);
-  } else if (_activeView === 'hive') {
-    body.innerHTML = hiveViewHtml(); wireHiveView();
+  } else if (_activeView === 'management') {
+    body.innerHTML = managementViewHtml(); wireManagementView();
   } else if (_activeView === 'pairings') {
     body.innerHTML = pairingsViewHtml(); wirePairingsView();
   } else {
@@ -545,8 +558,239 @@ function openTeamEditor({ title, fields, saveLabel, deleteLabel, onSave, onDelet
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Hive View
+// Management View
 // ═══════════════════════════════════════════════════════════════
+const MGMT_R = 74;
+const MGMT_STEP_X = 176;
+const MGMT_STEP_Y = 182;
+
+function managementViewHtml() {
+  return `
+    <div class="mt-management-layout${_managementPanelCollapsed ? ' detail-collapsed' : ''}" id="mtManagementLayout">
+      <div class="mt-management-area" id="mtManagementArea">
+        <div class="mt-management-controls">
+          <button id="mtManagementZoomIn" title="Zoom in">+</button>
+          <button id="mtManagementZoomReset" title="Reset zoom">⊙</button>
+          <button id="mtManagementZoomOut" title="Zoom out">−</button>
+        </div>
+        <div class="mt-management-canvas" id="mtManagementCanvas"></div>
+      </div>
+      <button class="mt-management-detail-toggle" id="mtManagementDetailToggle" title="Toggle detail panel">${_managementPanelCollapsed ? '❬' : '❭'}</button>
+      <aside class="mt-management-detail" id="mtManagementDetail"></aside>
+    </div>`;
+}
+
+function managementId(name) {
+  return `mgmt-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+}
+
+function managementGroup(manager) {
+  return MANAGER_GROUPS.find(group => group.id === manager.groupId);
+}
+
+function normalizedPersonName(name) {
+  const aliases = {
+    'amber cowan':'amber cowen', 'camden webster':'cam webster', 'robert battrick':'rob battrick',
+    'cary slaker':'carey slaker', 'ryan hinegardner':'ryan hlinegarder', 'john poulos':'jon poulos',
+    'robert bailey sr':'robert bailey',
+  };
+  const normalized = name.toLowerCase();
+  return aliases[normalized] || normalized;
+}
+
+function managementMemberDetails(manager, name) {
+  const group = managementGroup(manager);
+  const target = normalizedPersonName(name);
+  const member = group?.members.find(person => normalizedPersonName(person.name) === target);
+  return {
+    name,
+    role:manager.role.replace(/ Manager$/, ''),
+    manager:manager.name,
+    market:group?.market || 'Select T Activate Infrastructure',
+    products:group?.products || [],
+    territory:member?.territory || null,
+    region:member?.region || null,
+    groupId:manager.groupId,
+  };
+}
+
+function managementHexPoints(cx, cy, radius = MGMT_R) {
+  return Array.from({ length:6 }, (_, index) => {
+    const angle = -Math.PI / 2 + index * Math.PI / 3;
+    return `${(cx + radius * Math.cos(angle)).toFixed(1)},${(cy + radius * Math.sin(angle)).toFixed(1)}`;
+  }).join(' ');
+}
+
+function managementTextLines(text, maxLength = 16) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  words.forEach(word => {
+    const current = lines[lines.length - 1];
+    if (!current || `${current} ${word}`.length > maxLength) lines.push(word);
+    else lines[lines.length - 1] = `${current} ${word}`;
+  });
+  return lines.slice(0, 3);
+}
+
+function managementNodeSvg(node) {
+  const selected = _managementSelected === node.id;
+  const isYou = node.name === 'Sydney Chin';
+  const stroke = isYou ? '#a56eff' : selected ? '#4589ff' : 'rgba(255,255,255,.72)';
+  const width = isYou || selected ? 3 : 1.5;
+  const nameLines = managementTextLines(node.name, 17);
+  const roleLines = managementTextLines(node.role, 21).slice(0, 3);
+  const nameStart = node.cy - 20 - (nameLines.length - 1) * 8;
+  const roleStart = node.cy + 23;
+  return `<g class="mt-management-node" data-management-id="${node.id}" style="cursor:pointer">
+    <polygon points="${managementHexPoints(node.cx,node.cy)}" fill="#292929" stroke="${stroke}" stroke-width="${width}"/>
+    ${nameLines.map((line,index) => `<text x="${node.cx}" y="${nameStart + index * 17}" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="600" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(line)}</text>`).join('')}
+    ${roleLines.map((line,index) => `<text x="${node.cx}" y="${roleStart + index * 14}" text-anchor="middle" fill="#fff" font-size="10.5" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(line)}</text>`).join('')}
+  </g>`;
+}
+
+function centerManagementNode(nodeId, centerVertically = false) {
+  requestAnimationFrame(() => {
+    const area = document.getElementById('mtManagementArea');
+    const node = document.querySelector(`[data-management-id="${nodeId}"]`);
+    if (!area || !node) return;
+    const areaRect = area.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    area.scrollLeft += nodeRect.left + nodeRect.width / 2 - (areaRect.left + areaRect.width / 2);
+    if (centerVertically) area.scrollTop = 0;
+  });
+}
+
+function renderManagementChart() {
+  const canvas = document.getElementById('mtManagementCanvas');
+  if (!canvas) return;
+  const expandedManager = MANAGEMENT_MANAGERS.find(manager => managementId(manager.name) === _managementExpanded);
+  const widths = MANAGEMENT_MANAGERS.map(manager => {
+    if (manager !== expandedManager || !manager.reports?.length) return MGMT_STEP_X;
+    return Math.max(MGMT_STEP_X, Math.min(6, manager.reports.length) * MGMT_STEP_X);
+  });
+  const totalWidth = widths.reduce((sum,width) => sum + width,0) + 32 * (widths.length - 1);
+  const svgWidth = Math.max(1100,totalWidth + 180);
+  const rootX = svgWidth / 2;
+  const rootY = 105;
+  let cursor = (svgWidth - totalWidth) / 2;
+  const managerNodes = MANAGEMENT_MANAGERS.map((manager,index) => {
+    const cx = cursor + widths[index] / 2;
+    cursor += widths[index] + 32;
+    return { ...manager, id:managementId(manager.name), cx, cy:315, type:'manager' };
+  });
+  const reportNodes = [];
+  if (expandedManager) {
+    const anchor = managerNodes.find(node => node.id === _managementExpanded);
+    const reports = expandedManager.reports || [];
+    const cols = Math.min(6,reports.length);
+    const rows = Math.ceil(reports.length / cols);
+    reports.forEach((name,index) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      const rowCount = Math.min(cols,reports.length - row * cols);
+      const rowWidth = (rowCount - 1) * MGMT_STEP_X;
+      const offset = row % 2 ? MGMT_STEP_X / 2 : 0;
+      reportNodes.push({
+        ...managementMemberDetails(expandedManager,name),
+        id:`${anchor.id}-${managementId(name)}`,
+        cx:anchor.cx - rowWidth / 2 + col * MGMT_STEP_X + offset,
+        cy:535 + row * MGMT_STEP_Y,
+        type:'report',
+      });
+    });
+  }
+  const root = { id:'mgmt-kathleen', name:'Kathleen Macchio', role:'Select T Activate Infrastructure Market Leader', cx:rootX, cy:rootY, type:'leader' };
+  const allNodes = [root,...managerNodes,...reportNodes];
+  const managerLines = managerNodes.map(node => `<line x1="${rootX}" y1="${rootY + MGMT_R}" x2="${node.cx}" y2="${node.cy - MGMT_R}"/>`).join('');
+  const reportAnchor = expandedManager ? managerNodes.find(node => node.id === _managementExpanded) : null;
+  const reportLines = reportAnchor ? reportNodes.map(node => `<line x1="${reportAnchor.cx}" y1="${reportAnchor.cy + MGMT_R}" x2="${node.cx}" y2="${node.cy - MGMT_R}"/>`).join('') : '';
+  const svgHeight = reportNodes.length ? Math.max(...reportNodes.map(node => node.cy)) + MGMT_R + 90 : 450;
+  canvas.innerHTML = `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+    <g class="mt-management-lines">${managerLines}${reportLines}</g>
+    <g>${allNodes.map(managementNodeSvg).join('')}</g>
+  </svg>`;
+  canvas.style.transform = `scale(${_managementZoom})`;
+  canvas.querySelectorAll('[data-management-id]').forEach(element => {
+    element.addEventListener('click', event => {
+      event.stopPropagation();
+      const node = allNodes.find(item => item.id === element.dataset.managementId);
+      if (!node) return;
+      _managementSelected = node.id;
+      if (node.type === 'manager' && node.reports?.length) {
+        _managementExpanded = _managementExpanded === node.id ? null : node.id;
+      }
+      renderManagementChart();
+      centerManagementNode(node.id);
+      showManagementDetail(node);
+    });
+  });
+}
+
+function showManagementSummary() {
+  const panel = document.getElementById('mtManagementDetail');
+  if (!panel) return;
+  panel.innerHTML = `<div class="mt-dp-content">
+    <div class="mt-dp-role">Management</div>
+    <div class="mt-dp-name">Infrastructure Leadership</div>
+    <div class="mt-dp-row"><div class="mt-dp-label">Market leader</div><div class="mt-dp-value">Kathleen Macchio</div></div>
+    <div class="mt-dp-row"><div class="mt-dp-label">Organization</div><div class="mt-dp-value">Select T Activate Infrastructure</div></div>
+    <div class="mt-dp-row"><div class="mt-dp-label">How to explore</div><div class="mt-dp-value">Select a manager to reveal their direct reports. Select any person to view their role and coverage.</div></div>
+  </div>`;
+}
+
+function showManagementDetail(node) {
+  const panel = document.getElementById('mtManagementDetail');
+  if (!panel) return;
+  if (_managementPanelCollapsed) {
+    _managementPanelCollapsed = false;
+    document.getElementById('mtManagementLayout')?.classList.remove('detail-collapsed');
+    const toggle = document.getElementById('mtManagementDetailToggle');
+    if (toggle) toggle.textContent = '❭';
+  }
+  const manager = node.type === 'manager' ? node : MANAGEMENT_MANAGERS.find(item => item.name === node.manager);
+  const group = manager ? managementGroup(manager) : null;
+  const email = emailFor(node.name);
+  panel.innerHTML = `<div class="mt-dp-content">
+    <div class="mt-dp-role">${esc(node.type === 'leader' ? 'Market Leader' : node.type === 'manager' ? 'Manager' : 'Bee Profile')}</div>
+    <div class="mt-dp-name">${esc(node.name)}${node.name === 'Sydney Chin' ? ' <span class="mt-dp-you-badge">You</span>' : ''}</div>
+    ${mtRow('Role',esc(node.role))}
+    ${node.manager ? mtRow('Manager',esc(node.manager)) : ''}
+    ${group?.market || node.market ? mtRow('Market',esc(group?.market || node.market)) : ''}
+    ${node.region ? mtRow('Region',esc(node.region)) : ''}
+    ${node.territory ? mtRow('Territory',esc(node.territory)) : ''}
+    ${group?.products?.length ? mtRow('Products',group.products.map(esc).join(', ')) : ''}
+    ${mtRow('Email',`<a class="mt-dp-link" href="mailto:${email}">${email}</a>`)}
+    ${node.type === 'manager' && node.reports?.length ? mtRow('Direct reports',String(node.reports.length)) : ''}
+  </div>`;
+}
+
+function wireManagementView() {
+  _managementExpanded = null;
+  _managementSelected = null;
+  _managementZoom = 1;
+  renderManagementChart();
+  centerManagementNode('mgmt-kathleen',true);
+  showManagementSummary();
+  document.getElementById('mtManagementDetailToggle')?.addEventListener('click',() => {
+    _managementPanelCollapsed = !_managementPanelCollapsed;
+    document.getElementById('mtManagementLayout')?.classList.toggle('detail-collapsed',_managementPanelCollapsed);
+    document.getElementById('mtManagementDetailToggle').textContent = _managementPanelCollapsed ? '❬' : '❭';
+  });
+  const area = document.getElementById('mtManagementArea');
+  area?.addEventListener('wheel', event => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    _managementZoom = Math.min(2.4,Math.max(.35,_managementZoom * Math.exp(-event.deltaY * .01)));
+    const canvas = document.getElementById('mtManagementCanvas');
+    if (canvas) canvas.style.transform = `scale(${_managementZoom})`;
+  },{ passive:false });
+  document.getElementById('mtManagementZoomIn')?.addEventListener('click',() => { _managementZoom = Math.min(2.4,_managementZoom + .15); renderManagementChart(); });
+  document.getElementById('mtManagementZoomOut')?.addEventListener('click',() => { _managementZoom = Math.max(.35,_managementZoom - .15); renderManagementChart(); });
+  document.getElementById('mtManagementZoomReset')?.addEventListener('click',() => { _managementZoom = 1; renderManagementChart(); });
+}
+
+// Legacy hive renderer retained for saved data compatibility; the user-facing
+// tab is now the Management view above.
 function hiveViewHtml() {
   return `
     <div class="mt-hive-layout">
@@ -788,19 +1032,19 @@ function wirePairingsView() {
     const tssNodes  = uniqueNodes('tss');
 
   // Layout constants
-  const CARD_W    = 220;
-  const CARD_H    = 68;
-  const CARD_GAP  = 18;
-  const COL_PAD   = 48;
-  const TOP_PAD   = 32;
-  const LABEL_H   = 28;   // space above first card for column header
+  const CARD_W    = 190;
+  const CARD_H    = 64;
+  const CARD_GAP  = 14;
+  const COL_PAD   = 24;
+  const TOP_PAD   = 24;
+  const LABEL_H   = 24;   // space above first card for column header
 
   const leftCount  = btssNodes.length;
   const rightCount = tssNodes.length;
   const maxCount   = Math.max(leftCount, rightCount);
 
   const svgH = TOP_PAD + LABEL_H + maxCount * (CARD_H + CARD_GAP) + 32;
-  const svgW = COL_PAD * 2 + CARD_W * 2 + 160; // 160px gap between columns
+  const svgW = COL_PAD * 2 + CARD_W * 2 + 96;
 
   const leftX  = COL_PAD;
   const rightX = svgW - COL_PAD - CARD_W;
@@ -844,15 +1088,15 @@ function wirePairingsView() {
     const isYou  = node.name === 'Sydney Chin';
     const terr   = member?.territory || '';
     const cardSub = terr;
-    const cardSubShort = cardSub.length > 34 ? cardSub.slice(0, 33) + '…' : cardSub;
+    const cardSubShort = cardSub.length > 28 ? cardSub.slice(0, 27) + '…' : cardSub;
     btssCards += `
       <g class="mt-pair-card" data-key="${node.groupId}:${group?.members.indexOf(member) ?? -1}" style="cursor:pointer">
         <rect x="${leftX}" y="${y}" width="${CARD_W}" height="${CARD_H}"
           rx="0" fill="#161616" stroke="rgba(255,255,255,0.7)" stroke-width="${isYou ? 2 : 1}"/>
-        <text x="${leftX + 12}" y="${y + 24}" fill="${isYou ? '#a855f7' : '#f4f4f4'}"
-          font-size="13" font-weight="${isYou ? 600 : 400}" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(node.name)}${isYou ? ' ★' : ''}</text>
-        <text x="${leftX + 12}" y="${y + 46}" fill="rgba(255,255,255,0.45)"
-          font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(cardSubShort || '—')}</text>
+        <text x="${leftX + 10}" y="${y + 23}" fill="${isYou ? '#a855f7' : '#f4f4f4'}"
+          font-size="12.5" font-weight="${isYou ? 600 : 400}" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(node.name)}${isYou ? ' ★' : ''}</text>
+        <text x="${leftX + 10}" y="${y + 44}" fill="rgba(255,255,255,0.62)"
+          font-size="11" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(cardSubShort || '—')}</text>
       </g>`;
   });
 
@@ -865,15 +1109,15 @@ function wirePairingsView() {
     const member = group?.members.find(m => m.name === node.name);
     const terr   = member?.territory || '';
     const cardSub = terr;
-    const cardSubShort = cardSub.length > 34 ? cardSub.slice(0, 33) + '…' : cardSub;
+    const cardSubShort = cardSub.length > 28 ? cardSub.slice(0, 27) + '…' : cardSub;
     tssCards += `
       <g class="mt-pair-card" data-key="${node.groupId}:${group?.members.indexOf(member) ?? -1}" style="cursor:pointer">
         <rect x="${rightX}" y="${y}" width="${CARD_W}" height="${CARD_H}"
           rx="0" fill="#161616" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
-        <text x="${rightX + 12}" y="${y + 24}" fill="#f4f4f4"
-          font-size="13" font-weight="400" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(node.name)}</text>
-        <text x="${rightX + 12}" y="${y + 46}" fill="rgba(255,255,255,0.45)"
-          font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(cardSubShort || '—')}</text>
+        <text x="${rightX + 10}" y="${y + 23}" fill="#f4f4f4"
+          font-size="12.5" font-weight="400" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(node.name)}</text>
+        <text x="${rightX + 10}" y="${y + 44}" fill="rgba(255,255,255,0.62)"
+          font-size="11" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(cardSubShort || '—')}</text>
       </g>`;
   });
 
@@ -883,8 +1127,8 @@ function wirePairingsView() {
           <span>${esc(market.label)}</span>
           <span>${pairings.length} pairings</span>
         </div>
-        <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}"
-          xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;margin:0 auto;">
+        <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMin meet"
+          xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;max-width:${svgW}px;height:auto;margin:0 auto;">
           <g>${lines}</g>
           ${headers}
           <g>${btssCards}</g>

@@ -359,6 +359,7 @@ let _oy               = 0;
 let _sidebarCollapsed = false;
 let _detailBee        = null;
 let _detailOwner      = null;
+let _detailCollapsed  = false;
 let _searchQuery      = '';
 let _scale            = 1;          // zoom level
 let _pan              = { x: 0, y: 0 }; // canvas pan
@@ -375,6 +376,7 @@ export async function renderNetwork(container) {
   _drag        = null;
   _detailBee   = null;
   _detailOwner = null;
+  _detailCollapsed = false;
 
   if (!_activeComb) _activeComb = ALL_BEES_ID;
 
@@ -429,6 +431,8 @@ export async function renderNetwork(container) {
 
             <div class="nw-canvas-wrap" id="nwCanvasWrap"></div>
           </div>
+
+          <button class="nw-detail-toggle" id="nwDetailToggle" title="Toggle detail panel">❭</button>
 
           <!-- Bee detail panel -->
           <div class="nw-detail-panel" id="nwDetailPanel">
@@ -505,6 +509,11 @@ export async function renderNetwork(container) {
   });
 
   document.getElementById('nwDpClose').addEventListener('click', closeDetailPanel);
+  document.getElementById('nwDetailToggle')?.addEventListener('click', () => {
+    _detailCollapsed = !_detailCollapsed;
+    document.querySelector('.nw-canvas-detail-wrap')?.classList.toggle('detail-collapsed',_detailCollapsed);
+    document.getElementById('nwDetailToggle').textContent = _detailCollapsed ? '❬' : '❭';
+  });
 
   // Wheel zoom
   const canvasWrap = document.getElementById('nwCanvasWrap');
@@ -906,6 +915,12 @@ function openDetailPanel(bee, ownerComb) {
 
   const panel = document.getElementById('nwDetailPanel');
   if (!panel) return;
+  _detailCollapsed = false;
+  const wrap = document.querySelector('.nw-canvas-detail-wrap');
+  wrap?.classList.add('has-detail');
+  wrap?.classList.remove('detail-collapsed');
+  const toggle = document.getElementById('nwDetailToggle');
+  if (toggle) toggle.textContent = '❭';
 
   document.getElementById('nwDpName').textContent = bee.name || '—';
   document.getElementById('nwDpRole').textContent =
@@ -1085,6 +1100,7 @@ function closeDetailPanel() {
   _selected    = null;
   const panel  = document.getElementById('nwDetailPanel');
   if (panel) panel.classList.remove('open');
+  document.querySelector('.nw-canvas-detail-wrap')?.classList.remove('has-detail','detail-collapsed');
   renderCanvas();
 }
 

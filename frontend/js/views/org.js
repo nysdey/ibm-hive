@@ -18,7 +18,8 @@ const SEGMENTS = [
   {
     id: 'enterprise',
     label: 'Enterprise',
-    sub: '143 Clients',
+    sub: 'Client Segment',
+    clientCount: '143 Clients',
     desc: 'IBM\'s top accounts with joint coverage between Technology and Consulting. Clients qualify based on significant investment across both Technology and Consulting. Highest-touch account model with dedicated Client Engineering squads. Examples: JPMorgan Chase, ExxonMobil, General Motors, Boeing.',
     functions: [
       {
@@ -62,7 +63,8 @@ const SEGMENTS = [
   {
     id: 'strategic',
     label: 'Strategic',
-    sub: '446 Clients',
+    sub: 'Client Segment',
+    clientCount: '446 Clients',
     desc: 'Clients that have made strategic bets or have a sizeable footprint with IBM in Technology. Dedicated coverage with director-level oversight. Examples: Fidelity Investments, Anthem, Lockheed Martin, FedEx.',
     functions: [
       {
@@ -106,9 +108,36 @@ const SEGMENTS = [
   {
     id: 'horizon',
     label: 'Select Horizon',
-    sub: '1,589 Clients',
+    sub: 'Client Segment',
+    clientCount: '1,589 Clients',
     desc: 'Current IBM clients with potential for future growth and expansion. With dedicated support, Horizon accounts become the next Strategic Clients. Higher-touch than Territory. Examples: Regional banks, mid-size manufacturers, healthcare systems.',
-    groupByCategory: true,
+    hierarchy: [
+      {
+        id:'horizon-sales-roles', label:'Sales', kind:'Role Group',
+        children:[{
+          id:'horizon-tsl-flm', label:'TSL FLM', sub:'Technology Sales Leader First-Line Manager', kind:'Role',
+          children:[{
+            id:'horizon-tsl', label:'TSL', sub:'Technology Sales Leader', kind:'Role',
+            children:[{ id:'horizon-bss', label:'BSS', sub:'Brand Sales Specialist', kind:'Role' }],
+          }],
+        }],
+      },
+      {
+        id:'horizon-technical-roles', label:'Technical', kind:'Role Group',
+        children:[
+          {
+            id:'horizon-atl-flm', label:'ATL FLM', sub:'Account Technical Leader First-Line Manager', kind:'Role',
+            children:[{
+              id:'horizon-atl', label:'ATL', sub:'Account Technical Leader', kind:'Role',
+              children:[{ id:'horizon-cse', label:'CSE', sub:'Customer Success Engineer', kind:'Role' }],
+            }],
+          },
+          { id:'horizon-ce', label:'CE', sub:'Client Engineering', kind:'Role' },
+          { id:'horizon-sme', label:'SME', sub:'Subject Matter Expert', kind:'Role' },
+        ],
+      },
+    ],
+    crossLinks:[['horizon-tsl','horizon-atl']],
     functions: [
       {
         id: 'ae-h', abbr: 'AE', label: 'Account Executive',
@@ -155,10 +184,131 @@ const SEGMENTS = [
   {
     id: 'territory',
     label: 'Select Territory',
-    sub: '420k Clients',
+    sub: 'Client Segment',
+    clientCount: '420k Clients',
     desc: 'Digital-first, scaled sales model. Clients buy primarily Technology or Consulting, often through Ecosystem partners. Divided into Select Territory Growth (1,796 clients) and Select Territory Activate. Examples: Small and mid-size businesses, startups, SMB retail, local government.',
     youAreHere: true,
-    groupByCategory: true,
+    hierarchy: [
+      {
+        id:'select-t-growth', label:'Select T Growth', sub:'Client Sub-Segment', clientCount:'1,800 Clients', kind:'Client Motion',
+        desc:'Higher-potential Select Territory clients receiving a more focused growth motion and coordinated coverage.',
+      },
+      {
+        id:'select-t-activate', label:'Select T Activate', sub:'Client Sub-Segment', clientCount:'418,200 Clients', kind:'Client Motion', youAreHere:true,
+        desc:'Scaled, digital-first coverage for the broad Select Territory client base.',
+        children:[
+          {
+            id:'activate-data', label:'Data', sub:'Brand', kind:'Brand',
+            desc:'Data and AI offerings organized around productivity, trusted data, governance, analytics, and planning.',
+            children:[
+              {
+                id:'specialty-ai-productivity', label:'AI-Powered Productivity', sub:'Specialty', kind:'Specialty',
+                desc:'AI products that help employees and business teams automate work, build assistants, and apply trusted generative AI.',
+                products:'watsonx.ai, watsonx Orchestrate, IBM Granite, watsonx Code Assistant, IBM AI assistants',
+              },
+              {
+                id:'specialty-data-trust', label:'Data Trust & Planning', sub:'Specialty', kind:'Specialty',
+                desc:'Products for trusted data foundations, governance, analytics, integration, and enterprise planning.',
+                products:'watsonx.data, watsonx.governance, Cloud Pak for Data, DataStage, Knowledge Catalog, Cognos Analytics, Planning Analytics',
+              },
+            ],
+          },
+          {
+            id:'activate-automation', label:'Automation', sub:'Brand', kind:'Brand',
+            desc:'Automation software spanning application delivery, integration, identity, observability, and operational optimization.',
+            children:[
+              {
+                id:'specialty-devops', label:'DevOps', sub:'Specialty', kind:'Specialty',
+                desc:'Products for application delivery, observability, cost management, and software lifecycle optimization.',
+                products:'Instana, Turbonomic, Apptio, Cloudability, Concert, UrbanCode',
+              },
+              {
+                id:'specialty-integration', label:'Integration', sub:'Specialty', kind:'Specialty',
+                desc:'Connect applications, APIs, events, files, and data across hybrid environments.',
+                products:'webMethods, API Connect, IBM MQ, Event Automation, App Connect, Sterling',
+              },
+              {
+                id:'specialty-secure-access', label:'Secure Access & Identity', sub:'Specialty', kind:'Specialty',
+                desc:'Identity, access, authentication, and privileged-access capabilities for employees and consumers.',
+                products:'IBM Security Verify, Verify Governance, Verify Privilege, MaaS360',
+              },
+              {
+                id:'specialty-assistant-ops', label:'Assistant & Op Optimization', sub:'Specialty', kind:'Specialty',
+                desc:'AI assistants and operational automation that improve decisions, workflows, asset performance, and service delivery.',
+                products:'watsonx Orchestrate, Maximo Application Suite, Business Automation Workflow, Operational Decision Manager, Process Mining',
+              },
+            ],
+          },
+          {
+            id:'activate-infrastructure', label:'Infrastructure', sub:'Brand', kind:'Brand', youAreHere:true,
+            desc:'Infrastructure offerings for modernization, hybrid cloud, resilient data, enterprise compute, and AI-ready platforms.',
+            children:[
+              {
+                id:'specialty-infra-modernization', label:'Infrastructure Modernization', sub:'Specialty', kind:'Specialty', youAreHere:true,
+                desc:'Modernize servers, storage, data resilience, and hybrid infrastructure. Your BTSS focus is PowerVS, FlashSystem, and Fusion.',
+                products:'PowerVS, FlashSystem, IBM Fusion, IBM Power, Storage Defender, Storage Insights, IBM Z, LinuxONE',
+                children:[
+                  {
+                    id:'infra-sales-roles', label:'Sales', kind:'Role Group', youAreHere:true,
+                    children:[
+                      { id:'infra-sdr', label:'SDR', sub:'Sales Development Representative', kind:'Role', desc:'Generates and qualifies infrastructure pipeline, then hands opportunities into the territory coverage team.' },
+                      { id:'infra-csm', label:'CSM', sub:'Customer Success Manager', kind:'Role', desc:'Guides adoption, value realization, renewal readiness, and growth after a solution is purchased.' },
+                      {
+                        id:'infra-markets', label:'Markets', sub:'Market Coverage', kind:'Market', youAreHere:true, desc:'Aligns infrastructure coverage and opportunity execution to the applicable client market.',
+                        children:[
+                          { id:'market-commercial', label:'Commercial & Distribution', kind:'Market', youAreHere:true, children:[
+                            { id:'market-commercial-btss', label:'BTSS', sub:'Brand Technical Sales Specialist', kind:'Role', youAreHere:true, desc:'Hybrid sales and technical role covering 1-12 Focus and Key Core products across approximately 300+ Select Activate accounts.' },
+                            { id:'market-commercial-tss', label:'TSS', sub:'Territory Sales Specialist', kind:'Role', desc:'Sales role covering the broader portfolio within one brand across approximately 200+ Select Territory accounts.' },
+                          ]},
+                          { id:'market-fss', label:'FSS / Public', kind:'Market', children:[
+                            { id:'market-fss-btss', label:'BTSS', sub:'Brand Technical Sales Specialist', kind:'Role', desc:'Hybrid sales and technical role covering 1-12 Focus and Key Core products across approximately 300+ Select Activate accounts.' },
+                            { id:'market-fss-tss', label:'TSS', sub:'Territory Sales Specialist', kind:'Role', desc:'Sales role covering the broader portfolio within one brand across approximately 200+ Select Territory accounts.' },
+                          ]},
+                          { id:'market-industrial', label:'Industrial', kind:'Market', children:[
+                            { id:'market-industrial-btss', label:'BTSS', sub:'Brand Technical Sales Specialist', kind:'Role', desc:'Hybrid sales and technical role covering 1-12 Focus and Key Core products across approximately 300+ Select Activate accounts.' },
+                            { id:'market-industrial-tss', label:'TSS', sub:'Territory Sales Specialist', kind:'Role', desc:'Sales role covering the broader portfolio within one brand across approximately 200+ Select Territory accounts.' },
+                          ]},
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    id:'infra-technical-roles', label:'Technical', kind:'Role Group',
+                    children:[
+                      { id:'infra-sme', label:'SME', sub:'Technical Specialist', kind:'Role', desc:'Provides deep product or architecture expertise for complex infrastructure opportunities.' },
+                      { id:'infra-ce', label:'CE', sub:'Client Engineering', kind:'Role', desc:'Builds and validates client solutions through co-creation, pilots, and proofs.' },
+                      {
+                        id:'infra-bts', label:'BTS', sub:'Brand Technical Specialist', kind:'Role',
+                        desc:'Technical role covering 1-5 Focus Products across approximately 100 high-potential accounts, leading technical discovery, demos, trials, POCs, and solution validation.',
+                        children:[
+                          { id:'infra-power-cloud-bts', label:'Power/Cloud BTS', sub:'Power and Cloud Brand Technical Specialist', kind:'Role', desc:'Covers PowerVS and related Power and hybrid-cloud technical motions.' },
+                          { id:'infra-storage-bts', label:'Storage BTS', sub:'Storage Brand Technical Specialist', kind:'Role', desc:'Covers FlashSystem, Fusion, and related storage modernization motions.' },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    id:'infra-ecosystem-roles', label:'Ecosystem', kind:'Role Group',
+                    children:[
+                      { id:'infra-tps', label:'TPS', sub:'Technology Partner Specialist', kind:'Role', desc:'Drives partner strategy, enablement, and co-sell execution for infrastructure.' },
+                      { id:'infra-pts', label:'PTS', sub:'Partner Technical Specialist', kind:'Role', desc:'Provides technical enablement, demos, and solution support for Business Partners.' },
+                      { id:'infra-distributors', label:'Distributors', kind:'Ecosystem', desc:'Channel distributors that support partner coverage, enablement, fulfillment, and scale.', children:[
+                        { id:'infra-bp', label:'BPs', sub:'Business Partners', kind:'Ecosystem', desc:'Partner organizations that source, influence, resell, and implement IBM infrastructure solutions.' },
+                      ]},
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    crossLinks:[
+      ['market-commercial-btss','market-commercial-tss'],
+      ['market-fss-btss','market-fss-tss'],
+      ['market-industrial-btss','market-industrial-tss'],
+    ],
     functions: [
       {
         id: 'btss-t', abbr: 'BTSS', label: 'Brand Technical Sales Specialist',
@@ -292,7 +442,7 @@ const PRODUCT_CATEGORIES = [
   },
   {
     id: 'portfolio-infrastructure', label: 'Infrastructure', sub: 'Systems Portfolio',
-    desc: 'Secure, AI-ready servers, storage, and infrastructure software for hybrid-cloud environments. In Select Territory, coverage is organized around BTSS Brand Products, broader TSS portfolio coverage, and a specialist IBM Z motion.',
+    desc: 'Secure, AI-ready servers, storage, and infrastructure software for hybrid-cloud environments. In Select Territory, BTSS sells the Focus Products, TSS covers the broader portfolio, and IBM Z follows a specialist motion.',
     youAreHere: true,
     groupByCategory: true,
     functions: [
@@ -367,6 +517,103 @@ const PRODUCT_CATEGORIES = [
   },
 ];
 
+// The 2026 BTSS Runbook defines Select Territory around three brands and seven
+// specialties. Keep the chart faithful to that seller-facing model.
+const productNode = (id, label, fullName, purpose) => ({
+  id, label, sub:fullName, kind:'Product', purpose, products:fullName,
+});
+const dataBrand = PRODUCT_CATEGORIES.find(category => category.id === 'portfolio-ai-data');
+const automationBrand = PRODUCT_CATEGORIES.find(category => category.id === 'portfolio-automation');
+const infrastructureBrand = PRODUCT_CATEGORIES.find(category => category.id === 'portfolio-infrastructure');
+
+if (dataBrand) {
+  dataBrand.label = 'Data';
+  dataBrand.desc = 'Select Territory Data offerings are organized into AI-Powered Productivity and Data Trust & Planning specialties.';
+  dataBrand.hierarchy = [
+    {
+      id:'product-specialty-ai-productivity', label:'AI-Powered Productivity', kind:'Specialty',
+      desc:'Focus products for AI assistants, agentic productivity, development acceleration, and governed AI.',
+      children:[
+        productNode('product-orchestrate','watsonx Orchestrate','IBM watsonx Orchestrate','Build, govern, and automate work with AI assistants and agents.'),
+        productNode('product-bob','Project Bob','IBM Project Bob / watsonx Code Assistant','Accelerate software development with IBM AI coding assistance.'),
+        productNode('product-watsonx-gov','watsonx.governance','IBM watsonx.governance','Govern AI models, agents, risk, and regulatory obligations.'),
+      ],
+    },
+    {
+      id:'product-specialty-data-trust', label:'Data Trust & Planning', kind:'Specialty',
+      desc:'Focus products for trusted data, governance, integration, security, analytics, and enterprise planning.',
+      children:[
+        productNode('product-guardium-focus','Guardium','IBM Guardium','Discover, protect, and govern sensitive enterprise data.'),
+        productNode('product-watsonx-data','watsonx.data','IBM watsonx.data','Create an AI-ready hybrid data foundation.'),
+        productNode('product-watsonx-integration','Data Integration','IBM watsonx.data integration','Integrate and deliver trusted data across hybrid environments.'),
+        productNode('product-planning-analytics','Planning Analytics','IBM Planning Analytics','Support integrated business planning, forecasting, and scenario analysis.'),
+      ],
+    },
+  ];
+}
+
+if (automationBrand) {
+  automationBrand.desc = 'Select Territory Automation offerings span DevOps, Integration, Secure Access & Identity, and Asset & Operations Optimization.';
+  automationBrand.hierarchy = [
+    {
+      id:'product-specialty-devops', label:'DevOps', kind:'Specialty',
+      children:[
+        productNode('product-terraform-focus','Terraform','HashiCorp Terraform','Provision and manage infrastructure through consistent workflows.'),
+        productNode('product-instana-focus','Instana','IBM Instana Observability','Observe application performance and dependencies in real time.'),
+        productNode('product-concert-focus','Concert','IBM Concert','Use AI-driven insights to manage application resilience and risk.'),
+        productNode('product-kubecost-focus','Kubecost','IBM Kubecost','Understand and optimize Kubernetes cost and usage.'),
+        productNode('product-cloudability-focus','Cloudability','IBM Cloudability','Manage and optimize cloud financial performance.'),
+      ],
+    },
+    {
+      id:'product-specialty-integration', label:'Integration', kind:'Specialty',
+      children:[productNode('product-webmethods-focus','webMethods','IBM webMethods Hybrid Integration','Connect applications, APIs, events, files, and data across hybrid environments.')],
+    },
+    {
+      id:'product-specialty-access', label:'Secure Access & Identity', kind:'Specialty',
+      children:[
+        productNode('product-vault-focus','Vault','HashiCorp Vault','Secure secrets, identities, and privileged access.'),
+        productNode('product-verify-focus','Verify','IBM Security Verify','Manage workforce and customer identity and access.'),
+        productNode('product-ns1-focus','NS1','IBM NS1 Connect','Provide resilient, intelligent DNS and traffic steering.'),
+      ],
+    },
+    {
+      id:'product-specialty-asset-ops', label:'Asset & Operations Optimization', kind:'Specialty',
+      children:[productNode('product-maximo-focus','Maximo','IBM Maximo Application Suite','Optimize asset performance, maintenance, reliability, and operations.')],
+    },
+  ];
+}
+
+if (infrastructureBrand) {
+  const asProductNode = product => ({ ...product, label:product.abbr, sub:product.label, kind:'Product' });
+  const focusProducts = infrastructureBrand.functions.filter(product => product.category === 'BTSS Brand Products');
+  const territoryProducts = infrastructureBrand.functions.filter(product => product.category === 'TSS Portfolio Coverage');
+  const zProducts = infrastructureBrand.functions.filter(product => product.category === 'IBM Z Specialist Motion');
+  infrastructureBrand.hierarchy = [{
+    id:'product-specialty-infrastructure-modernization', label:'Infrastructure Modernization', kind:'Specialty', youAreHere:true,
+    desc:'The infrastructure specialty combines BTSS Focus Products, broader non-Focus TSS coverage, and a distinct IBM Z specialist motion.',
+    children:[
+      {
+        id:'product-group-focus', label:'Focus Products', kind:'Product Group', youAreHere:true,
+        desc:'BTSS sells and technically validates PowerVS, FlashSystem, and Fusion as part of a focused 1-12 product assignment across approximately 300+ Select Activate accounts.',
+        children:focusProducts.map(asProductNode),
+      },
+      ...territoryProducts.map(asProductNode),
+      {
+        id:'product-group-z', label:'IBM Z', kind:'Product Group',
+        desc:'Specialist-led IBM Z and LinuxONE offerings. TSS can identify demand and coordinate the specialist team.',
+        children:zProducts.map(asProductNode),
+      },
+    ],
+  }];
+  infrastructureBrand.groupByCategory = false;
+}
+
+// Hybrid Cloud and Security remain important IBM portfolios, but the runbook
+// places Select Territory product coverage within Data, Automation, and
+// Infrastructure. Show those three brands in this seller-oriented view.
+PRODUCT_CATEGORIES.splice(0, PRODUCT_CATEGORIES.length, dataBrand, automationBrand, infrastructureBrand);
+
 // ─────────────────────────────────────────────────────────────────
 // Hex geometry (pointy-top)
 // ─────────────────────────────────────────────────────────────────
@@ -390,6 +637,7 @@ let _selectedId        = null;   // currently selected node id
 let _panelCollapsed    = false;
 let _zoom              = 1;
 let _chartMode         = 'segments'; // 'segments' | 'products'
+let _hierarchyLoaded   = false;
 const ZOOM_STEP        = 0.15;
 const ZOOM_MIN         = 0.4;
 const ZOOM_MAX         = 2.5;
@@ -398,10 +646,113 @@ function activeGroups() {
   return _chartMode === 'products' ? PRODUCT_CATEGORIES : SEGMENTS;
 }
 
+const HIERARCHY_STORAGE_KEY = 'ibm-hive-colonies-hierarchy-v1';
+
+function loadHierarchyEdits() {
+  if (_hierarchyLoaded) return;
+  _hierarchyLoaded = true;
+  try {
+    const saved = JSON.parse(localStorage.getItem(HIERARCHY_STORAGE_KEY) || 'null');
+    if (!saved) return;
+    SEGMENTS.forEach(segment => {
+      if (saved[segment.id]) segment.hierarchy = saved[segment.id];
+    });
+  } catch (error) {
+    console.warn('Could not load saved Colony nodes.', error);
+  }
+}
+
+function saveHierarchyEdits() {
+  const saved = Object.fromEntries(SEGMENTS.filter(segment => segment.hierarchy)
+    .map(segment => [segment.id, segment.hierarchy]));
+  localStorage.setItem(HIERARCHY_STORAGE_KEY, JSON.stringify(saved));
+}
+
+function findHierarchyLocation(id) {
+  function visit(nodes, parent, segment) {
+    for (const node of nodes || []) {
+      if (node.id === id) return { node, parent, segment };
+      const found = visit(node.children, node, segment);
+      if (found) return found;
+    }
+    return null;
+  }
+  for (const segment of SEGMENTS) {
+    const found = visit(segment.hierarchy, null, segment);
+    if (found) return found;
+  }
+  return null;
+}
+
+function openNodeEditor(mode, nodeId) {
+  const modal = document.getElementById('ohiveNodeEditor');
+  const form = document.getElementById('ohiveNodeForm');
+  if (!modal || !form) return;
+  const location = findHierarchyLocation(nodeId);
+  if (!location) return;
+  const editing = mode === 'edit';
+  const node = editing ? location.node : null;
+  form.dataset.mode = mode;
+  form.dataset.nodeId = nodeId;
+  form.elements.label.value = node?.label || '';
+  form.elements.kind.value = node?.kind || 'Role';
+  form.elements.fullName.value = node?.sub || '';
+  form.elements.description.value = node?.desc || '';
+  modal.querySelector('.ohive-node-editor-title').textContent = editing ? 'Edit Node' : `Add Node Under ${location.node.label}`;
+  modal.classList.add('open');
+  form.elements.label.focus();
+}
+
+function closeNodeEditor() {
+  document.getElementById('ohiveNodeEditor')?.classList.remove('open');
+}
+
+function saveNodeEditor(form) {
+  const mode = form.dataset.mode;
+  const location = findHierarchyLocation(form.dataset.nodeId);
+  if (!location) return;
+  const values = {
+    label: form.elements.label.value.trim(),
+    kind: form.elements.kind.value,
+    sub: form.elements.fullName.value.trim(),
+    desc: form.elements.description.value.trim(),
+  };
+  if (!values.label) return;
+  if (mode === 'edit') {
+    Object.assign(location.node, values);
+  } else {
+    location.node.children ||= [];
+    location.node.children.push({
+      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      ...values,
+    });
+    _expandedSegments.add(location.node.id);
+  }
+  saveHierarchyEdits();
+  closeNodeEditor();
+  redraw();
+  showDetail(location.node.id, 'hierarchy', location.node);
+}
+
+function deleteHierarchyNode(nodeId) {
+  const location = findHierarchyLocation(nodeId);
+  if (!location || !window.confirm(`Delete ${location.node.label} and everything beneath it?`)) return;
+  const siblings = location.parent ? location.parent.children : location.segment.hierarchy;
+  const index = siblings.findIndex(node => node.id === nodeId);
+  if (index < 0) return;
+  siblings.splice(index, 1);
+  collapseHierarchy(location.node);
+  _selectedId = null;
+  saveHierarchyEdits();
+  redraw();
+  showDetail(null, null);
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Entry point
 // ─────────────────────────────────────────────────────────────────
 export async function renderOrg(container) {
+  loadHierarchyEdits();
   _expandedSegments = new Set();
   _selectedId       = null;
   _panelCollapsed   = false;
@@ -412,8 +763,8 @@ export async function renderOrg(container) {
     <div class="ohive-layout">
       <div class="ohive-hive-area" id="ohiveHiveArea">
         <div class="ohive-chart-switch" aria-label="Colony chart">
-          <button class="ohive-chart-switch-btn active" data-chart-mode="segments">Client Segments</button>
-          <button class="ohive-chart-switch-btn" data-chart-mode="products">Product Portfolios</button>
+          <button class="ohive-chart-switch-btn active" data-chart-mode="segments">Sales</button>
+          <button class="ohive-chart-switch-btn" data-chart-mode="products">Product Brands</button>
         </div>
         <div class="ohive-zoom-controls" id="ohiveZoomControls">
           <button class="ohive-zoom-btn" id="ohiveZoomIn" title="Zoom in">+</button>
@@ -433,7 +784,51 @@ export async function renderOrg(container) {
         </div>
       </div>
     </div>
+    <div class="ohive-node-editor" id="ohiveNodeEditor" role="dialog" aria-modal="true" aria-labelledby="ohiveNodeEditorTitle">
+      <form class="ohive-node-editor-card" id="ohiveNodeForm">
+        <div class="ohive-node-editor-head">
+          <div class="ohive-node-editor-title" id="ohiveNodeEditorTitle">Edit Node</div>
+          <button type="button" class="ohive-node-editor-close" aria-label="Close">×</button>
+        </div>
+        <label>Name<input name="label" type="text" required maxlength="42"></label>
+        <label>Type<select name="kind">
+          <option>Client Sub-Segment</option><option>Brand</option><option>Specialty</option>
+          <option>Market</option><option>Role Group</option><option>Role</option><option>Ecosystem</option>
+        </select></label>
+        <label>Full name or expanded acronym<input name="fullName" type="text" maxlength="90"></label>
+        <label>Description<textarea name="description" rows="4" maxlength="500"></textarea></label>
+        <div class="ohive-node-editor-actions">
+          <button type="button" class="ohive-node-editor-cancel">Cancel</button>
+          <button type="submit" class="ohive-node-editor-save">Save</button>
+        </div>
+      </form>
+    </div>
   `;
+
+  const detailPanel = document.getElementById('ohiveDetail');
+  detailPanel?.addEventListener('click', event => {
+    const menuToggle = event.target.closest('[data-node-menu-toggle]');
+    if (menuToggle) {
+      event.stopPropagation();
+      menuToggle.closest('.ohive-node-actions')?.classList.toggle('open');
+      return;
+    }
+    const action = event.target.closest('[data-node-action]');
+    if (!action) return;
+    const { nodeAction, nodeId } = action.dataset;
+    if (nodeAction === 'add') openNodeEditor('add', nodeId);
+    if (nodeAction === 'edit') openNodeEditor('edit', nodeId);
+    if (nodeAction === 'delete') deleteHierarchyNode(nodeId);
+  });
+  document.querySelector('.ohive-node-editor-close')?.addEventListener('click', closeNodeEditor);
+  document.querySelector('.ohive-node-editor-cancel')?.addEventListener('click', closeNodeEditor);
+  document.getElementById('ohiveNodeEditor')?.addEventListener('click', event => {
+    if (event.target.id === 'ohiveNodeEditor') closeNodeEditor();
+  });
+  document.getElementById('ohiveNodeForm')?.addEventListener('submit', event => {
+    event.preventDefault();
+    saveNodeEditor(event.currentTarget);
+  });
 
   document.getElementById('ohiveZoomIn')?.addEventListener('click', e => {
     e.stopPropagation();
@@ -573,6 +968,52 @@ function packCategoryRows(seg, availW) {
   }));
 }
 
+function hierarchyNodeById(id, nodes) {
+  for (const node of nodes || []) {
+    if (node.id === id) return node;
+    const found = hierarchyNodeById(id, node.children);
+    if (found) return found;
+  }
+  return null;
+}
+
+function hierarchyTypeLabel(node) {
+  if (node?.kind === 'Client Motion') return 'Client Sub-Segment';
+  return node?.kind || 'Node';
+}
+
+function collapseHierarchy(node) {
+  if (!node) return;
+  _expandedSegments.delete(node.id);
+  (node.children || []).forEach(collapseHierarchy);
+}
+
+function hierarchySubtreeWidth(node) {
+  if (!_expandedSegments.has(node.id) || !node.children?.length) return CS;
+  const childWidths = node.children.map(hierarchySubtreeWidth);
+  return Math.max(CS, childWidths.reduce((sum, width) => sum + width, 0) + GAP * Math.max(0, childWidths.length - 1));
+}
+
+function hierarchyForestWidth(nodes) {
+  const widths = (nodes || []).map(hierarchySubtreeWidth);
+  return widths.reduce((sum, width) => sum + width, 0) + GAP * Math.max(0, widths.length - 1);
+}
+
+function placeHierarchy(nodes, parentId, parentX, depth, baseY, output) {
+  if (!nodes?.length) return;
+  const widths = nodes.map(hierarchySubtreeWidth);
+  const totalWidth = widths.reduce((sum, width) => sum + width, 0) + GAP * Math.max(0, widths.length - 1);
+  let cursor = parentX - totalWidth / 2;
+  nodes.forEach((node, index) => {
+    const cx = cursor + widths[index] / 2;
+    output.push({ node, parentId, cx, cy:baseY + depth * (RS + GAP), depth });
+    if (_expandedSegments.has(node.id)) {
+      placeHierarchy(node.children, node.id, cx, depth + 1, baseY, output);
+    }
+    cursor += widths[index] + GAP;
+  });
+}
+
 function buildLayout() {
   const nodes     = [];
   const pos       = {};
@@ -592,7 +1033,9 @@ function buildLayout() {
   const clusterWidths = {};
   groups.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
-    if (seg.groupByCategory) {
+    if (seg.hierarchy) {
+      clusterWidths[seg.id] = hierarchyForestWidth(seg.hierarchy);
+    } else if (seg.groupByCategory) {
       const rows = packCategoryRows(seg, availW);
       groupedRowsBySeg[seg.id] = rows;
       clusterWidths[seg.id] = Math.max(...rows.map(r => r.rowWidth));
@@ -603,14 +1046,19 @@ function buildLayout() {
     }
   });
 
-  const maxW  = Math.max(segTotalW, ...Object.values(clusterWidths), 0);
+  const hierarchyEnvelopeWidths = groups.map((seg, index) => {
+    if (!seg.hierarchy || !_expandedSegments.has(seg.id)) return 0;
+    const segmentOffset = (index - (segCount - 1) / 2) * (CS + GAP);
+    return 2 * (Math.abs(segmentOffset) + (clusterWidths[seg.id] || CS) / 2);
+  });
+  const maxW  = Math.max(segTotalW, ...Object.values(clusterWidths), ...hierarchyEnvelopeWidths, 0);
   const svgW  = maxW + PAD_X * 2;
   const svgCX = svgW / 2;
 
   // Root
   let curY = PAD_Y + R;
   nodes.push({
-    id: 'root', label: 'IBM', sub: _chartMode === 'products' ? 'Product Portfolios' : 'Client Segments',
+    id: 'root', label: _chartMode === 'products' ? 'IBM Products' : 'IBM Sales', sub: 'Colony',
     type: 'root', cx: svgCX, cy: curY,
     isSelected: _selectedId === 'root',
     youAreHere: false, data: null,
@@ -624,7 +1072,7 @@ function buildLayout() {
     const cx = segStartX + si * (CS + GAP);
     const cy = curY;
     nodes.push({
-      id: seg.id, label: seg.label, sub: seg.sub,
+      id: seg.id, label: seg.label, sub: _chartMode === 'products' ? 'Brand' : 'Client Segment',
       type: 'segment', cx, cy,
       isSelected: _selectedId === seg.id,
       youAreHere: seg.youAreHere || false,
@@ -641,7 +1089,33 @@ function buildLayout() {
   groups.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
 
-    if (seg.groupByCategory) {
+    if (seg.hierarchy) {
+      const placed = [];
+      const segmentX = pos[seg.id]?.cx ?? svgCX;
+      placeHierarchy(seg.hierarchy, seg.id, segmentX, 0, curY, placed);
+      placed.forEach(({ node, parentId, cx, cy }) => {
+        nodes.push({
+          id:node.id, label:node.label, sub:hierarchyTypeLabel(node),
+          type:'hierarchy', cx, cy,
+          isSelected:_selectedId === node.id,
+          youAreHere:node.youAreHere || false,
+          isExpanded:_expandedSegments.has(node.id),
+          data:node, segId:seg.id,
+        });
+        pos[node.id] = { cx, cy };
+        const parentPos = pos[parentId];
+        if (parentPos) lines_data.push({ x1:parentPos.cx, y1:parentPos.cy + R, x2:cx, y2:cy - R, kind:'hierarchy' });
+      });
+      (seg.crossLinks || []).forEach(([sourceId, targetId]) => {
+        const source = pos[sourceId];
+        const target = pos[targetId];
+        if (source && target) {
+          lines_data.push({ x1:source.cx, y1:source.cy, x2:target.cx, y2:target.cy, kind:'cross-role' });
+        }
+      });
+      const maxDepth = placed.length ? Math.max(...placed.map(item => item.depth)) : 0;
+      curY += (maxDepth + 1) * (RS + GAP) + GAP;
+    } else if (seg.groupByCategory) {
       const rows = groupedRowsBySeg[seg.id] || [];
 
       // Each row of categories is centred independently and stacked
@@ -672,7 +1146,7 @@ function buildLayout() {
             const cy  = curY + CATEGORY_LABEL_H + R + frow * (RS + GAP);
 
             nodes.push({
-              id: fn.id, label: fn.abbr, sub: fn.label,
+              id: fn.id, label: fn.abbr, sub: _chartMode === 'products' ? 'Product' : 'Role',
               type: 'function', cx, cy,
               isSelected: _selectedId === fn.id,
               youAreHere: fn.youAreHere || false,
@@ -706,7 +1180,7 @@ function buildLayout() {
         const cy      = curY + row * (RS + GAP);
 
         nodes.push({
-          id: fn.id, label: fn.abbr, sub: fn.label,
+          id: fn.id, label: fn.abbr, sub: _chartMode === 'products' ? 'Product' : 'Role',
           type: 'function', cx, cy,
           isSelected: _selectedId === fn.id,
           youAreHere: fn.youAreHere || false,
@@ -789,7 +1263,7 @@ function redraw() {
 
   // Lines
   const lines = lines_data.map(l => {
-    return `<line x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}"
+    return `<line data-line-kind="${l.kind}" x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}"
       x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}"
       stroke="rgba(255,255,255,0.48)"
       stroke-width="1.5" stroke-linecap="round" pointer-events="none"/>`;
@@ -819,10 +1293,10 @@ function redraw() {
 
     // Outline: always white except selected (blue) and you-are-here (purple)
     // Related cells get a brighter white outline to highlight the relationship
-    const stroke = isSel
-      ? '#4589ff'
-      : isYou
-        ? '#a855f7'
+    const stroke = isYou
+      ? '#a855f7'
+      : isSel
+        ? '#4589ff'
         : isRel
           ? 'rgba(255,255,255,0.90)'
           : 'rgba(255,255,255,0.70)';
@@ -912,6 +1386,8 @@ function handleClick(id, type, shiftKey = false) {
   if (type === 'segment') {
     if (_expandedSegments.has(id)) {
       _expandedSegments.delete(id);
+      const collapsingSegment = activeGroups().find(s => s.id === id);
+      (collapsingSegment?.hierarchy || []).forEach(collapseHierarchy);
       _selectedId = null;
     } else {
       if (!shiftKey) _expandedSegments.clear();
@@ -921,6 +1397,20 @@ function handleClick(id, type, shiftKey = false) {
     redraw();
     const seg = activeGroups().find(s => s.id === id);
     showDetail(id, 'segment', seg);
+    return;
+  }
+
+  if (type === 'hierarchy') {
+    const seg = activeGroups().find(group => group.hierarchy && hierarchyNodeById(id, group.hierarchy));
+    const node = seg ? hierarchyNodeById(id, seg.hierarchy) : null;
+    if (!node) return;
+    if (node.children?.length) {
+      if (_expandedSegments.has(id)) collapseHierarchy(node);
+      else _expandedSegments.add(id);
+    }
+    _selectedId = id;
+    redraw();
+    showDetail(id, 'hierarchy', node);
     return;
   }
 
@@ -965,12 +1455,51 @@ function showDetail(id, type, data) {
     panel.innerHTML = `
       <div class="ohive-detail-empty">
         <div class="ohive-detail-welcome">
-          <div class="ohive-detail-welcome-title">${isProducts ? 'IBM Product Portfolios' : 'IBM Colonies'}</div>
+          <div class="ohive-detail-welcome-title">${isProducts ? 'IBM Product Brands' : 'IBM Colonies'}</div>
           <div class="ohive-detail-welcome-body">${isProducts
-            ? 'Explore IBM product categories, understand the major portfolios within each category, and see how related technologies work together.'
+            ? 'Explore IBM product brands, their products, and the specialized sales motions that connect them.'
             : 'Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM\'s go-to-market motion.'}</div>
-          <div class="ohive-detail-welcome-tip">${isProducts ? 'Select a category to reveal its portfolio.' : 'Your current role is highlighted in purple.'}</div>
+          <div class="ohive-detail-welcome-tip">${isProducts ? 'Select a brand to reveal its products.' : 'Your current role is highlighted in purple.'}</div>
         </div>
+      </div>`;
+    return;
+  }
+
+  if (type === 'hierarchy') {
+    const typeLabel = hierarchyTypeLabel(data);
+    const detailSub = data.clientCount || (data.sub && data.sub !== typeLabel ? data.sub : '');
+    const isEditableColonyNode = Boolean(findHierarchyLocation(data.id));
+    const nodeActions = isEditableColonyNode ? `
+      <div class="ohive-node-actions">
+        <button class="ohive-node-menu-toggle" data-node-menu-toggle aria-label="Node options" title="Node options">⋮</button>
+        <div class="ohive-node-menu">
+          <button data-node-action="add" data-node-id="${data.id}">Add Child Node</button>
+          <button data-node-action="edit" data-node-id="${data.id}">Edit Node</button>
+          <button class="danger" data-node-action="delete" data-node-id="${data.id}">Delete Node</button>
+        </div>
+      </div>` : '';
+    const childList = (data.children || []).map(child => `
+      <div class="odp-role-row">
+        <span class="odp-role-abbr">${child.label}</span>
+        ${child.sub ? `<span class="odp-role-label">${child.sub}</span>` : ''}
+      </div>`).join('');
+    panel.innerHTML = `
+      <div class="odp-content">
+        <div class="odp-heading-row">
+          <div>
+            <div class="odp-type-badge">${typeLabel}</div>
+            <div class="odp-title">${data.label}</div>
+          </div>
+          ${nodeActions}
+        </div>
+        ${detailSub ? `<div class="odp-sub">${detailSub}</div>` : ''}
+        ${data.youAreHere ? '<div class="odp-you-badge">You are here</div>' : ''}
+        ${data.desc || data.purpose ? `<div class="odp-desc">${data.desc || data.purpose}</div>` : ''}
+        ${data.products ? field(typeLabel === 'Product' ? 'Product Family' : 'Products in This Specialty', data.products) : ''}
+        ${data.seller ? field('Select Territory Coverage', data.seller) : ''}
+        ${data.salesMotion ? field('Sales Motion', data.salesMotion) : ''}
+        ${data.buyer ? field('Typical Buyers', data.buyer) : ''}
+        ${childList ? `<div class="odp-section-title">Branches</div><div class="odp-role-list">${childList}</div><div class="odp-hint">Click a branch to continue.</div>` : ''}
       </div>`;
     return;
   }
@@ -978,7 +1507,13 @@ function showDetail(id, type, data) {
   if (type === 'segment') {
     const isProducts = _chartMode === 'products';
     let rolesHtml = '';
-    if (data.groupByCategory) {
+    if (data.hierarchy) {
+      rolesHtml = `<div class="odp-role-list">${data.hierarchy.map(item => `
+        <div class="odp-role-row">
+          <span class="odp-role-abbr">${item.label}</span>
+          <span class="odp-role-label">${item.sub || ''}</span>
+        </div>`).join('')}</div>`;
+    } else if (data.groupByCategory) {
       const categoryOrder = [];
       const categoryMap   = {};
       data.functions.forEach(f => {
@@ -1005,13 +1540,13 @@ function showDetail(id, type, data) {
     }
     panel.innerHTML = `
       <div class="odp-content">
-        <div class="odp-type-badge">${isProducts ? 'Product Category' : 'Client Segment'}</div>
+        <div class="odp-type-badge">${isProducts ? 'Brand' : 'Client Segment'}</div>
         <div class="odp-title">${data.label}</div>
-        <div class="odp-sub">${data.sub}</div>
+        <div class="odp-sub">${data.clientCount || data.sub}</div>
         <div class="odp-desc">${data.desc}</div>
-        <div class="odp-section-title">${isProducts ? 'Products in This Portfolio' : 'Roles in This Segment'}</div>
+        <div class="odp-section-title">${isProducts ? 'Products in This Brand' : data.hierarchy ? `${data.label} Branches` : 'Roles in This Segment'}</div>
         ${rolesHtml}
-        <div class="odp-hint">Click ${isProducts ? 'a product' : 'a role'} to see how it connects to others.</div>
+        <div class="odp-hint">Click ${isProducts ? 'a product' : data.hierarchy ? 'a branch to continue' : 'a role to see how it connects to others'}.</div>
       </div>`;
     return;
   }

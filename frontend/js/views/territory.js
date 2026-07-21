@@ -49,6 +49,7 @@ let _viewId    = null;
 let _selState  = null;      // state used to show territory details
 let _container = null;
 let _saveTimer = null;
+let _detailsCollapsed = false;
 
 // ── Load / save ───────────────────────────────────────────────────
 function marketId(market) {
@@ -263,11 +264,12 @@ function renderShell() {
         <div class="tc-toolbar-right"><span class="tc-readonly-note">Edit coverage in List view</span></div>
       </div>
 
-      <div class="tc-main">
+      <div class="tc-main${_detailsCollapsed ? ' detail-collapsed' : ''}" id="tcMain">
         <div class="tc-map-wrap" id="tcMapWrap">
           ${mapSvg()}
           ${territoryTiles()}
         </div>
+        <button class="tc-detail-toggle" id="tcDetailToggle" title="Toggle detail panel">${_detailsCollapsed ? '❬' : '❭'}</button>
         <div class="tc-legend" id="tcLegend">${legendHtml()}</div>
       </div>
 
@@ -380,6 +382,11 @@ function legendHtml() {
 
 // ── Wiring ────────────────────────────────────────────────────────
 function wire() {
+  document.getElementById('tcDetailToggle')?.addEventListener('click', () => {
+    _detailsCollapsed = !_detailsCollapsed;
+    document.getElementById('tcMain')?.classList.toggle('detail-collapsed',_detailsCollapsed);
+    document.getElementById('tcDetailToggle').textContent = _detailsCollapsed ? '❬' : '❭';
+  });
   document.getElementById('tcViewSelect').addEventListener('change', e => {
     _viewId = e.target.value;
     _selState = null;
@@ -401,6 +408,7 @@ function wire() {
     }
     const code = el.dataset.abbr;
     _selState = _selState === code ? null : code;
+    if (_selState) _detailsCollapsed = false;
     renderShell();
   });
 
