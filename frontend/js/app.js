@@ -14,6 +14,24 @@ import {
 let _user = null;
 export function currentUser() { return _user; }
 
+// ── Lightweight toast (shared across views) ─────────────────────
+export function showToast(message) {
+  let el = document.getElementById('appToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'appToast';
+    el.className = 'app-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  // restart the animation
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
 // ── Auth gate ────────────────────────────────────────────────────
 // The app boots only once a valid session exists. On load we try the stored
 // token; if it's missing/expired we show the login overlay.

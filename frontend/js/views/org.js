@@ -773,7 +773,7 @@ export async function renderOrg(container) {
         </div>
         <div class="ohive-canvas" id="ohiveCanvas"></div>
       </div>
-      <button class="ohive-panel-toggle" id="ohivePanelToggle" title="Toggle detail panel">&#x276D;</button>
+      <button class="ohive-panel-toggle" id="ohivePanelToggle" title="Toggle detail panel">&#x203A;</button>
       <div class="ohive-detail-panel" id="ohiveDetail">
         <div class="ohive-detail-empty">
           <div class="ohive-detail-welcome">
@@ -868,7 +868,7 @@ export async function renderOrg(container) {
     const toggle = document.getElementById('ohivePanelToggle');
     const detail = document.getElementById('ohiveDetail');
     layout?.classList.toggle('ohive-panel-collapsed', _panelCollapsed);
-    if (toggle) toggle.innerHTML = _panelCollapsed ? '&#x276C;' : '&#x276D;';
+    if (toggle) toggle.innerHTML = _panelCollapsed ? '&#x2039;' : '&#x203A;';
     // The hive area's available width changes as the panel slides in/out,
     // so the role clusters need to re-pack. Redraw now for responsiveness
     // and again once the width transition settles for a pixel-perfect fit.

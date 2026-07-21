@@ -14,6 +14,8 @@
 import { US_PATHS, US_CENTROIDS, US_VIEWBOX } from './us-geo.js';
 import { TERRITORY_VIEWS, TERRITORY_TILES, TERRITORY_TILE_NAMES } from './territory-data.js';
 import { getStore, saveStore, getToken } from '../api.js';
+import { addContactToHive } from './network.js';
+import { showToast } from '../app.js';
 
 const STORE_KEY = 'territory_coverage_v1';       // server key (when logged in)
 const LOCAL_KEY = 'ibm_hive_territory_v1';        // localStorage key (login-less)
@@ -269,7 +271,7 @@ function renderShell() {
           ${mapSvg()}
           ${territoryTiles()}
         </div>
-        <button class="tc-detail-toggle" id="tcDetailToggle" title="Toggle detail panel">${_detailsCollapsed ? '❬' : '❭'}</button>
+        <button class="tc-detail-toggle" id="tcDetailToggle" title="Toggle detail panel">${_detailsCollapsed ? '‹' : '›'}</button>
         <div class="tc-legend" id="tcLegend">${legendHtml()}</div>
       </div>
 
@@ -368,7 +370,9 @@ function legendHtml() {
         <div class="tc-territory-heading">${esc(territoryLabel)}</div>
         <div class="tc-territory-code">${matchingStates.join(' · ')}</div>
         <div class="tc-territory-people-title">Coverage Team</div>
-        ${selected.members.map(rep => `
+        ${selected.members.map(rep => {
+          const isPerson = rep.sourceRole !== 'Industrial Market';
+          return `
           <div class="tc-territory-person">
             <span class="tc-swatch" style="background:${selected.color};border-bottom-color:${darken(selected.color, 0.5)}"></span>
             <span class="tc-legend-text">
@@ -376,7 +380,11 @@ function legendHtml() {
               <span class="tc-legend-sub">${esc(rep.sourceRole)} · ${esc(rep.sourceManager)}</span>
               ${rep.sub ? `<span class="tc-legend-sub tc-territory-sub">${esc(rep.sub)}</span>` : ''}
             </span>
-          </div>`).join('')}
+            ${isPerson ? `<button class="tc-combs-btn" title="Add to My Combs"
+              data-add-name="${esc(rep.name)}" data-add-role="${esc(rep.sourceRole.replace(/ Manager$/, ''))}"
+              data-add-note="Covers ${esc(territoryLabel)}">+ Combs</button>` : ''}
+          </div>`;
+        }).join('')}
       </div>`;
 }
 
@@ -385,12 +393,29 @@ function wire() {
   document.getElementById('tcDetailToggle')?.addEventListener('click', () => {
     _detailsCollapsed = !_detailsCollapsed;
     document.getElementById('tcMain')?.classList.toggle('detail-collapsed',_detailsCollapsed);
-    document.getElementById('tcDetailToggle').textContent = _detailsCollapsed ? '❬' : '❭';
+    document.getElementById('tcDetailToggle').textContent = _detailsCollapsed ? '‹' : '›';
   });
   document.getElementById('tcViewSelect').addEventListener('change', e => {
     _viewId = e.target.value;
     _selState = null;
     renderShell();
+  });
+
+  // "Add to My Combs" from a coverage person
+  document.getElementById('tcLegend')?.addEventListener('click', async e => {
+    const btn = e.target.closest('.tc-combs-btn');
+    if (!btn) return;
+    btn.disabled = true;
+    const res = await addContactToHive({
+      name: btn.dataset.addName,
+      role: btn.dataset.addRole,
+      company: 'IBM',
+      relationship: 'Peer',
+      note: btn.dataset.addNote || 'From Territory Coverage',
+    });
+    btn.classList.add('added');
+    btn.textContent = res.added ? '✓ Added' : '✓ In Combs';
+    showToast(res.added ? `Added ${btn.dataset.addName} to My Combs` : `${btn.dataset.addName} is already in My Combs`);
   });
 
   const wrap = document.getElementById('tcMapWrap');

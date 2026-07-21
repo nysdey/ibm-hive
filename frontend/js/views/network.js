@@ -545,9 +545,50 @@ export async function renderNetwork(container) {
   canvasWrap.innerHTML = `<div class="nw-list-empty">Loading your hive…</div>`;
 
   _data = await loadData();
+  _mounted = true;
 
   renderSidebar();
   renderCanvas();
+}
+
+// ── Cross-view entry point ────────────────────────────────────────
+// Whether My Combs is currently mounted, so external adds can refresh it live.
+let _mounted = false;
+
+/**
+ * Add a person from elsewhere in the app (My Team, Territory Coverage) into
+ * My Combs. Dedupes by name and drops them into a "My Team" comb. Works even if
+ * My Combs hasn't been opened yet (operates on the persisted store).
+ * Returns { added } — false when they were already a member.
+ */
+export async function addContactToHive(contact) {
+  if (!contact || !contact.name) return { added: false };
+  if (!_mounted) _data = await loadData();   // sync with the persisted store first
+
+  const name = contact.name.trim();
+  let person = _data.people.find(p => (p.name || '').trim().toLowerCase() === name.toLowerCase());
+  if (!person) {
+    person = {
+      id: uid(), name,
+      role: contact.role || '', company: contact.company || '',
+      email: contact.email || '', location: contact.location || '',
+      relationship: contact.relationship || '', metThrough: contact.note || '',
+      notes: [],
+    };
+    _data.people.push(person);
+  }
+
+  let comb = _data.combs.find(c => c.name === 'My Team');
+  if (!comb) {
+    comb = { id: 'comb-my-team', name: 'My Team', description: 'Colleagues from the team directory', memberIds: [], layout: {} };
+    _data.combs.push(comb);
+  }
+  const alreadyMember = comb.memberIds.includes(person.id);
+  if (!alreadyMember) comb.memberIds.push(person.id);
+
+  saveData(_data);
+  if (_mounted) { renderSidebar(); renderCanvas(); }
+  return { added: !alreadyMember };
 }
 
 // Window listeners are module-level (added once per render). Guard against the

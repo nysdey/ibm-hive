@@ -14,6 +14,8 @@
 
 import { renderTerritory, updateTerritoryCoverage, removeTerritoryCoverage } from './territory.js';
 import { TERRITORY_VIEWS } from './territory-data.js';
+import { addContactToHive } from './network.js';
+import { showToast } from '../app.js';
 
 // ── Team data ─────────────────────────────────────────────────────
 const ORG_META = {
@@ -938,6 +940,8 @@ function renderMemberPanel(member, g, isManager, panel, onClose) {
       ${mtRow('Email', `<a class="mt-dp-link" href="mailto:${email}">${email}</a>`)}
       ${mtRow('Slack', `<a class="mt-dp-link" href="https://slack.com/app_redirect?channel=${encodeURIComponent(email)}" target="_blank" rel="noopener">${esc(slackHandle)}</a>`)}
 
+      ${isYou ? '' : `<button class="mt-dp-combs-btn" id="mtDpAddCombs">+ Add to My Combs</button>`}
+
       <div class="mt-dp-row">
         <div class="mt-dp-label">Notes</div>
         <div id="mtDpNotesList" class="mt-notes-list">
@@ -957,6 +961,24 @@ function renderMemberPanel(member, g, isManager, panel, onClose) {
     </div>`;
 
   document.getElementById('mtDpCloseBtn').addEventListener('click', onClose);
+
+  document.getElementById('mtDpAddCombs')?.addEventListener('click', async e => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const res = await addContactToHive({
+      name: member.name,
+      role: isManager ? g.title : g.title.replace(/ Manager$/, ''),
+      company: 'IBM',
+      email,
+      location: member.territory || member.region || '',
+      relationship: isManager ? 'Manager' : 'Peer',
+      note: `From My Team · ${g.market || g.product || 'IBM Infrastructure'}`,
+    });
+    btn.classList.add('added');
+    btn.textContent = res.added ? '✓ Added to My Combs' : '✓ Already in My Combs';
+    showToast(res.added ? `Added ${member.name} to My Combs` : `${member.name} is already in My Combs`);
+  });
+
   document.getElementById('mtDpMenu')?.addEventListener('click', e => {
     e.stopPropagation();
     document.getElementById('mtDpMenuItems')?.classList.toggle('open');

@@ -145,7 +145,7 @@ export async function renderWorkflow(container) {
       </header>
       <div class="wf-layout">
         <div class="wf-canvas" id="wfCanvas"></div>
-        <button class="wf-detail-toggle" id="wfDetailToggle" title="Toggle detail panel">❭</button>
+        <button class="wf-detail-toggle" id="wfDetailToggle" title="Toggle detail panel">›</button>
         <aside class="wf-detail" id="wfDetail"></aside>
       </div>
     </div>`;
@@ -171,7 +171,7 @@ function applyDetailState() {
   const layout = document.querySelector('.wf-layout');
   const toggle = document.getElementById('wfDetailToggle');
   layout?.classList.toggle('detail-collapsed', _detailCollapsed);
-  if (toggle) toggle.textContent = _detailCollapsed ? '❬' : '❭';
+  if (toggle) toggle.textContent = _detailCollapsed ? '‹' : '›';
 }
 
 function ensureDetailOpen() {
@@ -201,7 +201,10 @@ function renderFlow() {
   if (!canvas) return;
   canvas.innerHTML = `
     <div class="wf-flow">
-      <div class="wf-flow-boundaries"><span>Start: demand enters the workflow</span><span>Post-sales</span><span>End: renewal or new opportunity</span></div>
+      <div class="wf-flow-boundaries">
+        <span class="wf-boundary wf-boundary-start">Demand enters here</span>
+        <span class="wf-boundary wf-boundary-end">Renewal &amp; new opportunity</span>
+      </div>
       <div class="wf-stage-row">
         <div class="wf-stage-corner">Role</div>
         ${STAGES.map((stage, index) => `<button class="wf-stage${_stage === index ? ' active' : ''}" data-stage="${index}">${stage}</button>`).join('')}
