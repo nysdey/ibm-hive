@@ -198,6 +198,12 @@ function wireNav() {
   document.querySelectorAll('.topnav-link[data-view-link]').forEach(item => {
     item.addEventListener('click', () => activateView(item.dataset.viewLink));
   });
+
+  // The product title is also a home control. Colonies is the app's default
+  // landing page, so clicking the IBM Hive brand always returns there.
+  document.getElementById('topnavBrand')?.addEventListener('click', () => {
+    activateView('org');
+  });
 }
 
 // ── Init ──────────────────────────────────────────────────────────

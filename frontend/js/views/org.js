@@ -246,6 +246,63 @@ const SEGMENTS = [
   },
 ];
 
+// Product-centric companion chart. It uses the same group/item shape as the
+// client-segment chart so both maps share one interaction and layout system.
+const PRODUCT_CATEGORIES = [
+  {
+    id: 'portfolio-ai-data', label: 'AI & Data', sub: 'Software Portfolio',
+    desc: 'Products for building, governing, and scaling enterprise AI and trusted data foundations.',
+    functions: [
+      { id:'product-watsonx', abbr:'watsonx', label:'AI and Data Platform', purpose:'Build, deploy, govern, and scale trusted enterprise AI.', worksWith:['Granite','DataStage','Cloud Pak for Data'], products:'watsonx.ai, watsonx.data, watsonx.governance, watsonx Orchestrate' },
+      { id:'product-granite', abbr:'Granite', label:'IBM Foundation Models', purpose:'Open, enterprise-ready models optimized for business use cases.', worksWith:['watsonx','Red Hat AI'], products:'Granite language, code, vision, and embedding models' },
+      { id:'product-cp4d', abbr:'CP4D', label:'Cloud Pak for Data', purpose:'Unify data management, governance, analytics, and AI services.', worksWith:['watsonx','DataStage','Db2'], products:'Cloud Pak for Data, Knowledge Catalog' },
+      { id:'product-datastage', abbr:'DataStage', label:'Data Integration', purpose:'Design and run resilient data pipelines across hybrid environments.', worksWith:['Cloud Pak for Data','Db2','watsonx'], products:'DataStage, Data Replication' },
+    ],
+  },
+  {
+    id: 'portfolio-automation', label: 'Automation', sub: 'Software Portfolio',
+    desc: 'AI-powered automation for applications, IT operations, integration, workflows, and business decisions.',
+    functions: [
+      { id:'product-instana', abbr:'Instana', label:'Observability', purpose:'Monitor applications and infrastructure with automated discovery and context.', worksWith:['Turbonomic','Concert','Red Hat'], products:'Instana Observability' },
+      { id:'product-turbonomic', abbr:'Turbonomic', label:'Application Resource Management', purpose:'Continuously optimize application performance, cost, and resource use.', worksWith:['Instana','Apptio','Red Hat'], products:'Turbonomic ARM' },
+      { id:'product-apptio', abbr:'Apptio', label:'Technology Financial Management', purpose:'Connect technology investment decisions to business value and cloud economics.', worksWith:['Turbonomic','Cloudability'], products:'ApptioOne, Cloudability, Targetprocess' },
+      { id:'product-baw', abbr:'BAW', label:'Business Automation', purpose:'Automate workflows, decisions, documents, and content-intensive processes.', worksWith:['watsonx','webMethods'], products:'Business Automation Workflow, Operational Decision Manager' },
+      { id:'product-webmethods', abbr:'webMethods', label:'Integration', purpose:'Connect applications, APIs, events, and data across hybrid environments.', worksWith:['BAW','Red Hat'], products:'webMethods Hybrid Integration' },
+    ],
+  },
+  {
+    id: 'portfolio-hybrid-cloud', label: 'Hybrid Cloud', sub: 'Platform Portfolio',
+    desc: 'Open hybrid-cloud platforms and services for building, modernizing, and operating applications anywhere.',
+    functions: [
+      { id:'product-openshift', abbr:'OpenShift', label:'Hybrid Cloud Application Platform', purpose:'Build and run applications consistently across on-premises and public clouds.', worksWith:['RHEL','Ansible','IBM Cloud'], products:'Red Hat OpenShift' },
+      { id:'product-rhel', abbr:'RHEL', label:'Enterprise Linux', purpose:'Provide a stable, secure operating foundation for hybrid-cloud workloads.', worksWith:['OpenShift','Ansible','IBM Z'], products:'Red Hat Enterprise Linux' },
+      { id:'product-ansible', abbr:'Ansible', label:'IT Automation Platform', purpose:'Automate infrastructure, networks, cloud, security, and application operations.', worksWith:['RHEL','OpenShift','IBM Z'], products:'Red Hat Ansible Automation Platform' },
+      { id:'product-ibm-cloud', abbr:'IBM Cloud', label:'Cloud Platform', purpose:'Run regulated and enterprise workloads on a secure, hybrid-ready cloud.', worksWith:['OpenShift','Power','IBM Z'], products:'IBM Cloud, Satellite, Virtual Servers' },
+    ],
+  },
+  {
+    id: 'portfolio-security', label: 'Security', sub: 'Software Portfolio',
+    desc: 'Security products for identity, data, applications, threat detection, and hybrid-cloud risk.',
+    functions: [
+      { id:'product-qradar', abbr:'QRadar', label:'Threat Detection and Response', purpose:'Detect, investigate, and respond to threats across hybrid environments.', worksWith:['Guardium','Verify'], products:'QRadar SIEM, SOAR, EDR' },
+      { id:'product-guardium', abbr:'Guardium', label:'Data Security', purpose:'Discover, monitor, protect, and govern sensitive data across environments.', worksWith:['QRadar','Verify','watsonx'], products:'Guardium Data Protection, Guardium Insights' },
+      { id:'product-verify', abbr:'Verify', label:'Identity and Access Management', purpose:'Manage workforce and consumer identity across cloud and on-premises applications.', worksWith:['QRadar','Guardium'], products:'IBM Security Verify' },
+      { id:'product-secrets', abbr:'Secrets', label:'Secrets and Key Management', purpose:'Protect credentials, keys, and privileged access for critical workloads.', worksWith:['IBM Z','IBM Cloud','Verify'], products:'Hyper Protect Crypto Services, zSecure' },
+    ],
+  },
+  {
+    id: 'portfolio-infrastructure', label: 'Infrastructure', sub: 'Systems Portfolio',
+    desc: 'Enterprise compute, storage, and cloud infrastructure designed for resilient, data-intensive, and AI workloads.',
+    functions: [
+      { id:'product-z', abbr:'IBM Z', label:'Enterprise Mainframe', purpose:'Run high-volume, secure, mission-critical transaction and AI workloads.', worksWith:['LinuxONE','Storage','Red Hat'], products:'IBM z17, IBM Z software' },
+      { id:'product-linuxone', abbr:'LinuxONE', label:'Enterprise Linux Server', purpose:'Consolidate Linux and cloud-native workloads with security and efficiency.', worksWith:['IBM Z','OpenShift','Storage'], products:'IBM LinuxONE' },
+      { id:'product-power', abbr:'Power', label:'Enterprise Compute', purpose:'Run mission-critical applications, databases, and AI workloads on Power architecture.', worksWith:['PowerVS','Storage','IBM Cloud'], products:'IBM Power, AIX, IBM i' },
+      { id:'product-powervs', abbr:'PowerVS', label:'Power Virtual Server', purpose:'Extend Power workloads into IBM Cloud with consistent architecture and operations.', worksWith:['Power','IBM Cloud','Storage'], products:'IBM Power Virtual Server' },
+      { id:'product-storage', abbr:'Storage', label:'Data Storage', purpose:'Protect and activate enterprise data across hybrid cloud and AI environments.', worksWith:['IBM Z','Power','watsonx'], products:'FlashSystem, Storage Scale, Fusion, Defender' },
+    ],
+  },
+];
+
 // ─────────────────────────────────────────────────────────────────
 // Hex geometry (pointy-top)
 // ─────────────────────────────────────────────────────────────────
@@ -256,7 +313,7 @@ const GAP = 48;                    // spacing so hexes don't touch
 
 function hexPts(cx, cy, r = R) {
   return Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 3) * i;
+    const a = -Math.PI / 2 + (Math.PI / 3) * i;
     return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
   }).join(' ');
 }
@@ -268,9 +325,14 @@ let _expandedSegments  = new Set();
 let _selectedId        = null;   // currently selected node id
 let _panelCollapsed    = false;
 let _zoom              = 1;
+let _chartMode         = 'segments'; // 'segments' | 'products'
 const ZOOM_STEP        = 0.15;
 const ZOOM_MIN         = 0.4;
 const ZOOM_MAX         = 2.5;
+
+function activeGroups() {
+  return _chartMode === 'products' ? PRODUCT_CATEGORIES : SEGMENTS;
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Entry point
@@ -280,10 +342,15 @@ export async function renderOrg(container) {
   _selectedId       = null;
   _panelCollapsed   = false;
   _zoom             = 1;
+  _chartMode        = 'segments';
 
   container.innerHTML = `
     <div class="ohive-layout">
       <div class="ohive-hive-area" id="ohiveHiveArea">
+        <div class="ohive-chart-switch" aria-label="Colony chart">
+          <button class="ohive-chart-switch-btn active" data-chart-mode="segments">Client Segments</button>
+          <button class="ohive-chart-switch-btn" data-chart-mode="products">Product Portfolios</button>
+        </div>
         <div class="ohive-zoom-controls" id="ohiveZoomControls">
           <button class="ohive-zoom-btn" id="ohiveZoomIn" title="Zoom in">+</button>
           <button class="ohive-zoom-btn" id="ohiveZoomReset" title="Reset zoom">⊙</button>
@@ -308,6 +375,22 @@ export async function renderOrg(container) {
     e.stopPropagation();
     _zoom = Math.min(ZOOM_MAX, parseFloat((_zoom + ZOOM_STEP).toFixed(2)));
     applyZoom();
+  });
+  container.querySelectorAll('[data-chart-mode]').forEach(button => {
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      const nextMode = button.dataset.chartMode;
+      if (!nextMode || nextMode === _chartMode) return;
+      _chartMode = nextMode;
+      _expandedSegments.clear();
+      _selectedId = null;
+      _zoom = 1;
+      applyZoom();
+      container.querySelectorAll('[data-chart-mode]').forEach(item =>
+        item.classList.toggle('active', item.dataset.chartMode === _chartMode));
+      redraw();
+      showDetail(null, null);
+    });
   });
   document.getElementById('ohiveZoomOut')?.addEventListener('click', e => {
     e.stopPropagation();
@@ -428,19 +511,20 @@ function buildLayout() {
   const nodes     = [];
   const pos       = {};
   const lines_data = [];
+  const groups = activeGroups();
 
   const PAD_X = R + 48;
   const PAD_Y = R + 36;
   const availW = getAvailableWidth();
 
-  const segCount  = SEGMENTS.length;
+  const segCount  = groups.length;
   const segTotalW = segCount * CS + (segCount - 1) * GAP;
 
   // Pre-compute grouped-row layouts once so the width used to size the
   // canvas and the positions used to place hexes never disagree.
   const groupedRowsBySeg = {};
   const clusterWidths = {};
-  SEGMENTS.forEach(seg => {
+  groups.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
     if (seg.groupByCategory) {
       const rows = packCategoryRows(seg, availW);
@@ -460,7 +544,7 @@ function buildLayout() {
   // Root
   let curY = PAD_Y + R;
   nodes.push({
-    id: 'root', label: 'IBM', sub: 'Client Segments',
+    id: 'root', label: 'IBM', sub: _chartMode === 'products' ? 'Product Portfolios' : 'Client Segments',
     type: 'root', cx: svgCX, cy: curY,
     isSelected: _selectedId === 'root',
     youAreHere: false, data: null,
@@ -470,7 +554,7 @@ function buildLayout() {
 
   // Segments
   const segStartX = svgCX - segTotalW / 2 + CS / 2;
-  SEGMENTS.forEach((seg, si) => {
+  groups.forEach((seg, si) => {
     const cx = segStartX + si * (CS + GAP);
     const cy = curY;
     nodes.push({
@@ -488,7 +572,7 @@ function buildLayout() {
   curY += RS + GAP;
 
   // Role clusters
-  SEGMENTS.forEach(seg => {
+  groups.forEach(seg => {
     if (!_expandedSegments.has(seg.id)) return;
 
     if (seg.groupByCategory) {
@@ -588,7 +672,7 @@ function getRelationshipSets(selectedId) {
 
   // Find the selected function
   let selFn = null;
-  for (const seg of SEGMENTS) {
+  for (const seg of activeGroups()) {
     const fn = seg.functions.find(f => f.id === selectedId);
     if (fn) { selFn = fn; break; }
   }
@@ -598,9 +682,9 @@ function getRelationshipSets(selectedId) {
 
   // Find all role nodes whose abbr is in worksWith
   const related = new Set();
-  for (const seg of SEGMENTS) {
+  for (const seg of activeGroups()) {
     for (const fn of seg.functions) {
-      if (worksWithAbbrs.has(fn.abbr.toLowerCase())) {
+      if (worksWithAbbrs.has(fn.abbr.toLowerCase()) || worksWithAbbrs.has(fn.label.toLowerCase())) {
         related.add(fn.id);
       }
     }
@@ -639,11 +723,10 @@ function redraw() {
 
   // Lines
   const lines = lines_data.map(l => {
-    const isRootSeg = l.kind === 'root-seg';
     return `<line x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}"
       x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}"
-      stroke="rgba(255,255,255,${isRootSeg ? '0.28' : '0.18'})"
-      stroke-width="${isRootSeg ? '1.5' : '1'}" stroke-linecap="round" pointer-events="none"/>`;
+      stroke="rgba(255,255,255,0.48)"
+      stroke-width="1.5" stroke-linecap="round" pointer-events="none"/>`;
   }).join('');
 
   let hexes = '';
@@ -770,7 +853,7 @@ function handleClick(id, type, shiftKey = false) {
       _selectedId = id;
     }
     redraw();
-    const seg = SEGMENTS.find(s => s.id === id);
+    const seg = activeGroups().find(s => s.id === id);
     showDetail(id, 'segment', seg);
     return;
   }
@@ -779,7 +862,7 @@ function handleClick(id, type, shiftKey = false) {
     _selectedId = (_selectedId === id) ? null : id;
     redraw();
     if (_selectedId) {
-      const seg = SEGMENTS.find(s => s.functions.some(f => f.id === id));
+      const seg = activeGroups().find(s => s.functions.some(f => f.id === id));
       const fn  = seg?.functions.find(f => f.id === id);
       showDetail(id, 'function', fn);
     } else {
@@ -812,18 +895,22 @@ function showDetail(id, type, data) {
   if (!panel) return;
 
   if (!id || !data) {
+    const isProducts = _chartMode === 'products';
     panel.innerHTML = `
       <div class="ohive-detail-empty">
         <div class="ohive-detail-welcome">
-          <div class="ohive-detail-welcome-title">IBM Colonies</div>
-          <div class="ohive-detail-welcome-body">Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM's go-to-market motion.</div>
-          <div class="ohive-detail-welcome-tip">Your current role is highlighted in purple.</div>
+          <div class="ohive-detail-welcome-title">${isProducts ? 'IBM Product Portfolios' : 'IBM Colonies'}</div>
+          <div class="ohive-detail-welcome-body">${isProducts
+            ? 'Explore IBM product categories, understand the major portfolios within each category, and see how related technologies work together.'
+            : 'Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM\'s go-to-market motion.'}</div>
+          <div class="ohive-detail-welcome-tip">${isProducts ? 'Select a category to reveal its portfolio.' : 'Your current role is highlighted in purple.'}</div>
         </div>
       </div>`;
     return;
   }
 
   if (type === 'segment') {
+    const isProducts = _chartMode === 'products';
     let rolesHtml = '';
     if (data.groupByCategory) {
       const categoryOrder = [];
@@ -852,35 +939,36 @@ function showDetail(id, type, data) {
     }
     panel.innerHTML = `
       <div class="odp-content">
-        <div class="odp-type-badge">Client Segment</div>
+        <div class="odp-type-badge">${isProducts ? 'Product Category' : 'Client Segment'}</div>
         <div class="odp-title">${data.label}</div>
         <div class="odp-sub">${data.sub}</div>
         <div class="odp-desc">${data.desc}</div>
-        <div class="odp-section-title">Roles in This Segment</div>
+        <div class="odp-section-title">${isProducts ? 'Products in This Portfolio' : 'Roles in This Segment'}</div>
         ${rolesHtml}
-        <div class="odp-hint">Click a role to see how it connects to others.</div>
+        <div class="odp-hint">Click ${isProducts ? 'a product' : 'a role'} to see how it connects to others.</div>
       </div>`;
     return;
   }
 
   if (type === 'function') {
+    const isProducts = _chartMode === 'products';
     const ww = (data.worksWith || []).map(w =>
       `<span class="odp-works-tag">${w}</span>`
     ).join('');
     panel.innerHTML = `
       <div class="odp-content">
-        <div class="odp-type-badge">Role</div>
+        <div class="odp-type-badge">${isProducts ? 'Product' : 'Role'}</div>
         <div class="odp-title">${data.abbr}</div>
         <div class="odp-sub">${data.label}</div>
         ${data.youAreHere ? '<div class="odp-you-badge">You are here</div>' : ''}
         <div class="odp-desc">${data.purpose}</div>
 
-        <div class="odp-section-title">Works With</div>
+        <div class="odp-section-title">${isProducts ? 'Related Products' : 'Works With'}</div>
         <div class="odp-works-tags">${ww || '—'}</div>
         <div class="odp-works-hint">Highlighted in hive above</div>
 
-        ${field('Quota', data.ownsAccounts ? 'Owns accounts — carries quota' : 'Supports quota — does not own accounts')}
-        ${field('Sales Motion', data.salesMotion)}
+        ${isProducts ? '' : field('Quota', data.ownsAccounts ? 'Owns accounts — carries quota' : 'Supports quota — does not own accounts')}
+        ${isProducts ? '' : field('Sales Motion', data.salesMotion)}
         ${data.products ? field('Products', data.products) : ''}
       </div>`;
   }

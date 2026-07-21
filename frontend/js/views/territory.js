@@ -5,10 +5,10 @@
  * isometric IBM style: every state is a real geographic shape (Albers USA)
  * lifted off a dark board with an extruded base, coloured by the rep who owns it.
  *
- *  • Switch between coverage "views" (manager / market / product slices).
- *  • Click a rep in the legend to spotlight their territory.
- *  • Toggle Edit to re-assign states: pick a rep, then click states/territories.
- *  • Everything saves per-user, per-view (server-side, key `territory_coverage_v1`).
+ *  • One map per market type; manager and role coverage can overlap.
+ *  • Click a state to see every person assigned to that territory.
+ *  • Coverage is edited from My Team's List view; this map stays read-only.
+ *  • Everything saves per-user, per-market (server-side, key `territory_coverage_v1`).
  */
 
 import { US_PATHS, US_CENTROIDS, US_VIEWBOX } from './us-geo.js';
@@ -19,46 +19,72 @@ const STORE_KEY = 'territory_coverage_v1';       // server key (when logged in)
 const LOCAL_KEY = 'ibm_hive_territory_v1';        // localStorage key (login-less)
 const DEPTH = 7; // isometric lift, px
 
-// IBM Carbon palette — magenta / purple / blue / cyan (+ teal for headroom),
-// ordered so neighbouring reps in a legend land on distinct hues. Rep colours
-// are assigned from this list by index, so every view stays on-brand.
+// IBM Carbon-inspired palette limited to gray, blue, and purple. It is ordered
+// so neighbouring coverage groups remain distinct without introducing extra
+// accent colours.
 const IBM_PALETTE = [
   '#0f62fe', // blue 60
-  '#ee5396', // magenta 50
-  '#009d9a', // teal 50
   '#8a3ffc', // purple 60
-  '#33b1ff', // cyan 40
-  '#9f1853', // magenta 70
+  '#525252', // gray 70
+  '#4589ff', // blue 50
+  '#a56eff', // purple 50
+  '#6f6f6f', // gray 60
   '#0043ce', // blue 70
   '#be95ff', // purple 40
-  '#007d79', // teal 60
-  '#ff7eb6', // magenta 40
-  '#4589ff', // blue 50
-  '#6929c4', // purple 70
-  '#1192e8', // cyan 50
-  '#d02670', // magenta 60
+  '#393939', // gray 80
   '#78a9ff', // blue 40
-  '#a56eff', // purple 50
-  '#08bdba', // teal 40
-  '#00539a', // cyan 70
+  '#6929c4', // purple 70
+  '#8d8d8d', // gray 50
+  '#002d9c', // blue 80
+  '#491d8b', // purple 80
+  '#262626', // gray 90
+  '#d0e2ff', // blue 20
+  '#d4bbff', // purple 20
+  '#a8a8a8', // gray 40
 ];
 
 // ── Working state ─────────────────────────────────────────────────
 let _views     = [];        // working copy (presets, possibly overridden by saved edits)
 let _viewId    = null;
-let _selRep    = null;      // spotlighted / paint-target rep name
-let _editMode  = false;
+let _selState  = null;      // state used to show territory details
 let _container = null;
 let _saveTimer = null;
 
 // ── Load / save ───────────────────────────────────────────────────
+function marketId(market) {
+  return 'market-' + market.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+/** Merge manager/product slices into one map for each market type. */
 function clonePresets() {
-  // Colours are assigned here from the IBM palette (by rep order), so they are
-  // owned by code — recolouring the palette recolours everyone, and saved edits
-  // (which only concern state assignments) never carry stale colours.
-  return TERRITORY_VIEWS.map(v => ({
-    ...v,
-    reps: v.reps.map((r, i) => ({ ...r, color: IBM_PALETTE[i % IBM_PALETTE.length], states: [...r.states] })),
+  const markets = new Map();
+  TERRITORY_VIEWS.forEach(source => {
+    if (!markets.has(source.market)) {
+      markets.set(source.market, {
+        id: marketId(source.market),
+        market: source.market,
+        role: 'Market Coverage',
+        managers: [],
+        reps: [],
+      });
+    }
+    const view = markets.get(source.market);
+    if (!view.managers.includes(source.manager)) view.managers.push(source.manager);
+    source.reps.forEach(rep => {
+      view.reps.push({
+        ...rep,
+        states: [...rep.states],
+        sourceId: source.id,
+        sourceManager: source.manager,
+        sourceRole: source.role,
+      });
+    });
+  });
+
+  return [...markets.values()].map(view => ({
+    ...view,
+    manager: view.managers.join(' · '),
+    reps: view.reps.map((rep, i) => ({ ...rep, color: IBM_PALETTE[i % IBM_PALETTE.length] })),
   }));
 }
 
@@ -66,18 +92,31 @@ function clonePresets() {
 function reconcile(saved) {
   const presets = clonePresets();
   if (!saved || !Array.isArray(saved.views)) return presets;
-  const savedById = new Map(saved.views.map(v => [v.id, v]));
+  const savedStates = new Map();
+  saved.views.forEach(view => {
+    (view.reps || []).forEach(rep => {
+      if (!Array.isArray(rep.states)) return;
+      savedStates.set(`${view.market || ''}::${rep.name}`, rep.states);
+      // Supports data saved by the older per-manager view model.
+      savedStates.set(rep.name, rep.states);
+    });
+  });
   return presets.map(p => {
-    const s = savedById.get(p.id);
-    if (!s || !Array.isArray(s.reps)) return p;
-    const savedStates = new Map(s.reps.map(r => [r.name, Array.isArray(r.states) ? r.states : []]));
-    return {
+    const merged = {
       ...p,
       reps: p.reps.map(r => ({
         ...r,
-        states: savedStates.has(r.name) ? [...savedStates.get(r.name)] : r.states,
+        states: savedStates.has(`${p.market}::${r.name}`)
+          ? [...savedStates.get(`${p.market}::${r.name}`)]
+          : savedStates.has(r.name) ? [...savedStates.get(r.name)] : r.states,
       })),
     };
+    const savedView = saved.views.find(v => v.market === p.market || v.id === p.id);
+    (savedView?.reps || []).forEach(rep => {
+      if (!rep.sourceId || !(rep.states || []).length || merged.reps.some(r => r.sourceId === rep.sourceId && r.name === rep.name)) return;
+      merged.reps.push({ ...rep, states: [...(rep.states || [])] });
+    });
+    return merged;
   });
 }
 
@@ -90,6 +129,43 @@ function readLocal() {
 }
 function writeLocal(saved) {
   try { localStorage.setItem(LOCAL_KEY, JSON.stringify(saved)); } catch {}
+}
+
+function territoryCodes(value) {
+  const text = String(value || '');
+  const codes = text.match(/\b[A-Z]{2}\b/g) || [];
+  if (/New York/i.test(text)) codes.push('NY');
+  if (/California/i.test(text)) codes.push('CA');
+  return [...new Set(codes)].filter(code => US_PATHS[code] || TERRITORY_TILES.includes(code));
+}
+
+/** Called by My Team List view whenever a bee's coverage changes. */
+export function updateTerritoryCoverage(sourceId, oldName, person) {
+  if (!sourceId || !oldName) return;
+  const views = reconcile(readLocal());
+  const view = views.find(v => v.reps.some(r => r.sourceId === sourceId));
+  if (!view) return;
+  const existing = view.reps.find(r => r.sourceId === sourceId && r.name === oldName);
+  const states = territoryCodes(person?.territory);
+  if (existing && person?.name !== oldName) {
+    existing.states = [];
+    view.reps.push({ ...existing, name: person.name, states });
+  } else if (existing) {
+    existing.states = states;
+  } else if (person?.name) {
+    const source = TERRITORY_VIEWS.find(v => v.id === sourceId);
+    view.reps.push({
+      name: person.name, states, sub: null, sourceId,
+      sourceManager: source?.manager || '', sourceRole: source?.role || '', color: '#4589ff',
+    });
+  }
+  const saved = { views };
+  writeLocal(saved);
+  if (getToken()) saveStore(STORE_KEY, saved).catch(() => {});
+}
+
+export function removeTerritoryCoverage(sourceId, name) {
+  updateTerritoryCoverage(sourceId, name, { name, territory: '' });
 }
 
 async function loadViews() {
@@ -137,27 +213,26 @@ const NEUTRAL = '#2b2b2b';
 // ── Model accessors ───────────────────────────────────────────────
 function activeView() { return _views.find(v => v.id === _viewId) || _views[0]; }
 
-/** state code -> { rep, color } for the active view */
+/** state code -> overlapping assignments + a stable territory color. */
 function assignmentMap() {
   const map = {};
   const v = activeView();
   if (!v) return map;
-  v.reps.forEach(r => r.states.forEach(s => { map[s] = { rep: r.name, color: r.color }; }));
+  v.reps.forEach(rep => rep.states.forEach(code => {
+    if (!map[code]) map[code] = { members: [] };
+    map[code].members.push(rep);
+  }));
+
+  const colors = new Map();
+  Object.values(map).forEach(assignment => {
+    assignment.members.sort((a, b) => a.name.localeCompare(b.name));
+    assignment.signature = assignment.members.map(rep => rep.name).join('|');
+    if (!colors.has(assignment.signature)) {
+      colors.set(assignment.signature, IBM_PALETTE[colors.size % IBM_PALETTE.length]);
+    }
+    assignment.color = colors.get(assignment.signature);
+  });
   return map;
-}
-
-function repByName(name) { return activeView()?.reps.find(r => r.name === name) || null; }
-
-/** Assign a state to a rep (removing it from any other rep). Null rep = unassign. */
-function assignState(code, repName) {
-  const v = activeView();
-  if (!v) return;
-  v.reps.forEach(r => { r.states = r.states.filter(s => s !== code); });
-  if (repName) {
-    const r = v.reps.find(x => x.name === repName);
-    if (r && !r.states.includes(code)) r.states.push(code);
-  }
-  scheduleSave();
 }
 
 // ── Entry ─────────────────────────────────────────────────────────
@@ -178,22 +253,18 @@ function renderShell() {
       <div class="tc-toolbar">
         <div class="tc-toolbar-left">
           <select class="tc-view-select" id="tcViewSelect">
-            ${_views.map(x => `<option value="${x.id}"${x.id === _viewId ? ' selected' : ''}>${esc(x.manager)} — ${esc(x.market)}</option>`).join('')}
+            ${_views.map(x => `<option value="${x.id}"${x.id === _viewId ? ' selected' : ''}>${esc(x.market)} Market</option>`).join('')}
           </select>
           <div class="tc-view-meta">
-            <span class="tc-view-role">${esc(v.role)}</span>
-            <span class="tc-view-market">${esc(v.market)} Market</span>
+            <span class="tc-view-role">${v.reps.filter(rep => rep.states.length).length} coverage assignments</span>
+            <span class="tc-view-market">${v.managers.length} ${v.managers.length === 1 ? 'manager' : 'managers'}</span>
           </div>
         </div>
-        <div class="tc-toolbar-right">
-          <button class="tc-btn" id="tcEditBtn">${_editMode ? '✓ Done editing' : '✎ Edit assignments'}</button>
-          <button class="tc-btn tc-btn-ghost" id="tcResetBtn" title="Reset this view to the seeded preset">Reset view</button>
-        </div>
+        <div class="tc-toolbar-right"><span class="tc-readonly-note">Edit coverage in List view</span></div>
       </div>
 
       <div class="tc-main">
         <div class="tc-map-wrap" id="tcMapWrap">
-          ${_editMode ? `<div class="tc-edit-hint" id="tcEditHint"></div>` : ''}
           ${mapSvg()}
           ${territoryTiles()}
         </div>
@@ -205,7 +276,6 @@ function renderShell() {
   `;
 
   wire();
-  updateEditHint();
 }
 
 // ── Map SVG (isometric extruded states) ──────────────────────────
@@ -214,7 +284,11 @@ function mapSvg() {
   const amap = assignmentMap();
   const abbrs = Object.keys(US_PATHS);
 
-  const dimmed = (code) => _selRep && amap[code]?.rep !== _selRep;
+  const selectedSignature = _selState ? amap[_selState]?.signature : null;
+  const dimmed = (code) => {
+    if (selectedSignature) return amap[code]?.signature !== selectedSignature;
+    return false;
+  };
 
   // Pass 1: extruded bases (drawn first so tops sit above neighbours' shadows)
   const bases = abbrs.map(code => {
@@ -254,7 +328,8 @@ function territoryTiles() {
     ${TERRITORY_TILES.map(code => {
       const a = amap[code];
       const fill = a ? a.color : NEUTRAL;
-      const dim = _selRep && a?.rep !== _selRep;
+      const selectedSignature = _selState ? amap[_selState]?.signature : null;
+      const dim = selectedSignature && a?.signature !== selectedSignature;
       return `<div class="tc-terr-tile${dim ? ' tc-dim' : ''}" data-abbr="${code}" title="${esc(TERRITORY_TILE_NAMES[code] || code)}">
         <span class="tc-terr-hex" style="background:${fill};border-bottom-color:${darken(fill, 0.5)};color:${a ? textOn(fill) : '#6a6a6a'}">${code}</span>
         <span class="tc-terr-name">${esc(TERRITORY_TILE_NAMES[code] || code)}</span>
@@ -266,57 +341,48 @@ function territoryTiles() {
 // ── Legend ────────────────────────────────────────────────────────
 function legendHtml() {
   const v = activeView();
-  const counts = {};
-  v.reps.forEach(r => { counts[r.name] = r.states.length; });
+  const amap = assignmentMap();
+
+  if (!_selState || !amap[_selState]) {
+      const territoryCount = new Set(Object.values(amap).map(a => a.signature)).size;
+      return `
+        <div class="tc-legend-title">Territory Details</div>
+        <div class="tc-territory-empty">
+          <strong>${esc(v.market)} Market</strong>
+          <span>${territoryCount} overlapping territories</span>
+          <span>Click a state or territory to see everyone covering it.</span>
+        </div>`;
+  }
+
+    const selected = amap[_selState];
+    const matchingStates = Object.entries(amap)
+      .filter(([, assignment]) => assignment.signature === selected.signature)
+      .map(([code]) => code);
+    const territoryLabel = matchingStates.map(code => STATE_NAMES[code] || TERRITORY_TILE_NAMES[code] || code).join(', ');
+
   return `
-    <div class="tc-legend-title">${_editMode ? 'Pick a rep, then click states' : 'Reps'}</div>
-    <div class="tc-legend-list">
-      ${v.reps.map(r => `
-        <div class="tc-legend-item${_selRep === r.name ? ' tc-active' : ''}" data-rep="${esc(r.name)}">
-          <span class="tc-swatch" style="background:${r.color};border-bottom-color:${darken(r.color, 0.5)}"></span>
-          <span class="tc-legend-text">
-            <span class="tc-legend-name">${esc(r.name)}</span>
-            ${r.sub ? `<span class="tc-legend-sub">${esc(r.sub)}</span>` : ''}
-          </span>
-          <span class="tc-legend-count">${counts[r.name]}</span>
-        </div>`).join('')}
-    </div>
-    ${_editMode ? `<button class="tc-btn tc-btn-ghost tc-legend-clear" id="tcClearSel">Clear selection</button>` : ''}
-  `;
+      <div class="tc-legend-title">Territory Details</div>
+      <div class="tc-territory-detail">
+        <div class="tc-territory-heading">${esc(territoryLabel)}</div>
+        <div class="tc-territory-code">${matchingStates.join(' · ')}</div>
+        <div class="tc-territory-people-title">Coverage Team</div>
+        ${selected.members.map(rep => `
+          <div class="tc-territory-person">
+            <span class="tc-swatch" style="background:${selected.color};border-bottom-color:${darken(selected.color, 0.5)}"></span>
+            <span class="tc-legend-text">
+              <span class="tc-legend-name">${esc(rep.name)}</span>
+              <span class="tc-legend-sub">${esc(rep.sourceRole)} · ${esc(rep.sourceManager)}</span>
+              ${rep.sub ? `<span class="tc-legend-sub tc-territory-sub">${esc(rep.sub)}</span>` : ''}
+            </span>
+          </div>`).join('')}
+      </div>`;
 }
 
 // ── Wiring ────────────────────────────────────────────────────────
 function wire() {
   document.getElementById('tcViewSelect').addEventListener('change', e => {
     _viewId = e.target.value;
-    _selRep = null;
-    renderShell();
-  });
-
-  document.getElementById('tcEditBtn').addEventListener('click', () => {
-    _editMode = !_editMode;
-    if (!_editMode) _selRep = null;
-    renderShell();
-  });
-
-  document.getElementById('tcResetBtn').addEventListener('click', () => {
-    const preset = TERRITORY_VIEWS.find(v => v.id === _viewId);
-    if (!preset) return;
-    const idx = _views.findIndex(v => v.id === _viewId);
-    _views[idx] = { ...preset, reps: preset.reps.map(r => ({ ...r, states: [...r.states] })) };
-    _selRep = null;
-    scheduleSave();
-    renderShell();
-  });
-
-  document.getElementById('tcClearSel')?.addEventListener('click', () => { _selRep = null; renderShell(); });
-
-  // Legend clicks: spotlight (view mode) or select paint target (edit mode)
-  document.getElementById('tcLegend').addEventListener('click', e => {
-    const item = e.target.closest('.tc-legend-item');
-    if (!item) return;
-    const rep = item.dataset.rep;
-    _selRep = _selRep === rep ? null : rep;
+    _selState = null;
     renderShell();
   });
 
@@ -325,20 +391,17 @@ function wire() {
   // Click a state / territory
   wrap.addEventListener('click', e => {
     const el = e.target.closest('[data-abbr]');
-    if (!el) return;
-    const code = el.dataset.abbr;
-    if (_editMode) {
-      if (!_selRep) { flashHint('Pick a rep from the legend first'); return; }
-      const amap = assignmentMap();
-      // clicking a state already owned by the selected rep un-assigns it
-      if (amap[code]?.rep === _selRep) assignState(code, null);
-      else assignState(code, _selRep);
-      renderShell();
-    } else {
-      const amap = assignmentMap();
-      _selRep = amap[code] ? (amap[code].rep === _selRep ? null : amap[code].rep) : _selRep;
-      renderShell();
+    if (!el) {
+      // Clicking the empty canvas returns the map to its complete overview.
+      if (_selState) {
+        _selState = null;
+        renderShell();
+      }
+      return;
     }
+    const code = el.dataset.abbr;
+    _selState = _selState === code ? null : code;
+    renderShell();
   });
 
   // Hover tooltip
@@ -349,28 +412,14 @@ function wire() {
     const code = el.dataset.abbr;
     const a = assignmentMap()[code];
     const name = STATE_NAMES[code] || TERRITORY_TILE_NAMES[code] || code;
-    tip.innerHTML = `<strong>${esc(name)}</strong>${a ? ` · ${esc(a.rep)}` : ' · Unassigned'}`;
+    const people = a?.members.map(rep => rep.sub || rep.name).join(' · ');
+    tip.innerHTML = `<strong>${esc(name)}</strong>${people ? ` · ${esc(people)}` : ' · Unassigned'}`;
     const r = _container.getBoundingClientRect();
     tip.style.left = (e.clientX - r.left + 14) + 'px';
     tip.style.top  = (e.clientY - r.top + 14) + 'px';
     tip.hidden = false;
   });
   wrap.addEventListener('mouseleave', () => { tip.hidden = true; });
-}
-
-function updateEditHint() {
-  const hint = document.getElementById('tcEditHint');
-  if (!hint) return;
-  hint.textContent = _selRep
-    ? `Assigning to ${_selRep} — click states to add, click an owned state to remove`
-    : 'Edit mode — pick a rep from the legend, then click states';
-}
-function flashHint(msg) {
-  const hint = document.getElementById('tcEditHint');
-  if (!hint) return;
-  hint.textContent = msg;
-  hint.classList.add('tc-hint-flash');
-  setTimeout(() => hint.classList.remove('tc-hint-flash'), 600);
 }
 
 // ── Util ──────────────────────────────────────────────────────────

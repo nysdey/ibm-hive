@@ -1,8 +1,9 @@
 /**
  * territory-data.js — seed presets for the Territory Coverage view.
  *
- * Each "view" is one coverage map (a manager / market / product slice), matching
- * the reference org maps. `states` is a space-separated list of USPS codes;
+ * Each entry is a manager / role coverage slice. territory.js combines slices
+ * that share a market into one map so overlapping assignments remain visible.
+ * `states` is a space-separated list of USPS codes;
  * territories use GU MP AS VI PR (PR/GU/MP/AS/VI render as inset tiles, the 50
  * states + DC render as real geographic shapes).
  *

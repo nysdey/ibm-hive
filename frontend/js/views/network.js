@@ -11,7 +11,7 @@
  *   _data = {
  *     people:      [ { id, name, role, company, email, location,
  *                      relationship, metThrough, notes:[] } ],
- *     connections: [ { id, source, target, type:'mutual'|'transient', note } ],
+ *     connections: [ { id, source, target, type:'direct'|'indirect', note } ],
  *     combs:       [ { id, name, description, memberIds:[], layout:{ [id]:{x,y} } } ],
  *     allBeesLayout: { [id]:{x,y} }        // positions for the "All Bees" view
  *   }
@@ -35,6 +35,7 @@ import { currentUser }                 from '../app.js';
 // ── Persistence keys ──────────────────────────────────────────────
 const LEGACY_KEY  = 'ibm_hive_combs_v1';       // old anonymous shape
 const ALL_BEES_ID = '__all_bees__';
+const SELF_ID     = '__me__';
 
 function cacheKey() {
   const u = currentUser();
@@ -50,6 +51,11 @@ function normalizeData(d) {
   const data = d && typeof d === 'object' ? d : {};
   data.people        = Array.isArray(data.people) ? data.people : [];
   data.connections   = Array.isArray(data.connections) ? data.connections : [];
+  data.connections.forEach(c => {
+    if (c.type === 'mutual') c.type = 'direct';
+    else if (c.type === 'transient') c.type = 'indirect';
+    else if (c.type !== 'indirect') c.type = 'direct';
+  });
   data.combs         = Array.isArray(data.combs) ? data.combs : [];
   data.allBeesLayout = data.allBeesLayout && typeof data.allBeesLayout === 'object' ? data.allBeesLayout : {};
   data.combs.forEach(c => {
@@ -109,8 +115,8 @@ function migrateLegacy(legacy) {
       // Connections
       (bee.connections || []).forEach(c => {
         if (!c || !c.targetId) return;
-        const type = c.type === 'transient' ? 'transient' : 'mutual';
-        const key = type === 'mutual'
+        const type = c.type === 'transient' || c.type === 'indirect' ? 'indirect' : 'direct';
+        const key = type === 'direct'
           ? [bee.id, c.targetId].sort().join('|') + '|m'
           : `${bee.id}|${c.targetId}|t`;
         if (connSeen.has(key)) return;
@@ -218,15 +224,14 @@ function getPerson(id) { return _data.people.find(p => p.id === id) || null; }
 
 function realCombs() { return _data.combs; }
 
-/** People who are members of the given comb (or of any comb, for All Bees). */
+/** People in a comb. All Bees is the complete people directory, including bees
+ * that have not been assigned to a comb yet. */
 function membersOf(comb) {
-  const idx = personIndex();
   if (!comb) return [];
   if (comb.id === ALL_BEES_ID) {
-    const ids = new Set();
-    _data.combs.forEach(c => c.memberIds.forEach(id => ids.add(id)));
-    return [...ids].map(id => idx[id]).filter(Boolean);
+    return _data.people.slice();
   }
+  const idx = personIndex();
   return comb.memberIds.map(id => idx[id]).filter(Boolean);
 }
 
@@ -257,20 +262,19 @@ function combById(id) {
 // ── Connection helpers ────────────────────────────────────────────
 function addConnectionEdge(source, target, type, note) {
   if (!source || !target || source === target) return;
-  const t = type === 'transient' ? 'transient' : 'mutual';
+  const t = type === 'indirect' || type === 'transient' ? 'indirect' : 'direct';
   const dup = _data.connections.some(c =>
     c.type === t && (
       (c.source === source && c.target === target) ||
-      (t === 'mutual' && c.source === target && c.target === source)
+      (c.source === target && c.target === source)
     ));
   if (dup) return;
   _data.connections.push({ id: uid(), source, target, type: t, note: note || '' });
 }
 
-/** Connections to show on a person's panel: their outgoing edges plus incoming mutual ones. */
+/** Every direct or indirect tie involving this bee. */
 function connectionsForPerson(id) {
-  return _data.connections.filter(c =>
-    c.source === id || (c.type === 'mutual' && c.target === id));
+  return _data.connections.filter(c => c.source === id || c.target === id);
 }
 
 function removePerson(id) {
@@ -293,16 +297,16 @@ function removeFromComb(id, combId) {
   if (combsForBee(id).length === 0) removePerson(id);
 }
 
-// ── Hex geometry (flat-top) ───────────────────────────────────────
+// ── Hex geometry (point-up) ───────────────────────────────────────
 const R   = 60;
-const W   = R * 2;
-const H   = R * Math.sqrt(3);
+const W   = R * Math.sqrt(3);
+const H   = R * 2;
 const GAP = 14;
 
 function hexPts(cx, cy, r) {
   r = r || R;
   return Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 3) * i;
+    const a = -Math.PI / 2 + (Math.PI / 3) * i;
     return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
   }).join(' ');
 }
@@ -326,12 +330,12 @@ function hexTextBlock(cx, cy, lines) {
 
 function spiralPositions(count) {
   const step = W + GAP;
-  const vert = H + GAP;
+  const vert = H * 0.75 + GAP;
   const positions = [];
   let ring = 1;
   while (positions.length < count) {
     let q = ring, r2 = 0, s = -ring;
-    const cubeToXY = (q, r2) => ({ cx: step * q + step * 0.5 * r2, cy: vert * 0.5 * r2 });
+    const cubeToXY = (q, r2) => ({ cx: step * (q + r2 * 0.5), cy: vert * r2 });
     const dirs = [[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1],[1,-1,0],[1,0,-1]];
     for (let d = 0; d < 6; d++) {
       for (let i = 0; i < ring; i++) {
@@ -463,14 +467,9 @@ export async function renderNetwork(container) {
   // Add a comb
   document.getElementById('nwNewComb').addEventListener('click', () => openNewCombModal());
 
-  // Add a bee FAB
-  document.getElementById('nwAddBee').addEventListener('click', () => {
-    if (_activeComb === ALL_BEES_ID && realCombs().length === 0) {
-      openNewCombModal(true);
-    } else {
-      openAddBeeModal();
-    }
-  });
+  // Adding a bee never creates a comb. From All Bees the new person remains
+  // unassigned; from a real comb the person is also added to that comb.
+  document.getElementById('nwAddBee').addEventListener('click', openAddBeeModal);
 
   // Zoom buttons
   document.getElementById('nwZoomIn').addEventListener('click', () => adjustZoom(0.2));
@@ -648,11 +647,14 @@ function onDragMove(e) {
     g.setAttribute('transform', `translate(${(cx - baseCx).toFixed(1)},${(cy - baseCy).toFixed(1)})`);
     g.style.cursor = 'grabbing';
   }
-  const line = document.getElementById(`nw-line-${_drag.id}`);
-  if (line) {
-    line.setAttribute('x2', cx.toFixed(1));
-    line.setAttribute('y2', cy.toFixed(1));
-  }
+  document.querySelectorAll(`[data-source="${_drag.id}"], [data-target="${_drag.id}"]`).forEach(line => {
+    if (line.dataset.source === _drag.id) {
+      line.setAttribute('x1', cx.toFixed(1)); line.setAttribute('y1', cy.toFixed(1));
+    }
+    if (line.dataset.target === _drag.id) {
+      line.setAttribute('x2', cx.toFixed(1)); line.setAttribute('y2', cy.toFixed(1));
+    }
+  });
 }
 
 function onDragEnd(e) {
@@ -737,20 +739,13 @@ function drawHive() {
   // Build id→position lookup for connections
   const posMap = {};
   bees.forEach((b, i) => { posMap[b.id] = { cx: ox + positions[i].cx, cy: oy + positions[i].cy }; });
+  posMap[SELF_ID] = { cx: ox, cy: oy };
 
-  // Center-to-bee lines
+  // Render only real ties. Both use the shared Colonies connector color;
+  // direct ties are solid and indirect ties are dashed.
   let lines = '';
-  bees.forEach((b, i) => {
-    const p = positions[i];
-    lines += `<line id="nw-line-${b.id}"
-      x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}"
-      x2="${(ox + p.cx).toFixed(1)}" y2="${(oy + p.cy).toFixed(1)}"
-      stroke="#6ea8ff" stroke-width="2.5" stroke-opacity="0.5" stroke-linecap="round"/>`;
-  });
-
-  // Bee-to-bee connection lines — drawn ONLY when both endpoints are members of
-  // this comb. A connection can never make a non-member appear here.
   const member = new Set(bees.map(b => b.id));
+  member.add(SELF_ID);
   const drawnEdges = new Set();
   _data.connections.forEach(c => {
     if (!member.has(c.source) || !member.has(c.target)) return;
@@ -760,16 +755,16 @@ function drawHive() {
     const from = posMap[c.source];
     const to   = posMap[c.target];
     if (!from || !to) return;
-    if (c.type === 'transient') {
-      lines += `<line
+    if (c.type === 'indirect') {
+      lines += `<line data-edge-id="${c.id}" data-source="${c.source}" data-target="${c.target}"
         x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
         x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
-        stroke="#3ee9ab" stroke-width="2.5" stroke-opacity="0.75" stroke-dasharray="2,6" stroke-linecap="round"/>`;
+        stroke="rgba(255,255,255,0.48)" stroke-width="1.5" stroke-dasharray="7,6" stroke-linecap="round"/>`;
     } else {
-      lines += `<line
+      lines += `<line data-edge-id="${c.id}" data-source="${c.source}" data-target="${c.target}"
         x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
         x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
-        stroke="#c07cff" stroke-width="3" stroke-opacity="0.85" stroke-dasharray="6,5" stroke-linecap="round"/>`;
+        stroke="rgba(255,255,255,0.48)" stroke-width="1.5" stroke-linecap="round"/>`;
     }
   });
 
@@ -789,9 +784,9 @@ function drawHive() {
     const cy    = oy + p.cy;
     const isSel = _selected === b.id;
 
-    const stroke = isSel ? '#4589ff' : 'rgba(255,255,255,0.65)';
+    const stroke = isSel ? '#4589ff' : 'rgba(255,255,255,0.70)';
     const sw     = isSel ? 2.5 : 1.5;
-    const fill   = isSel ? '#0a1a36' : '#1e1e1e';
+    const fill   = '#2a2a2a';
 
     const nameParts = (b.name || '').trim().split(' ');
     const firstName = nameParts[0] || '';
@@ -933,24 +928,25 @@ function renderDetailPanelBody(bee, ownerComb) {
   const memberCombs = combsForBee(bee.id);
   const combsHtml = memberCombs.length
     ? memberCombs.map(c => `<span class="nw-dp-comb-badge">${esc(c.name)}</span>`).join('')
-    : '<span style="color:#525252;font-size:12px">Not in any comb</span>';
+    : '<span style="color:#fff;font-size:12px">Not in any comb</span>';
 
   // Connections (global) — the other end of each edge involving this bee.
   const idx = personIndex();
   const conns = connectionsForPerson(bee.id).map(c => {
     const otherId = c.source === bee.id ? c.target : c.source;
-    const target  = idx[otherId];
+    const target  = otherId === SELF_ID
+      ? { id: SELF_ID, name: `${centerHexLabel()} (You)` }
+      : idx[otherId];
     if (!target) return '';
-    const typeLabel = c.type === 'transient'
-      ? (c.source === bee.id ? 'Met through' : 'Introduced')
-      : 'Mutual';
-    const typeColor = c.type === 'transient' ? '#34d399' : '#a855f7';
-    return `<div class="nw-dp-conn-row" data-target-id="${target.id}" style="cursor:pointer">
+    const typeLabel = c.type === 'indirect' ? 'Indirect tie' : 'Direct tie';
+    const typeColor = 'rgba(255,255,255,0.72)';
+    return `<div class="nw-dp-conn-row" data-target-id="${target.id}" data-edge-id="${c.id}">
       <img class="nw-dp-conn-bee-img" src="/img/bee.png" alt="bee"/>
       <div class="nw-dp-conn-info">
         <div class="nw-dp-conn-name">${esc(target.name)}</div>
         <div class="nw-dp-conn-type" style="color:${typeColor}">${typeLabel}${c.note ? ` · ${esc(c.note)}` : ''}</div>
       </div>
+      <button class="nw-dp-tie-edit" data-edit-edge="${c.id}">Edit</button>
     </div>`;
   }).filter(Boolean).join('');
 
@@ -1031,8 +1027,16 @@ function renderDetailPanelBody(bee, ownerComb) {
   // Click a connection row to open that bee's panel
   body.querySelectorAll('.nw-dp-conn-row[data-target-id]').forEach(row => {
     row.addEventListener('click', () => {
+      if (row.dataset.targetId === SELF_ID) return;
       const tBee = getPerson(row.dataset.targetId);
       if (tBee) openDetailPanel(tBee, combById(_activeComb));
+    });
+  });
+  body.querySelectorAll('[data-edit-edge]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const edge = _data.connections.find(c => c.id === btn.dataset.editEdge);
+      if (edge) openEditTieModal(edge, bee, ownerComb);
     });
   });
 
@@ -1062,8 +1066,7 @@ function closeDetailPanel() {
 
 // ── Add a bee connected to another bee ────────────────────────────
 /**
- * Opens the "Add a bee" modal and, on save, creates a mutual connection
- * between the new bee and sourceBee.
+ * Creates a direct tie to the source bee and an indirect tie back to You.
  */
 function openAddBeeFromModal(sourceBee, sourceComb) {
   const newBee = { id: uid(), name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [] };
@@ -1074,7 +1077,8 @@ function openAddBeeFromModal(sourceBee, sourceComb) {
     isNew:     true,
     ownerComb: sourceComb,
     _afterSave: (savedId, targetComb) => {
-      addConnectionEdge(savedId, sourceBee.id, 'mutual', '');
+      addConnectionEdge(savedId, sourceBee.id, 'direct', 'Added through this bee');
+      addConnectionEdge(savedId, SELF_ID, 'indirect', `Connected through ${sourceBee.name}`);
       saveData(_data);
       renderSidebar();
       renderCanvas();
@@ -1088,7 +1092,7 @@ function openAddConnectionModal(bee, ownerComb) {
   document.getElementById('nwConnModal')?.remove();
 
   // Available targets: everyone except this person.
-  const targets = _data.people.filter(b => b.id !== bee.id);
+  const targets = [{ id: SELF_ID, name: `${centerHexLabel()} (You)`, company: '' }, ..._data.people.filter(b => b.id !== bee.id)];
 
   const overlay = document.createElement('div');
   overlay.id        = 'nwConnModal';
@@ -1110,8 +1114,8 @@ function openAddConnectionModal(bee, ownerComb) {
         <label class="nw-modal-label">
           Connection type
           <select class="nw-modal-select" id="nwConnType">
-            <option value="mutual">Mutual connection</option>
-            <option value="transient">Transient — met through this person</option>
+            <option value="direct">Direct tie — solid</option>
+            <option value="indirect">Indirect tie — dashed</option>
           </select>
         </label>
         <label class="nw-modal-label">
@@ -1144,6 +1148,52 @@ function openAddConnectionModal(bee, ownerComb) {
     close();
     openDetailPanel(getPerson(bee.id), ownerComb);
     renderCanvas();
+  });
+}
+
+function openEditTieModal(edge, bee, ownerComb) {
+  document.getElementById('nwConnModal')?.remove();
+  const otherId = edge.source === bee.id ? edge.target : edge.source;
+  const other = otherId === SELF_ID ? { name: `${centerHexLabel()} (You)` } : getPerson(otherId);
+  const overlay = document.createElement('div');
+  overlay.id = 'nwConnModal';
+  overlay.className = 'nw-modal-overlay';
+  overlay.innerHTML = `<div class="nw-modal">
+    <div class="nw-modal-header">
+      <div class="nw-modal-title">Edit tie with ${esc(other?.name || 'bee')}</div>
+      <button class="nw-modal-close" id="nwConnClose">✕</button>
+    </div>
+    <div class="nw-modal-body">
+      <label class="nw-modal-label">Tie type
+        <select class="nw-modal-select" id="nwConnType">
+          <option value="direct"${edge.type === 'direct' ? ' selected' : ''}>Direct tie — solid</option>
+          <option value="indirect"${edge.type === 'indirect' ? ' selected' : ''}>Indirect tie — dashed</option>
+        </select>
+      </label>
+      <label class="nw-modal-label">Note
+        <input class="nw-modal-input" id="nwConnNote" value="${esc(edge.note || '')}" placeholder="Relationship context"/>
+      </label>
+    </div>
+    <div class="nw-modal-footer">
+      <button class="nw-modal-delete" id="nwConnDelete">Delete tie</button>
+      <div style="flex:1"></div>
+      <button class="nw-modal-cancel" id="nwConnCancel">Cancel</button>
+      <button class="nw-modal-save" id="nwConnSave">Save tie</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.getElementById('nwConnClose').addEventListener('click', close);
+  document.getElementById('nwConnCancel').addEventListener('click', close);
+  document.getElementById('nwConnDelete').addEventListener('click', () => {
+    _data.connections = _data.connections.filter(c => c.id !== edge.id);
+    saveData(_data); close(); renderCanvas(); openDetailPanel(getPerson(bee.id), ownerComb);
+  });
+  document.getElementById('nwConnSave').addEventListener('click', () => {
+    edge.type = document.getElementById('nwConnType').value;
+    edge.note = document.getElementById('nwConnNote').value.trim();
+    saveData(_data); close(); renderCanvas(); openDetailPanel(getPerson(bee.id), ownerComb);
   });
 }
 
@@ -1256,6 +1306,14 @@ function openAddBeeModal() {
     title: 'Add a bee',
     bee:   { id: uid(), name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [] },
     isNew: true,
+    _afterSave: (savedId, targetComb) => {
+      addConnectionEdge(savedId, SELF_ID, 'direct', 'Added by you');
+      saveData(_data);
+      renderSidebar();
+      renderCanvas();
+      const saved = getPerson(savedId);
+      if (saved) openDetailPanel(saved, targetComb || combById(ALL_BEES_ID));
+    },
   });
 }
 
@@ -1268,16 +1326,17 @@ function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
 
   const REL_TYPES = ['Mentor', 'Technical Expert', 'Manager', 'Counterpart', 'Partner', 'Peer', 'Client', 'Other'];
 
-  // Which comb will receive a newly-added bee?
+  // Which comb will receive a newly-added bee? A bee created from All Bees is
+  // valid without comb membership and remains visible in the directory.
   const targetCombId = ownerComb && ownerComb.id !== ALL_BEES_ID ? ownerComb.id
-    : (_activeComb !== ALL_BEES_ID ? _activeComb : (_data.combs[0]?.id || null));
+    : (_activeComb !== ALL_BEES_ID ? _activeComb : null);
   const targetComb = _data.combs.find(c => c.id === targetCombId);
   const existingIds = new Set(targetComb ? targetComb.memberIds : []);
 
   // People who exist but aren't already in the target comb — offered for import.
   const importCandidates = _data.people.filter(p => !existingIds.has(p.id));
 
-  const importSection = isNew && importCandidates.length > 0 ? `
+  const importSection = isNew && targetComb && importCandidates.length > 0 ? `
     <div class="nw-modal-divider">— or add an existing bee —</div>
     <label class="nw-modal-label">
       Add someone already in your hive
@@ -1381,13 +1440,12 @@ function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
   });
 
   document.getElementById('nwmSave').addEventListener('click', () => {
-    // Resolve the destination comb.
+    // Resolve the optional destination comb.
     let dest = (ownerComb && ownerComb.id !== ALL_BEES_ID) ? ownerComb
-      : (_activeComb !== ALL_BEES_ID ? _data.combs.find(c => c.id === _activeComb) : _data.combs[0]);
-    if (!dest) { close(); return; }
+      : (_activeComb !== ALL_BEES_ID ? _data.combs.find(c => c.id === _activeComb) : null);
 
     // Import path — reference an existing person into this comb.
-    if (isNew && overlay.dataset.importId) {
+    if (isNew && overlay.dataset.importId && dest) {
       const id = overlay.dataset.importId;
       if (!dest.memberIds.includes(id)) dest.memberIds.push(id);
       const saved = getPerson(id);
@@ -1411,7 +1469,7 @@ function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
     if (isNew) {
       const person = { id: bee.id, ...fields, notes: normaliseNotes(bee.notes) };
       _data.people.push(person);
-      if (!dest.memberIds.includes(person.id)) dest.memberIds.push(person.id);
+      if (dest && !dest.memberIds.includes(person.id)) dest.memberIds.push(person.id);
     } else {
       const person = getPerson(bee.id);
       if (person) Object.assign(person, fields); // single record → updates everywhere
@@ -1431,7 +1489,7 @@ function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
       renderCanvas();
       if (_detailBee && _detailBee.id === savedId) {
         const saved = getPerson(savedId);
-        if (saved) openDetailPanel(saved, dest);
+        if (saved) openDetailPanel(saved, dest || combById(ALL_BEES_ID));
       }
     }
   }

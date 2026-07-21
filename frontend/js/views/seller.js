@@ -12,7 +12,8 @@
  *  - Territory Coverage — interactive isometric US map (see territory.js)
  */
 
-import { renderTerritory } from './territory.js';
+import { renderTerritory, updateTerritoryCoverage, removeTerritoryCoverage } from './territory.js';
+import { TERRITORY_VIEWS } from './territory-data.js';
 
 // ── Team data ─────────────────────────────────────────────────────
 const ORG_META = {
@@ -21,7 +22,7 @@ const ORG_META = {
 };
 
 // BTSS first — that's Sydney's team
-const MANAGER_GROUPS = [
+const DEFAULT_MANAGER_GROUPS = [
   {
     id:          'btss',
     manager:     'Chris Kennedy',
@@ -106,14 +107,108 @@ const MANAGER_GROUPS = [
       { name: 'Wesley Toomer',       territory: null, region: null },
     ],
   },
+  {
+    id: 'btss-fss', manager: 'Cale Webster', title: 'BTSS Manager',
+    product: null, market: 'FSS / Public', products: [], accentColor: '#8a3ffc',
+    members: [
+      { name:'Anjali James', territory:'WA, OR, ID, MT, ND, SD, MN, CA, AK, HI', region:'West / Northwest' },
+      { name:'Ari Benoit', territory:'NV, UT, AZ, NM, CO, WY', region:'Mountain West' },
+      { name:'Aditya Phadke', territory:'TX, LA', region:'Texas / Louisiana' },
+      { name:'Prenav Ramesh', territory:'NE, IA, KS, MO, OK, AR, IN, MI', region:'Central' },
+      { name:'Steven Gasinski', territory:'WI, IL', region:'Great Lakes' },
+      { name:'Carey Slaker', territory:'NY, NJ', region:'New York / New Jersey' },
+      { name:'Diamond Charlotin', territory:'DE', region:'Delaware' },
+      { name:'Carlos Walker', territory:'WV, VA', region:'Mid-Atlantic' },
+      { name:'Sherman Brewster', territory:'MS, AL, GA', region:'Southeast' },
+      { name:'Manny Divedia', territory:'OH, PA', region:'Ohio / Pennsylvania' },
+      { name:'Luther Payton', territory:'ME, NH, VT, MA, CT, RI', region:'New England' },
+      { name:'Rob Slack', territory:'KY, TN, NC, SC, FL, PR', region:'Southeast / Florida' },
+    ],
+  },
+  {
+    id: 'tss-fss', manager: 'Aaron Carman', title: 'TSS Manager',
+    product: null, market: 'FSS / Public', products: [], accentColor: '#8a3ffc',
+    members: [
+      { name:'Cam Webster', territory:'ME, NH, VT, MA', region:'New England' },
+      { name:'Rob Battrick', territory:'WV, VA, KY, TN, NC, SC, MD, DC, DE', region:'Mid-Atlantic / Southeast' },
+      { name:'Nick Hoang', territory:'NY, NJ, CT', region:'New York / New Jersey' },
+      { name:'Rick Monroy', territory:'MS, AL, GA, FL, PR', region:'Southeast / Florida' },
+      { name:'Amber Cowen', territory:'WA, OR, ID, MT, ND, SD, MN, WY, AK', region:'Northwest' },
+      { name:'Andy Hall', territory:'WI, MI, IL, IN', region:'Great Lakes' },
+      { name:'Herman Leonard', territory:'OH, PA', region:'Ohio / Pennsylvania' },
+      { name:'Delisha Alexander', territory:'NE, IA, KS, MO, OK, AR', region:'Central' },
+      { name:'Tim Zhou', territory:'CA, HI, GU, MP, AS, VI', region:'Pacific' },
+      { name:'Joe Broadway', territory:'TX, LA', region:'Texas / Louisiana' },
+      { name:'Noah Legagneur', territory:'NV, UT, CO, AZ, NM', region:'Mountain West' },
+      { name:'Joer Bombase', territory:'RI', region:'Rhode Island' },
+    ],
+  },
+  {
+    id: 'btss-industrial', manager: 'Alan Kidd', title: 'BTSS Manager',
+    product: null, market: 'Industrial', products: [], accentColor: '#4589ff',
+    members: [
+      { name:'Meredith McCurdy', territory:'MN, ND, SD, AK, ID, MT, OR, WA', region:'Northwest' },
+      { name:'Thorston Thorpe', territory:'CA North', region:'Northern California' },
+      { name:'Chad Benton', territory:'CA South, GU, HI, MP', region:'Pacific' },
+      { name:'Anish Omprakash', territory:'TX, LA', region:'Texas / Louisiana' },
+      { name:'Aiden Lundy', territory:'IL, WI, IN, MI', region:'Great Lakes' },
+      { name:'Chris Camacho', territory:'KY, TN, NC, SC', region:'Southeast' },
+      { name:'Harold Gill', territory:'AL, GA, MS', region:'Southeast' },
+      { name:'Andy Tran', territory:'FL, PR, VI', region:'Florida / Caribbean' },
+      { name:'Dana Clark', territory:'OH, PA', region:'Ohio / Pennsylvania' },
+      { name:'Nana Kwame Afriyie Peasah', territory:'DC, DE, MD, WV, VA', region:'Mid-Atlantic' },
+      { name:'Yonis Saleh', territory:'NJ, NY', region:'New York / New Jersey' },
+      { name:'Matt Panora', territory:'CT, MA, ME, NH, RI, VT', region:'New England' },
+    ],
+  },
+  {
+    id: 'tss-industrial', manager: 'Michael Slade', title: 'TSS Manager',
+    product: null, market: 'Industrial', products: [], accentColor: '#4589ff',
+    members: [
+      { name:'Barry Long', territory:'MN, ND, SD, AK, ID, MT, OR, WA', region:'Northwest' },
+      { name:'Greg Harris', territory:'CA North', region:'Northern California' },
+      { name:'Gary Motmans', territory:'CA South, GU, HI, MP', region:'Pacific' },
+      { name:'Mark Arnold', territory:'TX, LA', region:'Texas / Louisiana' },
+      { name:'Jon Poulos', territory:'IL, WI', region:'Illinois / Wisconsin' },
+      { name:'Neal Echols', territory:'IN, MI', region:'Indiana / Michigan' },
+      { name:'Robert Bailey', territory:'KY, TN, NC, SC', region:'Southeast' },
+      { name:'Alycea Adams', territory:'AL, GA, MS', region:'Southeast' },
+      { name:'Alfredo Salman', territory:'FL, PR, VI', region:'Florida / Caribbean' },
+      { name:'Kelsey Zehnder', territory:'OH, PA', region:'Ohio / Pennsylvania' },
+      { name:'Rezell Simmons', territory:'NJ, NY', region:'New York / New Jersey' },
+      { name:'Eddie Finnell', territory:'CT, MA, ME, NH, RI, VT', region:'New England' },
+    ],
+  },
 ];
+
+const TEAM_KEY = 'ibm_hive_team_groups_v1';
+const COVERAGE_SOURCE = {
+  btss:'btss-comms', tss:'tss-comms', bts:'bts-storage',
+  'btss-fss':'btss-fss', 'tss-fss':'tss-fss',
+};
+function cloneDefaults() { return JSON.parse(JSON.stringify(DEFAULT_MANAGER_GROUPS)); }
+function loadTeamGroups() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TEAM_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length) {
+      const merged = saved.slice();
+      DEFAULT_MANAGER_GROUPS.forEach(group => {
+        if (!merged.some(existing => existing.id === group.id)) merged.push(JSON.parse(JSON.stringify(group)));
+      });
+      return merged;
+    }
+  } catch {}
+  return cloneDefaults();
+}
+function saveTeamGroups() { localStorage.setItem(TEAM_KEY, JSON.stringify(MANAGER_GROUPS)); }
+let MANAGER_GROUPS = loadTeamGroups();
 
 /**
  * BTSS ↔ TSS territory pairings.
  * Derived from overlapping state coverage.
  * label: short region name shown on the connecting line.
  */
-const PAIRINGS = [
+const COMMS_PAIRINGS = [
   { btss: 'Roshan Dave',       tss: 'Ryan Hlinegarder', label: 'New York / NJ / PA'   },
   { btss: 'Mark Hoffman',      tss: 'Ross Holley',       label: 'New England'          },
   { btss: 'Tyler Reinsmith',   tss: 'Chloe Cree',        label: 'Great Lakes'          },
@@ -129,15 +224,38 @@ const PAIRINGS = [
   { btss: 'Armada Veraepalli', tss: 'Jason Grant',       label: 'Pacific Northwest'    },
 ];
 
+function overlappingPairings(btssSourceId, tssSourceId) {
+  const btss = TERRITORY_VIEWS.find(v => v.id === btssSourceId)?.reps || [];
+  const tss = TERRITORY_VIEWS.find(v => v.id === tssSourceId)?.reps || [];
+  return btss.flatMap(b => tss.map(t => {
+    const shared = b.states.filter(state => t.states.includes(state));
+    return shared.length ? { btss:b.name, tss:t.name, label:shared.join(' / ') } : null;
+  }).filter(Boolean));
+}
+
+function industrialPairings() {
+  const industrial = TERRITORY_VIEWS.find(v => v.id === 'ind')?.reps || [];
+  return industrial.map(rep => {
+    const match = rep.sub?.match(/^BTSS (.+?) · TSS (.+)$/);
+    if (!match || match[1] === 'TBD' || match[2] === 'TBD') return null;
+    return { btss:match[1], tss:match[2], label:rep.name };
+  }).filter(Boolean);
+}
+
+const PAIRING_MARKETS = [
+  { id:'comms', label:'Comms / Distribution', btssGroup:'btss', tssGroup:'tss', pairings:COMMS_PAIRINGS },
+  { id:'fss', label:'FSS / Public', btssGroup:'btss-fss', tssGroup:'tss-fss', pairings:overlappingPairings('btss-fss','tss-fss') },
+  { id:'industrial', label:'Industrial', btssGroup:'btss-industrial', tssGroup:'tss-industrial', pairings:industrialPairings() },
+];
+
 function emailFor(name) {
   return name.toLowerCase().replace(/[^a-z\s]/g, '').trim().split(/\s+/).join('.') + '@ibm.com';
 }
 
 function esc(str) {
-  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
-
-const ROW_SIZE = 4;
 
 // ── Notes persistence ─────────────────────────────────────────────
 const NOTES_KEY = 'ibm_hive_team_notes_v1';
@@ -155,6 +273,7 @@ function formatNoteDate(iso) {
 
 // ── View state ──────────────────────────────────────────────────
 let _activeView = 'list'; // 'list' | 'hive' | 'pairings'
+let _showTerritories = false;
 
 // ── Entry ─────────────────────────────────────────────────────────
 export async function renderSeller(container) {
@@ -209,10 +328,46 @@ function renderBody() {
 // List View
 // ═══════════════════════════════════════════════════════════════
 function listViewHtml() {
-  return `<div class="mt-team-body">${MANAGER_GROUPS.map(g => renderGroup(g)).join('')}</div>`;
+  const groups = MANAGER_GROUPS;
+  return `<div class="mt-list-page">
+    <div class="mt-list-toolbar">
+      <div>
+        <div class="mt-list-title">Team Directory</div>
+        <div class="mt-list-subtitle">${MANAGER_GROUPS.length} manager profiles</div>
+      </div>
+      <div class="mt-list-controls">
+        <button class="mt-toolbar-territory" id="mtToggleTerritories">${_showTerritories ? 'Hide territories' : 'Show territories'}</button>
+      </div>
+    </div>
+    <div class="mt-team-body">${groups.map(g => renderGroup(g)).join('')}</div>
+  </div>`;
 }
 
 function wireListView(body) {
+  document.getElementById('mtToggleTerritories')?.addEventListener('click', () => { _showTerritories = !_showTerritories; renderBody(); });
+  body.addEventListener('click', e => {
+    if (!e.target.closest('.mt-team-menu-wrap')) body.querySelectorAll('.mt-team-menu.open').forEach(menu => menu.classList.remove('open'));
+  });
+  body.querySelectorAll('[data-team-menu]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const menu = btn.parentElement.querySelector('.mt-team-menu');
+      body.querySelectorAll('.mt-team-menu.open').forEach(other => { if (other !== menu) other.classList.remove('open'); });
+      menu?.classList.toggle('open');
+    });
+  });
+  body.querySelectorAll('[data-edit-team]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openTeamModal(MANAGER_GROUPS.find(g => g.id === btn.dataset.editTeam));
+    });
+  });
+  body.querySelectorAll('[data-add-to-team]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openMemberModal(null, MANAGER_GROUPS.find(g => g.id === btn.dataset.addToTeam));
+    });
+  });
   body.querySelectorAll('.mt-member-row[data-group]').forEach(el => {
     el.addEventListener('click', () => {
       const g = MANAGER_GROUPS.find(x => x.id === el.dataset.group);
@@ -253,7 +408,7 @@ function renderGroup(g) {
 
   const memberRows = g.members.map((m, idx) => {
     const isSydney = m.name === 'Sydney Chin';
-    const metaLine = [m.region, m.territory].filter(Boolean).join(' — ');
+    const metaLine = [m.region, _showTerritories ? m.territory : null].filter(Boolean).join(' — ');
     return `
       <div class="mt-member-row${isSydney ? ' mt-member-me' : ''}" data-group="${g.id}" data-idx="${idx}" style="cursor:pointer">
         <div class="mt-member-name">${m.name}${isSydney ? ' <span class="mt-member-you">you</span>' : ''}</div>
@@ -265,14 +420,128 @@ function renderGroup(g) {
     <div class="mt-group" data-group-id="${g.id}">
       <div class="mt-group-header" style="border-left-color:${g.accentColor}">
         <div class="mt-group-manager">
-          <div class="mt-group-name">${g.manager}</div>
-          <div class="mt-group-title" style="color:${g.accentColor}">${g.title}</div>
-          ${metaParts.length ? `<div class="mt-group-meta">${metaParts.map(esc).join(' · ')}</div>` : ''}
-          <div class="mt-group-count">${g.members.length} ${g.members.length === 1 ? 'report' : 'reports'}</div>
+          <div class="mt-group-identity">
+            <div class="mt-group-name">${g.manager}</div>
+            <div class="mt-group-title" style="color:${g.accentColor}">${g.title}</div>
+          </div>
+          <div class="mt-group-coverage">
+            ${metaParts.length ? `<div class="mt-group-meta">${metaParts.map(esc).join(' · ')}</div>` : '<div class="mt-group-meta">No market assigned</div>'}
+          </div>
+        </div>
+        <div class="mt-team-menu-wrap">
+          <button class="mt-team-menu-trigger" data-team-menu="${g.id}" aria-label="Manage ${esc(g.manager)} team">⋮</button>
+          <div class="mt-team-menu">
+            <button data-edit-team="${g.id}">Edit team</button>
+            <button data-add-to-team="${g.id}">Add bee</button>
+          </div>
         </div>
       </div>
       <div class="mt-member-list">${memberRows}</div>
     </div>`;
+}
+
+function openTeamModal(group) {
+  if (!group) return;
+  openTeamEditor({
+    title: 'Edit team',
+    fields: `
+      ${teamField('Manager', 'mtmManager', group.manager)}
+      ${teamField('Manager role', 'mtmTitle', group.title)}
+      ${teamField('Market', 'mtmMarket', group.market || '')}
+      ${teamField('Primary product', 'mtmProduct', group.product || '')}
+      ${teamField('Products', 'mtmProducts', (group.products || []).join(', '), 'Comma-separated')}`,
+    saveLabel: 'Save team',
+    onSave: overlay => {
+      group.manager = overlay.querySelector('#mtmManager').value.trim() || group.manager;
+      group.title = overlay.querySelector('#mtmTitle').value.trim() || group.title;
+      group.market = overlay.querySelector('#mtmMarket').value.trim() || null;
+      group.product = overlay.querySelector('#mtmProduct').value.trim() || null;
+      group.products = overlay.querySelector('#mtmProducts').value.split(',').map(x => x.trim()).filter(Boolean);
+      saveTeamGroups();
+      renderBody();
+    },
+  });
+}
+
+function openMemberModal(member = null, preferredGroup = null) {
+  const editing = !!member;
+  const currentGroup = preferredGroup || MANAGER_GROUPS.find(g => g.members.includes(member)) || MANAGER_GROUPS[0];
+  openTeamEditor({
+    title: editing ? 'Edit bee' : 'Add bee',
+    fields: `
+      ${teamField('Name', 'mtmName', member?.name || '')}
+      <label class="mt-editor-label">Team<select class="mt-editor-input" id="mtmTeam">
+        ${MANAGER_GROUPS.map(g => `<option value="${g.id}"${g.id === currentGroup?.id ? ' selected' : ''}>${esc(g.manager)} · ${esc(g.title)}</option>`).join('')}
+      </select></label>
+      ${teamField('Territory coverage', 'mtmTerritory', member?.territory || '', 'States, region, or territory')}
+      ${teamField('Region', 'mtmRegion', member?.region || '')}`,
+    saveLabel: editing ? 'Save bee' : 'Add bee',
+    deleteLabel: editing && member.name !== 'Sydney Chin' ? 'Delete bee' : null,
+    onDelete: () => {
+      const owner = MANAGER_GROUPS.find(g => g.members.includes(member));
+      removeTerritoryCoverage(COVERAGE_SOURCE[owner?.id], member.name);
+      if (owner) owner.members = owner.members.filter(m => m !== member);
+      saveTeamGroups();
+      renderBody();
+    },
+    onSave: overlay => {
+      const name = overlay.querySelector('#mtmName').value.trim();
+      if (!name) return false;
+      const destination = MANAGER_GROUPS.find(g => g.id === overlay.querySelector('#mtmTeam').value);
+      if (!destination) return false;
+      const values = {
+        name,
+        territory: overlay.querySelector('#mtmTerritory').value.trim() || null,
+        region: overlay.querySelector('#mtmRegion').value.trim() || null,
+      };
+      if (editing) {
+        const oldGroup = MANAGER_GROUPS.find(g => g.members.includes(member));
+        const oldName = member.name;
+        removeTerritoryCoverage(COVERAGE_SOURCE[oldGroup?.id], oldName);
+        Object.assign(member, values);
+        if (oldGroup !== destination) {
+          if (oldGroup) oldGroup.members = oldGroup.members.filter(m => m !== member);
+          destination.members.push(member);
+        }
+        updateTerritoryCoverage(COVERAGE_SOURCE[destination.id], oldName, member);
+      } else {
+        destination.members.push(values);
+        updateTerritoryCoverage(COVERAGE_SOURCE[destination.id], values.name, values);
+      }
+      saveTeamGroups();
+      renderBody();
+      return true;
+    },
+  });
+}
+
+function teamField(label, id, value, placeholder = '') {
+  return `<label class="mt-editor-label">${label}<input class="mt-editor-input" id="${id}" value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
+}
+
+function openTeamEditor({ title, fields, saveLabel, deleteLabel, onSave, onDelete }) {
+  document.getElementById('mtEditor')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'mtEditor';
+  overlay.className = 'mt-editor-overlay';
+  overlay.innerHTML = `<div class="mt-editor-modal">
+    <div class="mt-editor-header"><div>${esc(title)}</div><button id="mtEditorClose">✕</button></div>
+    <div class="mt-editor-body">${fields}</div>
+    <div class="mt-editor-footer">
+      ${deleteLabel ? `<button class="mt-editor-delete" id="mtEditorDelete">${esc(deleteLabel)}</button>` : ''}
+      <span></span><button class="mt-editor-cancel" id="mtEditorCancel">Cancel</button>
+      <button class="mt-editor-save" id="mtEditorSave">${esc(saveLabel)}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('#mtEditorClose').addEventListener('click', close);
+  overlay.querySelector('#mtEditorCancel').addEventListener('click', close);
+  overlay.querySelector('#mtEditorDelete')?.addEventListener('click', () => { onDelete?.(); close(); });
+  overlay.querySelector('#mtEditorSave').addEventListener('click', () => {
+    if (onSave(overlay) !== false) close();
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -290,9 +559,9 @@ function hiveViewHtml() {
 }
 
 function hexHtml(name, opts) {
-  const { color, isManager, key } = opts;
+  const { color, key } = opts;
   return `
-    <div class="mth-hex-wrap${isManager ? ' mth-hex-manager' : ''}" data-member-key="${key}"
+    <div class="mth-hex-wrap" data-member-key="${key}"
          style="background:${color}">
       <div class="mth-hex">
         <div class="mth-hex-name">${esc(name)}</div>
@@ -305,24 +574,16 @@ function hexColor(name) {
 }
 
 function renderCluster(g) {
-  const managerRow = `
-    <div class="mth-manager-row">
-      ${hexHtml(g.manager, { color: hexColor(g.manager), isManager: true, key: `${g.id}:manager` })}
-    </div>`;
-
-  const rows = [];
-  for (let i = 0; i < g.members.length; i += ROW_SIZE) {
-    rows.push(g.members.slice(i, i + ROW_SIZE));
-  }
-  const memberRowsHtml = rows.map(row => `
-    <div class="mth-hex-row" style="justify-content:center">
+  const rows = honeycombRows(g.members);
+  const memberRowsHtml = rows.map((row, rowIndex) => `
+    <div class="mth-hex-row${rowIndex > 0 && row.length === rows[rowIndex - 1].length && rowIndex % 2 === 1 ? ' mth-row-offset' : ''}" style="justify-content:center">
       ${row.map(m => {
         const key = `${g.id}:${g.members.indexOf(m)}`;
-        return hexHtml(m.name, { color: hexColor(m.name), isManager: false, key });
+        return hexHtml(m.name, { color: hexColor(m.name), key });
       }).join('')}
     </div>`).join('');
 
-  const meta = [g.product ? `Product: ${g.product}` : null, g.market ? `Market: ${g.market}` : null]
+  const meta = [g.product, g.market]
     .filter(Boolean).join(' · ');
 
   // Product pills for BTSS cluster
@@ -336,11 +597,33 @@ function renderCluster(g) {
         ${esc(g.manager)} · ${esc(g.title)}${meta ? ` <span class="mth-cluster-meta">— ${meta}</span>` : ''}
       </div>
       ${productPills}
-      ${managerRow}
       <div class="mth-cluster-hexes">
         ${memberRowsHtml}
       </div>
     </div>`;
+}
+
+/** Compact point-up honeycomb rows: alternate widths where possible so each
+ * row nests into the shoulders of the rows above and below it. */
+function honeycombRows(members) {
+  if (members.length <= 4) {
+    const top = Math.ceil(members.length / 2);
+    return [members.slice(0, top), members.slice(top)].filter(row => row.length);
+  }
+  const rowCount = Math.ceil(members.length / 4);
+  const base = Math.floor(members.length / rowCount);
+  let extra = members.length % rowCount;
+  const sizes = Array(rowCount).fill(base);
+  // Wider rows sit in the alternating inset positions. This gives the large
+  // Chris and Rob clusters balanced 3–4–3… silhouettes instead of a heavy top.
+  for (let i = 1; i < rowCount && extra > 0; i += 2) { sizes[i]++; extra--; }
+  for (let i = 0; i < rowCount && extra > 0; i += 2) { sizes[i]++; extra--; }
+  let offset = 0;
+  return sizes.map(size => {
+    const row = members.slice(offset, offset + size);
+    offset += size;
+    return row;
+  });
 }
 
 function wireHiveView() {
@@ -384,20 +667,32 @@ function showListDetail(member, g, panel, onClose) {
 function renderMemberPanel(member, g, isManager, panel, onClose) {
   const isYou  = member.name === 'Sydney Chin';
   const email  = emailFor(member.name);
+  const slackHandle = '@' + member.name.toLowerCase().replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, '.');
+  const market = g.market || 'Not assigned';
+  const sells = [...new Set([g.product, ...(g.products || [])].filter(Boolean))].join(', ') || 'Not assigned';
   const noteKey = `${g.id}:${member.name}`;
   const allNotes = loadNotes();
   const notes  = allNotes[noteKey] || [];
 
   panel.innerHTML = `
     <div class="mt-dp-close" id="mtDpCloseBtn">✕</div>
+    <div class="mt-dp-menu-wrap">
+      <button class="mt-team-menu-trigger mt-dp-menu-trigger" id="mtDpMenu" aria-label="Manage ${esc(member.name)}">⋮</button>
+      <div class="mt-team-menu mt-dp-menu" id="mtDpMenuItems">
+        <button id="mtDpEditBee">${isManager ? 'Edit team' : 'Edit bee'}</button>
+        ${!isManager && !isYou ? '<button id="mtDpDeleteBee">Delete bee</button>' : ''}
+      </div>
+    </div>
     <div class="mt-dp-content">
       <div class="mt-dp-name">${esc(member.name)}${isYou ? ' <span class="mt-dp-you-badge">You</span>' : ''}</div>
       <div class="mt-dp-role" style="color:${g.accentColor}">${isManager ? g.title : `Reports to ${g.manager}`}</div>
 
-      ${!isManager ? mtRow('Team', `${g.manager} — ${g.title}`) : ''}
+      ${mtRow('Market', market)}
+      ${mtRow('Sells', sells)}
       ${member.region ? mtRow('Region', member.region) : ''}
       ${member.territory ? mtRow('Territory', member.territory) : ''}
       ${mtRow('Email', `<a class="mt-dp-link" href="mailto:${email}">${email}</a>`)}
+      ${mtRow('Slack', `<a class="mt-dp-link" href="https://slack.com/app_redirect?channel=${encodeURIComponent(email)}" target="_blank" rel="noopener">${esc(slackHandle)}</a>`)}
 
       <div class="mt-dp-row">
         <div class="mt-dp-label">Notes</div>
@@ -418,6 +713,21 @@ function renderMemberPanel(member, g, isManager, panel, onClose) {
     </div>`;
 
   document.getElementById('mtDpCloseBtn').addEventListener('click', onClose);
+  document.getElementById('mtDpMenu')?.addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('mtDpMenuItems')?.classList.toggle('open');
+  });
+  document.getElementById('mtDpEditBee')?.addEventListener('click', () => {
+    onClose();
+    if (isManager) openTeamModal(g); else openMemberModal(member, g);
+  });
+  document.getElementById('mtDpDeleteBee')?.addEventListener('click', () => {
+    removeTerritoryCoverage(COVERAGE_SOURCE[g.id], member.name);
+    g.members = g.members.filter(m => m !== member);
+    saveTeamGroups();
+    onClose();
+    renderBody();
+  });
 
   const addNote = () => {
     const inp  = document.getElementById('mtNoteInput');
@@ -439,8 +749,15 @@ function renderMemberPanel(member, g, isManager, panel, onClose) {
 // ═══════════════════════════════════════════════════════════════
 
 function pairingsViewHtml() {
+  const relationshipCount = PAIRING_MARKETS.reduce((sum, market) => sum + market.pairings.length, 0);
   return `
     <div class="mt-pairings-page">
+      <div class="mt-pairings-toolbar">
+        <div>
+          <div class="mt-pairings-title">BTSS / TSS Pairings</div>
+          <div class="mt-pairings-subtitle">3 markets · ${relationshipCount} territory relationships</div>
+        </div>
+      </div>
       <div class="mt-pairings-canvas" id="mtPairingsCanvas"></div>
     </div>`;
 }
@@ -449,12 +766,26 @@ function wirePairingsView() {
   const canvas = document.getElementById('mtPairingsCanvas');
   if (!canvas) return;
 
-  const btssGroup = MANAGER_GROUPS.find(g => g.id === 'btss');
-  const tssGroup  = MANAGER_GROUPS.find(g => g.id === 'tss');
+  const markets = PAIRING_MARKETS.slice().sort((a, b) => a.label.localeCompare(b.label));
 
-  // Collect unique BTSS and TSS names that appear in pairings
-  const btssNames = [...new Set(PAIRINGS.map(p => p.btss))];
-  const tssNames  = [...new Set(PAIRINGS.map(p => p.tss))];
+  function renderPairingMarket(market) {
+    const pairings = market.pairings.map(pair => ({
+      ...pair, market:market.label, btssGroup:market.btssGroup, tssGroup:market.tssGroup,
+    }));
+
+    const nodeKey = (groupId, name) => `${groupId}|${name}`;
+    const uniqueNodes = (side) => {
+      const seen = new Map();
+      pairings.forEach(pair => {
+        const groupId = side === 'btss' ? pair.btssGroup : pair.tssGroup;
+        const name = pair[side];
+        const key = nodeKey(groupId, name);
+        if (!seen.has(key)) seen.set(key, { key, groupId, name });
+      });
+      return [...seen.values()];
+    };
+    const btssNodes = uniqueNodes('btss');
+    const tssNodes  = uniqueNodes('tss');
 
   // Layout constants
   const CARD_W    = 220;
@@ -464,8 +795,8 @@ function wirePairingsView() {
   const TOP_PAD   = 32;
   const LABEL_H   = 28;   // space above first card for column header
 
-  const leftCount  = btssNames.length;
-  const rightCount = tssNames.length;
+  const leftCount  = btssNodes.length;
+  const rightCount = tssNodes.length;
   const maxCount   = Math.max(leftCount, rightCount);
 
   const svgH = TOP_PAD + LABEL_H + maxCount * (CARD_H + CARD_GAP) + 32;
@@ -481,19 +812,19 @@ function wirePairingsView() {
     return TOP_PAD + LABEL_H + i * (CARD_H + CARD_GAP) + CARD_H / 2;
   }
 
-  const btssY = Object.fromEntries(btssNames.map((n, i) => [n, cardCY(i)]));
-  const tssY  = Object.fromEntries(tssNames.map((n, i) => [n, cardCY(i)]));
+  const btssY = Object.fromEntries(btssNodes.map((node, i) => [node.key, cardCY(i)]));
+  const tssY  = Object.fromEntries(tssNodes.map((node, i) => [node.key, cardCY(i)]));
 
   // Build SVG
   let lines = '';
-  PAIRINGS.forEach(p => {
-    const y1 = btssY[p.btss];
-    const y2 = tssY[p.tss];
+  pairings.forEach(p => {
+    const y1 = btssY[nodeKey(p.btssGroup, p.btss)];
+    const y2 = tssY[nodeKey(p.tssGroup, p.tss)];
     const lmx = midX + (midXR - midX) / 2;
     const lmy = (y1 + y2) / 2;
     lines += `
       <path d="M ${midX} ${y1} C ${lmx} ${y1}, ${lmx} ${y2}, ${midXR} ${y2}"
-        stroke="rgba(255,255,255,0.55)" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+        stroke="rgba(255,255,255,0.55)" stroke-width="1.5" fill="none" stroke-linecap="round"/>`;
   });
 
   // Column headers
@@ -505,49 +836,64 @@ function wirePairingsView() {
 
   // BTSS cards
   let btssCards = '';
-  btssNames.forEach((name, i) => {
+  btssNodes.forEach((node, i) => {
     const cy = cardCY(i);
     const y  = cy - CARD_H / 2;
-    const member = btssGroup.members.find(m => m.name === name);
-    const isYou  = name === 'Sydney Chin';
+    const group = MANAGER_GROUPS.find(g => g.id === node.groupId);
+    const member = group?.members.find(m => m.name === node.name);
+    const isYou  = node.name === 'Sydney Chin';
     const terr   = member?.territory || '';
+    const cardSub = terr;
+    const cardSubShort = cardSub.length > 34 ? cardSub.slice(0, 33) + '…' : cardSub;
     btssCards += `
-      <g class="mt-pair-card" data-key="btss:${btssGroup.members.indexOf(member)}" style="cursor:pointer">
+      <g class="mt-pair-card" data-key="${node.groupId}:${group?.members.indexOf(member) ?? -1}" style="cursor:pointer">
         <rect x="${leftX}" y="${y}" width="${CARD_W}" height="${CARD_H}"
           rx="0" fill="#161616" stroke="rgba(255,255,255,0.7)" stroke-width="${isYou ? 2 : 1}"/>
         <text x="${leftX + 12}" y="${y + 24}" fill="${isYou ? '#a855f7' : '#f4f4f4'}"
-          font-size="13" font-weight="${isYou ? 600 : 400}" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(name)}${isYou ? ' ★' : ''}</text>
+          font-size="13" font-weight="${isYou ? 600 : 400}" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(node.name)}${isYou ? ' ★' : ''}</text>
         <text x="${leftX + 12}" y="${y + 46}" fill="rgba(255,255,255,0.45)"
-          font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(terr || '—')}</text>
+          font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(cardSubShort || '—')}</text>
       </g>`;
   });
 
   // TSS cards
   let tssCards = '';
-  tssNames.forEach((name, i) => {
+  tssNodes.forEach((node, i) => {
     const cy = cardCY(i);
     const y  = cy - CARD_H / 2;
-    const member = tssGroup.members.find(m => m.name === name);
+    const group = MANAGER_GROUPS.find(g => g.id === node.groupId);
+    const member = group?.members.find(m => m.name === node.name);
     const terr   = member?.territory || '';
+    const cardSub = terr;
+    const cardSubShort = cardSub.length > 34 ? cardSub.slice(0, 33) + '…' : cardSub;
     tssCards += `
-      <g class="mt-pair-card" data-key="tss:${tssGroup.members.indexOf(member)}" style="cursor:pointer">
+      <g class="mt-pair-card" data-key="${node.groupId}:${group?.members.indexOf(member) ?? -1}" style="cursor:pointer">
         <rect x="${rightX}" y="${y}" width="${CARD_W}" height="${CARD_H}"
           rx="0" fill="#161616" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
         <text x="${rightX + 12}" y="${y + 24}" fill="#f4f4f4"
-          font-size="13" font-weight="400" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(name)}</text>
+          font-size="13" font-weight="400" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(node.name)}</text>
         <text x="${rightX + 12}" y="${y + 46}" fill="rgba(255,255,255,0.45)"
-          font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(terr || '—')}</text>
+          font-size="12" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(cardSubShort || '—')}</text>
       </g>`;
   });
 
-  canvas.innerHTML = `
-    <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}"
-      xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;margin:0 auto;">
-      <g>${lines}</g>
-      ${headers}
-      <g>${btssCards}</g>
-      <g>${tssCards}</g>
-    </svg>`;
+    return `
+      <section class="mt-pairing-market-section" data-pairing-market="${market.id}">
+        <div class="mt-pairing-market-heading">
+          <span>${esc(market.label)}</span>
+          <span>${pairings.length} pairings</span>
+        </div>
+        <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}"
+          xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;margin:0 auto;">
+          <g>${lines}</g>
+          ${headers}
+          <g>${btssCards}</g>
+          <g>${tssCards}</g>
+        </svg>
+      </section>`;
+  }
+
+  canvas.innerHTML = markets.map(renderPairingMarket).join('');
 
   // Click card → open detail panel (reuse hive detail logic)
   canvas.querySelectorAll('.mt-pair-card').forEach(el => {
