@@ -104,8 +104,52 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 
 -- ─────────────────────────────────────────────
+-- USERS (login accounts)
+-- Passwords are hashed with scrypt (Node crypto) — never stored in plaintext.
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  username    TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  display_name TEXT NOT NULL,
+  pass_hash   TEXT NOT NULL,   -- scrypt hash (hex)
+  pass_salt   TEXT NOT NULL,   -- per-user salt (hex)
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ─────────────────────────────────────────────
+-- SESSIONS (bearer tokens issued at login)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sessions (
+  token       TEXT PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ─────────────────────────────────────────────
+-- HIVE STATE (per-user "My Combs" data — one JSON blob per user)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS hive_state (
+  user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  data        TEXT NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ─────────────────────────────────────────────
+-- USER KV (generic per-user JSON store, keyed by a string —
+-- used by feature views that need their own saved state, e.g. Territory Coverage)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_kv (
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key         TEXT NOT NULL,
+  data        TEXT NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, key)
+);
+
+-- ─────────────────────────────────────────────
 -- INDEXES
 -- ─────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_sessions_user  ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_people_market    ON people(market_id);
 CREATE INDEX IF NOT EXISTS idx_people_manager   ON people(manager_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_owner   ON accounts(owner_id);

@@ -10,6 +10,39 @@
 </head>
 <body>
 
+<!-- LOGIN / REGISTER GATE -->
+<div class="auth-overlay" id="authOverlay" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="/img/logo.svg" alt="IBM Hive" class="auth-logo"/>
+      <span>IBM Hive</span>
+    </div>
+    <div class="auth-tagline" id="authTagline">Sign in to your hive</div>
+
+    <form id="authForm" class="auth-form" autocomplete="on">
+      <label class="auth-label" id="authDisplayNameRow" hidden>
+        Display name
+        <input class="auth-input" id="authDisplayName" type="text" placeholder="Sydney Chin" autocomplete="name"/>
+      </label>
+      <label class="auth-label">
+        Username
+        <input class="auth-input" id="authUsername" type="text" placeholder="username" autocomplete="username" required/>
+      </label>
+      <label class="auth-label">
+        Password
+        <input class="auth-input" id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password" required/>
+      </label>
+      <div class="auth-error" id="authError" hidden></div>
+      <button class="auth-submit" id="authSubmit" type="submit">Sign in</button>
+    </form>
+
+    <div class="auth-switch">
+      <span id="authSwitchText">New here?</span>
+      <button type="button" class="auth-switch-btn" id="authSwitchBtn">Create an account</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOP NAV -->
 <nav class="topnav">
   <div class="topnav-brand">
@@ -31,28 +64,15 @@
   <div class="topnav-user" id="topnavUser">
     <span id="currentUserName">Loading…</span>
     <div class="user-dropdown" id="userDropdown">
-      <div class="user-dropdown-header">Switch view</div>
-      <div class="user-dropdown-item active" data-profile="sydney">
+      <div class="user-dropdown-header">Signed in as</div>
+      <div class="user-dropdown-item active">
         <div class="user-dropdown-avatar"></div>
         <div class="user-dropdown-info">
-          <div class="user-dropdown-name">Sydney Chin</div>
-          <div class="user-dropdown-role">BTSS Intern</div>
+          <div class="user-dropdown-name" id="dropdownUserName">—</div>
+          <div class="user-dropdown-role" id="dropdownUserHandle">—</div>
         </div>
       </div>
-      <div class="user-dropdown-item" data-profile="manager">
-        <div class="user-dropdown-avatar"></div>
-        <div class="user-dropdown-info">
-          <div class="user-dropdown-name">Chris Kennedy</div>
-          <div class="user-dropdown-role">Manager</div>
-        </div>
-      </div>
-      <div class="user-dropdown-item" data-profile="admin">
-        <div class="user-dropdown-avatar"></div>
-        <div class="user-dropdown-info">
-          <div class="user-dropdown-name">Admin</div>
-          <div class="user-dropdown-role">All access</div>
-        </div>
-      </div>
+      <button class="user-dropdown-logout" id="logoutBtn" type="button">Log out</button>
     </div>
   </div>
 </nav>

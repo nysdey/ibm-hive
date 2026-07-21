@@ -4175,3 +4175,247 @@ body {
   border-top: 1px solid rgba(255,255,255,0.06);
   margin-top: 4px;
 }
+
+/* ── Auth overlay (login / register gate) ────────────────────── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(138,63,252,0.18), transparent 60%),
+    radial-gradient(900px 500px at 20% 120%, rgba(15,98,254,0.18), transparent 55%),
+    #0b0b0b;
+}
+.auth-overlay[hidden] { display: none; }
+
+.auth-card {
+  width: 380px;
+  max-width: 100%;
+  background: #161616;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 4px;
+  padding: 34px 32px 26px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 500;
+  color: #f4f4f4;
+  letter-spacing: -0.2px;
+}
+.auth-logo { width: 28px; height: 28px; }
+.auth-tagline {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 26px;
+}
+.auth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #8d8d8d;
+}
+.auth-label[hidden] { display: none; }
+.auth-input {
+  padding: 10px 12px;
+  background: #0d0d0d;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.14);
+  color: #f4f4f4;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  border-radius: 0;
+  transition: border-color 0.12s;
+}
+.auth-input:focus { border-bottom-color: var(--ibm-blue-50); }
+.auth-error {
+  font-size: 12.5px;
+  color: #ff8a8a;
+  background: rgba(255,80,80,0.08);
+  border-left: 2px solid #ff6b6b;
+  padding: 8px 10px;
+}
+.auth-error[hidden] { display: none; }
+.auth-submit {
+  margin-top: 6px;
+  padding: 11px 18px;
+  background: var(--ibm-blue-60);
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.12s, opacity 0.12s;
+}
+.auth-submit:hover:not(:disabled) { background: var(--ibm-blue-70); }
+.auth-submit:disabled { opacity: 0.6; cursor: default; }
+.auth-switch {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.auth-switch-btn {
+  background: none;
+  border: none;
+  color: var(--ibm-blue-40);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.auth-switch-btn:hover { text-decoration: underline; }
+
+/* Logout button in the profile dropdown */
+.user-dropdown-logout {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  color: var(--muted);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+}
+.user-dropdown-logout:hover { color: #fff; background: rgba(255,255,255,0.04); }
+
+/* ════════════════════════════════════════════════════════════════
+   Territory Coverage (My Team → Territory Coverage)
+   ════════════════════════════════════════════════════════════════ */
+.tc-loading {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  color: #4a4a4a; font-size: 14px;
+}
+.tc-page {
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
+  background:
+    radial-gradient(1100px 500px at 50% -10%, rgba(69,137,255,0.10), transparent 60%),
+    #0b0b0b;
+}
+.tc-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0;
+}
+.tc-toolbar-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.tc-view-select {
+  background: #1a1a1a; color: #f4f4f4; border: 1px solid rgba(255,255,255,0.14);
+  padding: 9px 12px; font-size: 14px; font-family: inherit; border-radius: 0;
+  cursor: pointer; outline: none; max-width: 340px;
+}
+.tc-view-select:focus { border-color: var(--ibm-blue-50); }
+.tc-view-meta { display: flex; flex-direction: column; gap: 1px; }
+.tc-view-role { font-size: 13px; color: #e0e0e0; font-weight: 500; }
+.tc-view-market { font-size: 11.5px; color: #6f6f6f; }
+.tc-toolbar-right { display: flex; gap: 8px; flex-shrink: 0; }
+.tc-btn {
+  background: var(--ibm-blue-60); color: #fff; border: none; padding: 9px 16px;
+  font-size: 13px; font-family: inherit; cursor: pointer; border-radius: 0;
+  transition: background 0.12s;
+}
+.tc-btn:hover { background: var(--ibm-blue-70); }
+.tc-btn-ghost {
+  background: transparent; border: 1px solid rgba(255,255,255,0.16); color: #a8a8a8;
+}
+.tc-btn-ghost:hover { background: rgba(255,255,255,0.05); color: #fff; }
+
+.tc-main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+.tc-map-wrap {
+  flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 18px 22px; overflow: auto;
+}
+.tc-svg {
+  width: 100%; height: auto; max-height: 100%;
+  filter: drop-shadow(0 18px 26px rgba(0,0,0,0.55));
+}
+.tc-state path { transition: opacity 0.12s; }
+.tc-state:hover { filter: brightness(1.15); }
+
+.tc-edit-hint {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  background: rgba(15,98,254,0.14); border: 1px solid rgba(69,137,255,0.4);
+  color: #cfe0ff; font-size: 12px; padding: 6px 14px; border-radius: 2px;
+  pointer-events: none; z-index: 5; white-space: nowrap;
+}
+.tc-edit-hint.tc-hint-flash { background: rgba(255,180,60,0.2); border-color: rgba(255,180,60,0.6); color: #ffd9a0; }
+
+/* Territory inset tiles */
+.tc-territories {
+  display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+  margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);
+}
+.tc-terr-tile { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+.tc-terr-tile.tc-dim { opacity: 0.28; }
+.tc-terr-hex {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; font-size: 12px; font-weight: 600;
+  border-radius: 6px; border-bottom: 4px solid rgba(0,0,0,0.4);
+}
+.tc-terr-tile:hover .tc-terr-hex { filter: brightness(1.15); }
+.tc-terr-name { font-size: 10px; color: #7a7a7a; }
+
+/* Legend */
+.tc-legend {
+  width: 264px; flex-shrink: 0; border-left: 1px solid rgba(255,255,255,0.07);
+  padding: 16px 14px; overflow-y: auto; background: rgba(0,0,0,0.25);
+}
+.tc-legend-title {
+  font-size: 12px; color: #8d8d8d; margin-bottom: 12px;
+}
+.tc-legend-list { display: flex; flex-direction: column; gap: 2px; }
+.tc-legend-item {
+  display: flex; align-items: center; gap: 10px; padding: 7px 8px;
+  cursor: pointer; border-radius: 2px; transition: background 0.1s;
+}
+.tc-legend-item:hover { background: rgba(255,255,255,0.05); }
+.tc-legend-item.tc-active { background: rgba(69,137,255,0.16); }
+.tc-swatch {
+  width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0;
+  border-bottom: 3px solid rgba(0,0,0,0.4);
+}
+.tc-legend-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tc-legend-name { font-size: 12.5px; color: #e8e8e8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tc-legend-sub { font-size: 10.5px; color: #6f6f6f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tc-legend-count {
+  font-size: 11px; color: #8d8d8d; background: rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 1px 7px; flex-shrink: 0;
+}
+.tc-legend-clear { margin-top: 12px; width: 100%; }
+
+/* Tooltip */
+.tc-tooltip {
+  position: absolute; z-index: 20; pointer-events: none;
+  background: #000; border: 1px solid rgba(255,255,255,0.16);
+  color: #f4f4f4; font-size: 12px; padding: 5px 9px; border-radius: 2px;
+  white-space: nowrap;
+}
+.tc-tooltip[hidden] { display: none; }
+
+@media (max-width: 900px) {
+  .tc-main { flex-direction: column; }
+  .tc-legend { width: auto; border-left: none; border-top: 1px solid rgba(255,255,255,0.07); max-height: 200px; }
+}

@@ -9,7 +9,10 @@
  *  - List View     — grouped rows, name / region / territory
  *  - Hive View     — each group as a tessellated hex cluster (2×2 grid)
  *  - Pairings View — SVG showing BTSS↔TSS territory pairs with connecting lines
+ *  - Territory Coverage — interactive isometric US map (see territory.js)
  */
+
+import { renderTerritory } from './territory.js';
 
 // ── Team data ─────────────────────────────────────────────────────
 const ORG_META = {
@@ -163,9 +166,10 @@ export async function renderSeller(container) {
           <div class="mt-team-seg">${ORG_META.segment}</div>
         </div>
         <div class="mt-view-btns" id="mtViewBtns">
-          <button class="mt-view-btn active" data-view="list">List</button>
-          <button class="mt-view-btn" data-view="hive">Hive</button>
-          <button class="mt-view-btn" data-view="pairings">Pairings</button>
+          <button class="mt-view-btn${_activeView === 'list' ? ' active' : ''}" data-view="list">List</button>
+          <button class="mt-view-btn${_activeView === 'hive' ? ' active' : ''}" data-view="hive">Hive</button>
+          <button class="mt-view-btn${_activeView === 'pairings' ? ' active' : ''}" data-view="pairings">Pairings</button>
+          <button class="mt-view-btn${_activeView === 'territory' ? ' active' : ''}" data-view="territory">Territory Coverage</button>
         </div>
       </div>
       <div id="mtBody" class="mt-body-wrap"></div>
@@ -187,13 +191,17 @@ export async function renderSeller(container) {
 function renderBody() {
   const body = document.getElementById('mtBody');
   if (!body) return;
+  body.style.flexDirection = ''; // reset (list view mutates this when a detail panel opens)
   if (_activeView === 'list') {
     body.innerHTML = listViewHtml();
     wireListView(body);
   } else if (_activeView === 'hive') {
     body.innerHTML = hiveViewHtml(); wireHiveView();
-  } else {
+  } else if (_activeView === 'pairings') {
     body.innerHTML = pairingsViewHtml(); wirePairingsView();
+  } else {
+    // Territory Coverage manages its own content (async load).
+    renderTerritory(body);
   }
 }
 

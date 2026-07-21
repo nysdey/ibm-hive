@@ -14,6 +14,9 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // API routes
+app.use('/api/auth',     require('./routes/auth'));
+app.use('/api/hive',     require('./routes/hive'));
+app.use('/api/store',    require('./routes/store'));
 app.use('/api/people',   require('./routes/people'));
 app.use('/api/markets',  require('./routes/markets'));
 app.use('/api/network',  require('./routes/network'));

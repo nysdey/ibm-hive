@@ -1,52 +1,297 @@
 /**
  * network.js — My Combs tab
  *
- * Features:
- *   - Collapsible left sidebar: search, comb list, "Add a comb"
- *   - Collapse/expand edge tab
- *   - Zoomable/pannable SVG canvas (wheel + toolbar buttons)
- *   - Bee-to-bee mutual connection lines
- *   - Floating "Add a bee" FAB
- *   - Right detail panel: bee profile with notes log, combs membership, connections
- *   - All Bees view: hive ↔ list toggle
+ * DATA MODEL (normalized)
+ * ───────────────────────
+ * A "bee" (person) exists exactly once in a global registry. Combs reference
+ * people by id; connections are a global list of edges. This is deliberately
+ * NOT the old shape (full bee objects duplicated inside every comb), which let
+ * membership and connection data diverge and leak between combs.
+ *
+ *   _data = {
+ *     people:      [ { id, name, role, company, email, location,
+ *                      relationship, metThrough, notes:[] } ],
+ *     connections: [ { id, source, target, type:'mutual'|'transient', note } ],
+ *     combs:       [ { id, name, description, memberIds:[], layout:{ [id]:{x,y} } } ],
+ *     allBeesLayout: { [id]:{x,y} }        // positions for the "All Bees" view
+ *   }
+ *
+ * Consequences that fix the reported bug:
+ *   • Adding a person to a comb, or connecting two people, never pulls that
+ *     person's other connections into the comb — a connection line only renders
+ *     when BOTH endpoints are members of the comb being viewed.
+ *   • Editing a person updates the single record everywhere.
+ *
+ * PERSISTENCE
+ * ───────────
+ * The whole graph is saved per-user on the server (PUT /api/hive), with a
+ * localStorage cache for instant loads. Legacy anonymous localStorage from the
+ * old shape is migrated up on first use.
  */
 
-// ── Persistence ───────────────────────────────────────────────────
-const STORE_KEY   = 'ibm_hive_combs_v1';
+import { getHive, saveHive, getToken } from '../api.js';
+import { currentUser }                 from '../app.js';
+
+// ── Persistence keys ──────────────────────────────────────────────
+const LEGACY_KEY  = 'ibm_hive_combs_v1';       // old anonymous shape
 const ALL_BEES_ID = '__all_bees__';
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.combs)) return parsed;
-    }
-  } catch {}
-  return { combs: [] };
+function cacheKey() {
+  const u = currentUser();
+  return `ibm_hive_state_v2_${u ? u.id : 'anon'}`;
 }
 
-function saveData(data) {
-  const toSave = { combs: data.combs.filter(c => c.id !== ALL_BEES_ID) };
-  localStorage.setItem(STORE_KEY, JSON.stringify(toSave));
+function emptyData() {
+  return { people: [], connections: [], combs: [], allBeesLayout: {} };
 }
 
-function combsWithAllBees(data) {
-  const realCombs = data.combs.filter(c => c.id !== ALL_BEES_ID);
-  // Deduplicate bees for All Bees view (a bee can appear in multiple combs)
-  const seen = new Set();
-  const allBees = realCombs.flatMap(c => c.bees).filter(b => {
-    if (seen.has(b.id)) return false;
-    seen.add(b.id);
-    return true;
+/** Guarantee every expected field exists so the rest of the code is total. */
+function normalizeData(d) {
+  const data = d && typeof d === 'object' ? d : {};
+  data.people        = Array.isArray(data.people) ? data.people : [];
+  data.connections   = Array.isArray(data.connections) ? data.connections : [];
+  data.combs         = Array.isArray(data.combs) ? data.combs : [];
+  data.allBeesLayout = data.allBeesLayout && typeof data.allBeesLayout === 'object' ? data.allBeesLayout : {};
+  data.combs.forEach(c => {
+    if (!Array.isArray(c.memberIds)) c.memberIds = [];
+    if (!c.layout || typeof c.layout !== 'object') c.layout = {};
   });
-  return [
-    { id: ALL_BEES_ID, name: 'All Bees', bees: allBees, _virtual: true },
-    ...realCombs,
-  ];
+  return data;
+}
+
+/**
+ * Convert the legacy `{ combs:[{ bees:[{...,connections}] }] }` shape into the
+ * normalized model. Because a person could be duplicated across combs with
+ * divergent fields, we MERGE duplicates (prefer non-empty fields, union notes
+ * and connections) — this also repairs old data corruption.
+ */
+function migrateLegacy(legacy) {
+  const data = emptyData();
+  if (!legacy || !Array.isArray(legacy.combs)) return data;
+
+  const byId = {};
+  const connSeen = new Set();
+
+  (legacy.combs || []).forEach(comb => {
+    if (comb.id === ALL_BEES_ID) return;
+    const newComb = { id: comb.id || uid(), name: comb.name || 'Comb', description: comb.description || '', memberIds: [], layout: {} };
+
+    (comb.bees || []).forEach(bee => {
+      if (!bee || !bee.id) return;
+
+      // Merge person record
+      const existing = byId[bee.id];
+      if (!existing) {
+        byId[bee.id] = {
+          id: bee.id,
+          name: bee.name || '',
+          role: bee.role || '',
+          company: bee.company || '',
+          email: bee.email || '',
+          location: bee.location || '',
+          relationship: bee.relationship || '',
+          metThrough: bee.metThrough || '',
+          notes: normaliseNotes(bee.notes),
+        };
+      } else {
+        const p = byId[bee.id];
+        for (const k of ['name', 'role', 'company', 'email', 'location', 'relationship', 'metThrough']) {
+          if (!p[k] && bee[k]) p[k] = bee[k];
+        }
+        const extra = normaliseNotes(bee.notes);
+        if (extra.length) p.notes = [...p.notes, ...extra];
+      }
+
+      // Membership + layout
+      if (!newComb.memberIds.includes(bee.id)) newComb.memberIds.push(bee.id);
+      if (typeof bee.x === 'number' && typeof bee.y === 'number') newComb.layout[bee.id] = { x: bee.x, y: bee.y };
+
+      // Connections
+      (bee.connections || []).forEach(c => {
+        if (!c || !c.targetId) return;
+        const type = c.type === 'transient' ? 'transient' : 'mutual';
+        const key = type === 'mutual'
+          ? [bee.id, c.targetId].sort().join('|') + '|m'
+          : `${bee.id}|${c.targetId}|t`;
+        if (connSeen.has(key)) return;
+        connSeen.add(key);
+        data.connections.push({ id: uid(), source: bee.id, target: c.targetId, type, note: c.note || '' });
+      });
+    });
+
+    data.combs.push(newComb);
+  });
+
+  data.people = Object.values(byId);
+  // Drop connections whose endpoints no longer exist.
+  data.connections = data.connections.filter(c => byId[c.source] && byId[c.target]);
+  return data;
+}
+
+function readCache() {
+  try {
+    const raw = localStorage.getItem(cacheKey());
+    if (raw) return normalizeData(JSON.parse(raw));
+  } catch {}
+  return null;
+}
+
+function writeCache(data) {
+  try { localStorage.setItem(cacheKey(), JSON.stringify(data)); } catch {}
+}
+
+/** Load: server when signed in, otherwise localStorage; with legacy migration. */
+async function loadData() {
+  let data = null;
+
+  // Login is optional right now — only hit the server if we actually have a token.
+  if (getToken()) {
+    try {
+      const res = await getHive();
+      if (res && res.data) data = normalizeData(res.data);
+    } catch (e) {
+      console.warn('Could not load hive from server:', e.message);
+      const cached = readCache();
+      if (cached) return cached;
+    }
+  } else {
+    const cached = readCache();
+    if (cached) return cached;
+  }
+
+  if (!data) {
+    // Nothing on the server yet. Migrate legacy anonymous data if present.
+    let legacyRaw = null;
+    try { legacyRaw = localStorage.getItem(LEGACY_KEY); } catch {}
+    if (legacyRaw) {
+      try {
+        data = migrateLegacy(JSON.parse(legacyRaw));
+        // Push the migrated data up and retire the legacy key so it can't be
+        // re-migrated into a different account later.
+        writeCache(data);
+        try { await saveHive(serializable(data)); localStorage.removeItem(LEGACY_KEY); } catch {}
+        return data;
+      } catch { data = null; }
+    }
+  }
+
+  if (!data) data = readCache() || emptyData();
+  writeCache(data);
+  return data;
+}
+
+// Server sync is debounced so rapid edits (typing a note, dragging) coalesce.
+let _saveTimer = null;
+function saveData(data) {
+  writeCache(data);
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(pushToServer, 500);
+}
+
+function serializable(data) {
+  return {
+    people: data.people,
+    connections: data.connections,
+    combs: data.combs.map(c => ({ id: c.id, name: c.name, description: c.description, memberIds: c.memberIds, layout: c.layout })),
+    allBeesLayout: data.allBeesLayout,
+  };
+}
+
+async function pushToServer() {
+  if (!getToken()) return; // login-less: localStorage cache only
+  try {
+    await saveHive(serializable(_data));
+  } catch (e) {
+    console.warn('Could not save hive to server:', e.message);
+  }
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
+
+// ── Normalized-model accessors ────────────────────────────────────
+function personIndex() {
+  const m = {};
+  _data.people.forEach(p => { m[p.id] = p; });
+  return m;
+}
+function getPerson(id) { return _data.people.find(p => p.id === id) || null; }
+
+function realCombs() { return _data.combs; }
+
+/** People who are members of the given comb (or of any comb, for All Bees). */
+function membersOf(comb) {
+  const idx = personIndex();
+  if (!comb) return [];
+  if (comb.id === ALL_BEES_ID) {
+    const ids = new Set();
+    _data.combs.forEach(c => c.memberIds.forEach(id => ids.add(id)));
+    return [...ids].map(id => idx[id]).filter(Boolean);
+  }
+  return comb.memberIds.map(id => idx[id]).filter(Boolean);
+}
+
+/** The layout map (persisted positions) for a comb / the All Bees view. */
+function layoutFor(comb) {
+  if (!comb || comb.id === ALL_BEES_ID) return _data.allBeesLayout;
+  return comb.layout;
+}
+
+/** Real combs a person belongs to. */
+function combsForBee(beeId) {
+  return _data.combs.filter(c => c.memberIds.includes(beeId));
+}
+
+/** The list of combs shown in the sidebar, with the virtual "All Bees" first. */
+function combList() {
+  return [
+    { id: ALL_BEES_ID, name: 'All Bees', _virtual: true },
+    ..._data.combs,
+  ];
+}
+
+function combById(id) {
+  if (id === ALL_BEES_ID) return { id: ALL_BEES_ID, name: 'All Bees', _virtual: true };
+  return _data.combs.find(c => c.id === id) || null;
+}
+
+// ── Connection helpers ────────────────────────────────────────────
+function addConnectionEdge(source, target, type, note) {
+  if (!source || !target || source === target) return;
+  const t = type === 'transient' ? 'transient' : 'mutual';
+  const dup = _data.connections.some(c =>
+    c.type === t && (
+      (c.source === source && c.target === target) ||
+      (t === 'mutual' && c.source === target && c.target === source)
+    ));
+  if (dup) return;
+  _data.connections.push({ id: uid(), source, target, type: t, note: note || '' });
+}
+
+/** Connections to show on a person's panel: their outgoing edges plus incoming mutual ones. */
+function connectionsForPerson(id) {
+  return _data.connections.filter(c =>
+    c.source === id || (c.type === 'mutual' && c.target === id));
+}
+
+function removePerson(id) {
+  _data.people = _data.people.filter(p => p.id !== id);
+  _data.connections = _data.connections.filter(c => c.source !== id && c.target !== id);
+  _data.combs.forEach(c => {
+    c.memberIds = c.memberIds.filter(m => m !== id);
+    delete c.layout[id];
+  });
+  delete _data.allBeesLayout[id];
+}
+
+/** Remove a person from one comb; if they end up in no comb, purge them entirely. */
+function removeFromComb(id, combId) {
+  const comb = _data.combs.find(c => c.id === combId);
+  if (comb) {
+    comb.memberIds = comb.memberIds.filter(m => m !== id);
+    delete comb.layout[id];
+  }
+  if (combsForBee(id).length === 0) removePerson(id);
+}
 
 // ── Hex geometry (flat-top) ───────────────────────────────────────
 const R   = 60;
@@ -64,8 +309,6 @@ function hexPts(cx, cy, r) {
 
 /**
  * Render a stack of text lines centered as a single block on (cx, cy).
- * Uses dominant-baseline="central" per line so the block centers correctly
- * regardless of how many lines or font sizes are mixed in.
  */
 function hexTextBlock(cx, cy, lines) {
   const withH  = lines.map(l => ({ ...l, h: l.size + 4 }));
@@ -102,7 +345,7 @@ function spiralPositions(count) {
 }
 
 // ── Module state ──────────────────────────────────────────────────
-let _data             = { combs: [] };
+let _data             = emptyData();
 let _activeComb       = ALL_BEES_ID;
 let _container        = null;
 let _selected         = null;
@@ -122,9 +365,8 @@ let _panStartClient   = { x: 0, y: 0 };
 let _allBeesView      = 'hive';     // 'hive' | 'list'
 
 // ── Entry ─────────────────────────────────────────────────────────
-export function renderNetwork(container) {
+export async function renderNetwork(container) {
   _container   = container;
-  _data        = loadData();
   _selected    = null;
   _drag        = null;
   _detailBee   = null;
@@ -162,9 +404,7 @@ export function renderNetwork(container) {
         <!-- Canvas + detail panel wrapper -->
         <div class="nw-canvas-detail-wrap">
 
-          <!-- Canvas area — zoom/toggle controls are scoped to this so they
-               shrink alongside the canvas (not overlap) when the detail
-               panel opens, same as the Colonies hive area. -->
+          <!-- Canvas area -->
           <div class="nw-canvas-area">
 
             <!-- Zoom toolbar -->
@@ -225,8 +465,7 @@ export function renderNetwork(container) {
 
   // Add a bee FAB
   document.getElementById('nwAddBee').addEventListener('click', () => {
-    const realCombs = _data.combs.filter(c => c.id !== ALL_BEES_ID);
-    if (_activeComb === ALL_BEES_ID && realCombs.length === 0) {
+    if (_activeComb === ALL_BEES_ID && realCombs().length === 0) {
       openNewCombModal(true);
     } else {
       openAddBeeModal();
@@ -267,9 +506,7 @@ export function renderNetwork(container) {
     adjustZoom(e.deltaY < 0 ? 0.12 : -0.12);
   }, { passive: false });
 
-  // Canvas pan — click-drag (left button) or middle-click, on empty diagram
-  // background. Individual hex nodes stop propagation on their own mousedown,
-  // so this only fires when the drag starts on the canvas itself.
+  // Canvas pan
   canvasWrap.addEventListener('mousedown', e => {
     if (canvasWrap.classList.contains('list-mode')) return;
     if (e.button !== 0 && e.button !== 1) return;
@@ -281,28 +518,45 @@ export function renderNetwork(container) {
     canvasWrap.style.cursor = 'grabbing';
   });
 
-  window.addEventListener('mousemove', e => {
-    onDragMove(e);
-    if (_isPanning) {
-      if (!_panMoved && (Math.abs(e.clientX - _panStartClient.x) > 3 || Math.abs(e.clientY - _panStartClient.y) > 3)) {
-        _panMoved = true;
-        document.body.style.userSelect = 'none';
-      }
-      _pan = { x: e.clientX - _panStart.x, y: e.clientY - _panStart.y };
-      applyTransform();
-    }
-  });
-  window.addEventListener('mouseup', e => {
-    onDragEnd(e);
-    if (_isPanning) {
-      _isPanning = false;
-      canvasWrap.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-  });
+  // Remove-then-add so re-rendering the view (e.g. after re-login) never stacks
+  // duplicate global listeners.
+  window.removeEventListener('mousemove', _onWindowMouseMove);
+  window.removeEventListener('mouseup', _onWindowMouseUp);
+  window.addEventListener('mousemove', _onWindowMouseMove);
+  window.addEventListener('mouseup', _onWindowMouseUp);
+
+  // Show a loading hint while we fetch from the server.
+  canvasWrap.innerHTML = `<div class="nw-list-empty">Loading your hive…</div>`;
+
+  _data = await loadData();
 
   renderSidebar();
   renderCanvas();
+}
+
+// Window listeners are module-level (added once per render). Guard against the
+// view being re-rendered by checking the DOM still exists.
+function _onWindowMouseMove(e) {
+  onDragMove(e);
+  if (_isPanning) {
+    const canvasWrap = document.getElementById('nwCanvasWrap');
+    if (!canvasWrap) { _isPanning = false; return; }
+    if (!_panMoved && (Math.abs(e.clientX - _panStartClient.x) > 3 || Math.abs(e.clientY - _panStartClient.y) > 3)) {
+      _panMoved = true;
+      document.body.style.userSelect = 'none';
+    }
+    _pan = { x: e.clientX - _panStart.x, y: e.clientY - _panStart.y };
+    applyTransform();
+  }
+}
+function _onWindowMouseUp(e) {
+  onDragEnd(e);
+  if (_isPanning) {
+    _isPanning = false;
+    const canvasWrap = document.getElementById('nwCanvasWrap');
+    if (canvasWrap) canvasWrap.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
 }
 
 // ── Zoom helpers ──────────────────────────────────────────────────
@@ -323,15 +577,16 @@ function renderSidebar() {
   const list = document.getElementById('nwCombList');
   if (!list) return;
 
-  const combs = combsWithAllBees(_data);
+  const combs = combList();
   const q = _searchQuery.trim().toLowerCase();
 
   list.innerHTML = combs.map(comb => {
     const isActive  = comb.id === _activeComb;
     const isVirtual = comb._virtual;
+    const members   = membersOf(comb);
     const matchCount = q
-      ? comb.bees.filter(b => b.name.toLowerCase().includes(q)).length
-      : comb.bees.length;
+      ? members.filter(b => (b.name || '').toLowerCase().includes(q)).length
+      : members.length;
 
     return `
       <div class="nw-comb-item${isActive ? ' active' : ''}${isVirtual ? ' nw-comb-all' : ''}"
@@ -347,7 +602,6 @@ function renderSidebar() {
       _selected   = null;
       closeDetailPanel();
       renderSidebar();
-      // Show/hide toggle for All Bees
       const toggle = document.getElementById('nwViewToggle');
       if (toggle) toggle.style.display = _activeComb === ALL_BEES_ID ? 'flex' : 'none';
       renderCanvas();
@@ -382,7 +636,6 @@ function onDragMove(e) {
   }
   if (!_drag.moved) return;
 
-  // Adjust for zoom
   const adx = dx / _scale;
   const ady = dy / _scale;
   const cx = _drag.origCx + adx;
@@ -411,33 +664,25 @@ function onDragEnd(e) {
   const g = document.querySelector(`.nw-hex-node[data-cid="${id}"]`);
   if (g) g.style.cursor = 'grab';
 
-  const ownerComb = _activeComb === ALL_BEES_ID
-    ? _data.combs.find(c => c.bees.some(b => b.id === id))
-    : activeComb();
+  const ownerComb = combById(_activeComb);
   if (!ownerComb) return;
 
   if (!moved) {
-    const bee = ownerComb.bees.find(b => b.id === id);
+    const bee = getPerson(id);
     if (bee) openDetailPanel(bee, ownerComb);
     return;
   }
 
   const dx = (e.clientX - startX) / _scale;
   const dy = (e.clientY - startY) / _scale;
-  const bee = ownerComb.bees.find(b => b.id === id);
-  if (bee) {
-    bee.x = (origCx + dx) - _ox;
-    bee.y = (origCy + dy) - _oy;
-    saveData(_data);
-  }
+  const layout = layoutFor(ownerComb);
+  layout[id] = { x: (origCx + dx) - _ox, y: (origCy + dy) - _oy };
+  saveData(_data);
   drawHive();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
-function activeComb() {
-  if (_activeComb === ALL_BEES_ID) return combsWithAllBees(_data)[0];
-  return _data.combs.find(c => c.id === _activeComb) || null;
-}
+function activeComb() { return combById(_activeComb); }
 
 function relColor(rel) {
   const map = {
@@ -453,9 +698,11 @@ function relColor(rel) {
   return map[rel] || '#525252';
 }
 
-/** Return all real combs a bee (by id) belongs to */
-function combsForBee(beeId) {
-  return _data.combs.filter(c => c.id !== ALL_BEES_ID && c.bees.some(b => b.id === beeId));
+/** First name / subtitle for the center "you" hex, from the signed-in user. */
+function centerHexLabel() {
+  const u = currentUser();
+  const name = (u && (u.display_name || u.username)) || 'You';
+  return name.trim().split(/\s+/)[0] || 'You';
 }
 
 // ── Draw: SVG hive ────────────────────────────────────────────────
@@ -466,13 +713,15 @@ function drawHive() {
 
   const comb = activeComb();
   const q    = _searchQuery.trim().toLowerCase();
-  let bees   = comb ? [...comb.bees] : [];
-  if (q) bees = bees.filter(b => b.name.toLowerCase().includes(q));
+  let bees   = membersOf(comb);
+  if (q) bees = bees.filter(b => (b.name || '').toLowerCase().includes(q));
 
+  const layout    = layoutFor(comb);
   const fallback  = spiralPositions(Math.max(bees.length, 1));
-  const positions = bees.map((b, i) =>
-    (typeof b.x === 'number' && typeof b.y === 'number') ? { cx: b.x, cy: b.y } : fallback[i]
-  );
+  const positions = bees.map((b, i) => {
+    const pos = layout[b.id];
+    return (pos && typeof pos.x === 'number' && typeof pos.y === 'number') ? { cx: pos.x, cy: pos.y } : fallback[i];
+  });
 
   const allCX = [0, ...positions.map(p => p.cx)];
   const allCY = [0, ...positions.map(p => p.cy)];
@@ -496,44 +745,32 @@ function drawHive() {
     lines += `<line id="nw-line-${b.id}"
       x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}"
       x2="${(ox + p.cx).toFixed(1)}" y2="${(oy + p.cy).toFixed(1)}"
-      stroke="#4589ff" stroke-width="1.5" stroke-opacity="0.22" stroke-linecap="round"/>`;
+      stroke="#6ea8ff" stroke-width="2.5" stroke-opacity="0.5" stroke-linecap="round"/>`;
   });
 
-  // Bee-to-bee mutual connection lines
+  // Bee-to-bee connection lines — drawn ONLY when both endpoints are members of
+  // this comb. A connection can never make a non-member appear here.
+  const member = new Set(bees.map(b => b.id));
   const drawnEdges = new Set();
-  bees.forEach(b => {
-    const conns = (b.connections || []).filter(c => c.type === 'mutual');
-    conns.forEach(c => {
-      const edgeKey = [b.id, c.targetId].sort().join('|');
-      if (drawnEdges.has(edgeKey)) return;
-      drawnEdges.add(edgeKey);
-      const from = posMap[b.id];
-      const to   = posMap[c.targetId];
-      if (from && to) {
-        lines += `<line
-          x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
-          x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
-          stroke="#a855f7" stroke-width="1" stroke-opacity="0.45" stroke-dasharray="4,4" stroke-linecap="round"/>`;
-      }
-    });
-  });
-
-  // Transient connection lines (different style)
-  bees.forEach(b => {
-    const conns = (b.connections || []).filter(c => c.type === 'transient');
-    conns.forEach(c => {
-      const edgeKey = [b.id, c.targetId].sort().join('|') + ':t';
-      if (drawnEdges.has(edgeKey)) return;
-      drawnEdges.add(edgeKey);
-      const from = posMap[b.id];
-      const to   = posMap[c.targetId];
-      if (from && to) {
-        lines += `<line
-          x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
-          x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
-          stroke="#34d399" stroke-width="1" stroke-opacity="0.40" stroke-dasharray="2,5" stroke-linecap="round"/>`;
-      }
-    });
+  _data.connections.forEach(c => {
+    if (!member.has(c.source) || !member.has(c.target)) return;
+    const key = [c.source, c.target].sort().join('|') + '|' + c.type;
+    if (drawnEdges.has(key)) return;
+    drawnEdges.add(key);
+    const from = posMap[c.source];
+    const to   = posMap[c.target];
+    if (!from || !to) return;
+    if (c.type === 'transient') {
+      lines += `<line
+        x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
+        x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
+        stroke="#3ee9ab" stroke-width="2.5" stroke-opacity="0.75" stroke-dasharray="2,6" stroke-linecap="round"/>`;
+    } else {
+      lines += `<line
+        x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
+        x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
+        stroke="#c07cff" stroke-width="3" stroke-opacity="0.85" stroke-dasharray="6,5" stroke-linecap="round"/>`;
+    }
   });
 
   // "You" hex
@@ -541,8 +778,8 @@ function drawHive() {
     <g class="nw-you-node" style="cursor:default">
       <polygon points="${hexPts(ox, oy)}" fill="#2a2a2a" stroke="#a855f7" stroke-width="2.5"/>
       ${hexTextBlock(ox, oy, [
-        { text: 'Sydney', size: 13, weight: 600, color: '#ffffff' },
-        { text: 'BTSS',   size: 10, weight: 400, color: 'rgba(255,255,255,0.45)' },
+        { text: esc(centerHexLabel()), size: 13, weight: 600, color: '#ffffff' },
+        { text: 'You',   size: 10, weight: 400, color: 'rgba(255,255,255,0.45)' },
       ])}
     </g>`;
 
@@ -556,7 +793,7 @@ function drawHive() {
     const sw     = isSel ? 2.5 : 1.5;
     const fill   = isSel ? '#0a1a36' : '#1e1e1e';
 
-    const nameParts = b.name.trim().split(' ');
+    const nameParts = (b.name || '').trim().split(' ');
     const firstName = nameParts[0] || '';
     const restName  = nameParts.slice(1).join(' ');
     const hasTwo    = restName.length > 0;
@@ -621,10 +858,9 @@ function drawListView() {
   if (!wrap) return;
   wrap.classList.add('list-mode');
 
-  const comb = combsWithAllBees(_data)[0]; // All Bees
   const q    = _searchQuery.trim().toLowerCase();
-  let bees   = comb ? [...comb.bees] : [];
-  if (q) bees = bees.filter(b => b.name.toLowerCase().includes(q));
+  let bees   = membersOf(combById(ALL_BEES_ID));
+  if (q) bees = bees.filter(b => (b.name || '').toLowerCase().includes(q));
 
   if (bees.length === 0) {
     wrap.innerHTML = `<div class="nw-list-empty">${q ? 'No bees match your search.' : 'No bees added yet. Click "Add a bee" to get started.'}</div>`;
@@ -651,11 +887,8 @@ function drawListView() {
 
   wrap.querySelectorAll('.nw-list-row').forEach(el => {
     el.addEventListener('click', () => {
-      const bid = el.dataset.bid;
-      const ownerComb = _data.combs.find(c => c.bees.some(b => b.id === bid));
-      if (!ownerComb) return;
-      const bee = ownerComb.bees.find(b => b.id === bid);
-      if (bee) openDetailPanel(bee, ownerComb);
+      const bee = getPerson(el.dataset.bid);
+      if (bee) openDetailPanel(bee, combById(ALL_BEES_ID));
     });
   });
 }
@@ -702,12 +935,15 @@ function renderDetailPanelBody(bee, ownerComb) {
     ? memberCombs.map(c => `<span class="nw-dp-comb-badge">${esc(c.name)}</span>`).join('')
     : '<span style="color:#525252;font-size:12px">Not in any comb</span>';
 
-  // Connections
-  const allBees = _data.combs.flatMap(c => c.bees);
-  const conns   = (bee.connections || []).map(c => {
-    const target = allBees.find(b => b.id === c.targetId);
+  // Connections (global) — the other end of each edge involving this bee.
+  const idx = personIndex();
+  const conns = connectionsForPerson(bee.id).map(c => {
+    const otherId = c.source === bee.id ? c.target : c.source;
+    const target  = idx[otherId];
     if (!target) return '';
-    const typeLabel = c.type === 'transient' ? 'Met through' : 'Mutual';
+    const typeLabel = c.type === 'transient'
+      ? (c.source === bee.id ? 'Met through' : 'Introduced')
+      : 'Mutual';
     const typeColor = c.type === 'transient' ? '#34d399' : '#a855f7';
     return `<div class="nw-dp-conn-row" data-target-id="${target.id}" style="cursor:pointer">
       <img class="nw-dp-conn-bee-img" src="/img/bee.png" alt="bee"/>
@@ -770,11 +1006,12 @@ function renderDetailPanelBody(bee, ownerComb) {
     const input = document.getElementById('nwDpNoteInput');
     const text  = input.value.trim();
     if (!text) return;
-    const notes = normaliseNotes(bee.notes);
-    notes.push({ text, date: new Date().toISOString() });
-    bee.notes = notes;
-    persistBee(bee);
-    renderDetailPanelBody(bee, ownerComb);
+    const person = getPerson(bee.id);
+    if (!person) return;
+    person.notes = normaliseNotes(person.notes);
+    person.notes.push({ text, date: new Date().toISOString() });
+    saveData(_data);
+    renderDetailPanelBody(person, ownerComb);
   };
   document.getElementById('nwDpNoteSubmit').addEventListener('click', addNote);
   document.getElementById('nwDpNoteInput').addEventListener('keydown', e => { if (e.key === 'Enter') addNote(); });
@@ -784,7 +1021,7 @@ function renderDetailPanelBody(bee, ownerComb) {
     openEditBeeModal(bee, ownerComb);
   });
 
-  // "Add a bee" from this bee's panel — opens add modal pre-connected to current bee
+  // "Add a bee" connected to this bee
   document.getElementById('nwDpAddFrom').addEventListener('click', () => {
     openAddBeeFromModal(bee, ownerComb);
   });
@@ -794,22 +1031,20 @@ function renderDetailPanelBody(bee, ownerComb) {
   // Click a connection row to open that bee's panel
   body.querySelectorAll('.nw-dp-conn-row[data-target-id]').forEach(row => {
     row.addEventListener('click', () => {
-      const tid  = row.dataset.targetId;
-      const tComb = _data.combs.find(c => c.bees.some(b => b.id === tid));
-      if (!tComb) return;
-      const tBee = tComb.bees.find(b => b.id === tid);
-      if (tBee) openDetailPanel(tBee, tComb);
+      const tBee = getPerson(row.dataset.targetId);
+      if (tBee) openDetailPanel(tBee, combById(_activeComb));
     });
   });
 
   document.getElementById('nwDpDelete').addEventListener('click', () => {
-    const realComb = ownerComb && ownerComb.id !== ALL_BEES_ID
-      ? _data.combs.find(c => c.id === ownerComb.id)
-      : _data.combs.find(c => c.bees.some(b => b.id === bee.id));
-    if (realComb) {
-      realComb.bees = realComb.bees.filter(b => b.id !== bee.id);
-      saveData(_data);
+    if (ownerComb && ownerComb.id !== ALL_BEES_ID) {
+      // Remove from just this comb (purged globally if left with no comb).
+      removeFromComb(bee.id, ownerComb.id);
+    } else {
+      // Deleting from All Bees removes the person entirely.
+      removePerson(bee.id);
     }
+    saveData(_data);
     closeDetailPanel();
     renderSidebar();
     renderCanvas();
@@ -825,57 +1060,35 @@ function closeDetailPanel() {
   renderCanvas();
 }
 
-/** Persist a mutated bee object back into _data */
-function persistBee(bee) {
-  for (const comb of _data.combs) {
-    const idx = comb.bees.findIndex(b => b.id === bee.id);
-    if (idx !== -1) { comb.bees[idx] = bee; }
-  }
-  saveData(_data);
-}
-
-// ── Add connection modal ──────────────────────────────────────────
-
-// ── Add a bee directly from another bee's panel ───────────────────
+// ── Add a bee connected to another bee ────────────────────────────
 /**
- * Opens the "Add a bee" modal and, on save, automatically creates
- * a mutual connection between the new bee and sourceBee.
+ * Opens the "Add a bee" modal and, on save, creates a mutual connection
+ * between the new bee and sourceBee.
  */
 function openAddBeeFromModal(sourceBee, sourceComb) {
-  const newId  = uid();
-  const newBee = { id: newId, name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [], connections: [] };
+  const newBee = { id: uid(), name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [] };
 
-  // Reuse showBeeModal in "add" mode
   showBeeModal({
     title:     `Add a bee connected to ${sourceBee.name || 'this bee'}`,
     bee:       newBee,
     isNew:     true,
     ownerComb: sourceComb,
-    _afterSave: (saved, targetComb) => {
-      // Wire mutual connection both ways
-      saved.connections = [...(saved.connections || []), { targetId: sourceBee.id, type: 'mutual', note: '' }];
-      sourceBee.connections = [...(sourceBee.connections || []), { targetId: saved.id, type: 'mutual', note: '' }];
-      // Persist both
-      const idx = targetComb.bees.findIndex(b => b.id === saved.id);
-      if (idx !== -1) targetComb.bees[idx] = saved;
-      persistBee(sourceBee);
+    _afterSave: (savedId, targetComb) => {
+      addConnectionEdge(savedId, sourceBee.id, 'mutual', '');
       saveData(_data);
       renderSidebar();
       renderCanvas();
-      openDetailPanel(saved, targetComb);
+      const saved = getPerson(savedId);
+      if (saved) openDetailPanel(saved, targetComb);
     },
   });
 }
 
-
 function openAddConnectionModal(bee, ownerComb) {
   document.getElementById('nwConnModal')?.remove();
 
-  // Available targets: all bees except this one
-  const allBees = _data.combs.flatMap(c => c.bees).filter(b => b.id !== bee.id);
-  // Deduplicate
-  const seen = new Set();
-  const targets = allBees.filter(b => { if (seen.has(b.id)) return false; seen.add(b.id); return true; });
+  // Available targets: everyone except this person.
+  const targets = _data.people.filter(b => b.id !== bee.id);
 
   const overlay = document.createElement('div');
   overlay.id        = 'nwConnModal';
@@ -926,14 +1139,10 @@ function openAddConnectionModal(bee, ownerComb) {
     const type = document.getElementById('nwConnType').value;
     const note = document.getElementById('nwConnNote').value.trim();
 
-    // Prevent duplicates
-    const existing = (bee.connections || []).find(c => c.targetId === targetId && c.type === type);
-    if (existing) { close(); return; }
-
-    bee.connections = [...(bee.connections || []), { targetId, type, note }];
-    persistBee(bee);
+    addConnectionEdge(bee.id, targetId, type, note);
+    saveData(_data);
     close();
-    openDetailPanel(bee, ownerComb);
+    openDetailPanel(getPerson(bee.id), ownerComb);
     renderCanvas();
   });
 }
@@ -1007,7 +1216,10 @@ function showCombModal({ title, name, description, isNew, combId, thenAddBee = f
   document.getElementById('nwCombCancel').addEventListener('click', close);
 
   document.getElementById('nwCombDelete')?.addEventListener('click', () => {
+    const comb = _data.combs.find(c => c.id === combId);
     _data.combs = _data.combs.filter(c => c.id !== combId);
+    // Purge any people who were only in this comb.
+    if (comb) comb.memberIds.forEach(id => { if (combsForBee(id).length === 0) removePerson(id); });
     if (_activeComb === combId) _activeComb = ALL_BEES_ID;
     saveData(_data);
     close();
@@ -1021,7 +1233,7 @@ function showCombModal({ title, name, description, isNew, combId, thenAddBee = f
     const combDesc = document.getElementById('nwCombDesc').value.trim();
 
     if (isNew) {
-      const newComb = { id: uid(), name: combName, description: combDesc, bees: [] };
+      const newComb = { id: uid(), name: combName, description: combDesc, memberIds: [], layout: {} };
       _data.combs.push(newComb);
       _activeComb = newComb.id;
     } else {
@@ -1042,7 +1254,7 @@ function showCombModal({ title, name, description, isNew, combId, thenAddBee = f
 function openAddBeeModal() {
   showBeeModal({
     title: 'Add a bee',
-    bee:   { id: uid(), name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [], connections: [] },
+    bee:   { id: uid(), name: '', role: '', company: '', email: '', location: '', relationship: '', metThrough: '', notes: [] },
     isNew: true,
   });
 }
@@ -1056,30 +1268,21 @@ function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
 
   const REL_TYPES = ['Mentor', 'Technical Expert', 'Manager', 'Counterpart', 'Partner', 'Peer', 'Client', 'Other'];
 
-  // For import: collect existing bees from other combs (not already in target comb)
-  const targetCombId = ownerComb ? ownerComb.id
+  // Which comb will receive a newly-added bee?
+  const targetCombId = ownerComb && ownerComb.id !== ALL_BEES_ID ? ownerComb.id
     : (_activeComb !== ALL_BEES_ID ? _activeComb : (_data.combs[0]?.id || null));
   const targetComb = _data.combs.find(c => c.id === targetCombId);
-  const existingIds = new Set(targetComb ? targetComb.bees.map(b => b.id) : []);
+  const existingIds = new Set(targetComb ? targetComb.memberIds : []);
 
-  const importCandidates = [];
-  const seen = new Set();
-  _data.combs.forEach(c => {
-    if (c.id === targetCombId) return;
-    c.bees.forEach(b => {
-      if (!seen.has(b.id) && !existingIds.has(b.id)) {
-        seen.add(b.id);
-        importCandidates.push(b);
-      }
-    });
-  });
+  // People who exist but aren't already in the target comb — offered for import.
+  const importCandidates = _data.people.filter(p => !existingIds.has(p.id));
 
   const importSection = isNew && importCandidates.length > 0 ? `
-    <div class="nw-modal-divider">— or import existing bee —</div>
+    <div class="nw-modal-divider">— or add an existing bee —</div>
     <label class="nw-modal-label">
-      Import from another comb
+      Add someone already in your hive
       <select class="nw-modal-select" id="nwmImport">
-        <option value="">— choose a bee to import —</option>
+        <option value="">— choose a bee —</option>
         ${importCandidates.map(b => `<option value="${b.id}">${esc(b.name)}${b.company ? ' · '+esc(b.company) : ''}</option>`).join('')}
       </select>
     </label>` : '';
@@ -1145,47 +1348,57 @@ function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
   document.getElementById('nwBeeModalClose').addEventListener('click', close);
   document.getElementById('nwBeeModalCancel').addEventListener('click', close);
 
-  // Import select auto-fills the form
+  // Importing an existing bee = just add their id to this comb. The form fields
+  // are disabled so it's clear you're referencing an existing record, not editing it.
   const importSel = document.getElementById('nwmImport');
+  const fieldIds = ['nwmName', 'nwmRole', 'nwmCompany', 'nwmEmail', 'nwmLocation', 'nwmMetThrough', 'nwmRelationship'];
   if (importSel) {
     importSel.addEventListener('change', () => {
-      const beeId = importSel.value;
-      if (!beeId) return;
-      const src = importCandidates.find(b => b.id === beeId);
-      if (!src) return;
-      document.getElementById('nwmName').value        = src.name        || '';
-      document.getElementById('nwmRole').value        = src.role        || '';
-      document.getElementById('nwmCompany').value     = src.company     || '';
-      document.getElementById('nwmEmail').value       = src.email       || '';
-      document.getElementById('nwmLocation').value    = src.location    || '';
-      document.getElementById('nwmMetThrough').value  = src.metThrough  || '';
-      const relSel = document.getElementById('nwmRelationship');
-      relSel.value = src.relationship || '';
-      // Store the imported bee's id so we can reuse it
-      overlay.dataset.importId = src.id;
+      const src = getPerson(importSel.value);
+      if (src) {
+        document.getElementById('nwmName').value       = src.name       || '';
+        document.getElementById('nwmRole').value       = src.role       || '';
+        document.getElementById('nwmCompany').value    = src.company    || '';
+        document.getElementById('nwmEmail').value      = src.email      || '';
+        document.getElementById('nwmLocation').value   = src.location   || '';
+        document.getElementById('nwmMetThrough').value = src.metThrough || '';
+        document.getElementById('nwmRelationship').value = src.relationship || '';
+        overlay.dataset.importId = src.id;
+      } else {
+        delete overlay.dataset.importId;
+      }
+      fieldIds.forEach(id => { document.getElementById(id).disabled = !!importSel.value; });
     });
   }
 
   document.getElementById('nwmDelete')?.addEventListener('click', () => {
-    const comb = ownerComb || activeComb();
-    if (comb && comb.id !== ALL_BEES_ID) {
-      comb.bees = comb.bees.filter(b => b.id !== bee.id);
-      saveData(_data);
-    }
+    if (ownerComb && ownerComb.id !== ALL_BEES_ID) removeFromComb(bee.id, ownerComb.id);
+    else removePerson(bee.id);
+    saveData(_data);
     renderSidebar();
     close();
     renderCanvas();
   });
 
   document.getElementById('nwmSave').addEventListener('click', () => {
+    // Resolve the destination comb.
+    let dest = (ownerComb && ownerComb.id !== ALL_BEES_ID) ? ownerComb
+      : (_activeComb !== ALL_BEES_ID ? _data.combs.find(c => c.id === _activeComb) : _data.combs[0]);
+    if (!dest) { close(); return; }
+
+    // Import path — reference an existing person into this comb.
+    if (isNew && overlay.dataset.importId) {
+      const id = overlay.dataset.importId;
+      if (!dest.memberIds.includes(id)) dest.memberIds.push(id);
+      const saved = getPerson(id);
+      finishBeeSave(saved ? saved.id : id, dest);
+      return;
+    }
+
     const name = document.getElementById('nwmName').value.trim();
     if (!name) { document.getElementById('nwmName').focus(); return; }
 
-    // If importing, reuse the imported bee's id so connections stay intact
-    const finalId = (isNew && overlay.dataset.importId) ? overlay.dataset.importId : bee.id;
-
-    const updated = {
-      id:           finalId,
+    const fields = {
       name,
       role:         document.getElementById('nwmRole').value.trim(),
       company:      document.getElementById('nwmCompany').value.trim(),
@@ -1193,41 +1406,35 @@ function showBeeModal({ title, bee, isNew, ownerComb, _afterSave }) {
       location:     document.getElementById('nwmLocation').value.trim(),
       relationship: document.getElementById('nwmRelationship').value,
       metThrough:   document.getElementById('nwmMetThrough').value.trim(),
-      notes:        normaliseNotes(bee.notes),
-      connections:  bee.connections || [],
-      ...(typeof bee.x === 'number' ? { x: bee.x, y: bee.y } : {}),
     };
 
-    let targetComb = ownerComb || null;
-    if (!targetComb || targetComb.id === ALL_BEES_ID) {
-      const realCombs = _data.combs.filter(c => c.id !== ALL_BEES_ID);
-      targetComb = _activeComb !== ALL_BEES_ID
-        ? _data.combs.find(c => c.id === _activeComb)
-        : realCombs[0] || null;
-    }
-    if (!targetComb) { close(); return; }
-
     if (isNew) {
-      targetComb.bees.push(updated);
+      const person = { id: bee.id, ...fields, notes: normaliseNotes(bee.notes) };
+      _data.people.push(person);
+      if (!dest.memberIds.includes(person.id)) dest.memberIds.push(person.id);
     } else {
-      const idx = targetComb.bees.findIndex(b => b.id === bee.id);
-      if (idx !== -1) targetComb.bees[idx] = updated;
+      const person = getPerson(bee.id);
+      if (person) Object.assign(person, fields); // single record → updates everywhere
     }
 
+    finishBeeSave(bee.id, dest);
+  });
+
+  function finishBeeSave(savedId, dest) {
     if (_afterSave) {
-      // Let caller handle save/render/panel
       close();
-      _afterSave(updated, targetComb);
+      _afterSave(savedId, dest);
     } else {
       saveData(_data);
       renderSidebar();
       close();
       renderCanvas();
-      if (_detailBee && _detailBee.id === updated.id) {
-        openDetailPanel(updated, targetComb);
+      if (_detailBee && _detailBee.id === savedId) {
+        const saved = getPerson(savedId);
+        if (saved) openDetailPanel(saved, dest);
       }
     }
-  });
+  }
 
   setTimeout(() => document.getElementById('nwmName')?.focus(), 60);
 }

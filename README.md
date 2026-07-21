@@ -103,10 +103,10 @@ A pan/zoomable hex map of the whole hive — canvas background tiled with a dens
 
 > The background hex count (`VIRTUAL_N` in `org.js`) is intentionally tuned low (80 rings ≈ 19,441 cells) rather than literal ("270,000 bees · 6 colonies" is flavor text for IBM's real headcount). A previous version set this to 300 rings (~271K cells) and drew all of them synchronously on load — that froze the tab for tens of seconds. If you're tempted to raise this constant for a denser look, profile it first.
 
-### Cell
-Your actual team, two tabs:
-- **Structure** — your manager, technical/territory counterparts, and peers as a hex grid, plus a "key relationships" table describing who pairs with whom.
-- **Connections** — a read-only view of your network cards (add/edit/delete lives in the People view).
+### Cell (My Team)
+Your actual team, as tabs:
+- **List / Hive / Pairings** — your manager, technical/territory counterparts, and peers, plus BTSS↔TSS pairings.
+- **Territory Coverage** — an interactive US map in the isometric IBM style: every state is a real geographic shape lifted off a dark board and coloured by the rep who owns it. Switch between coverage **views** (manager / market / product slices — Rob Mason, Aaron Carman, Chris Kennedy, Cale Webster, Industrial, Storage, Power/Cloud), spotlight a rep from the legend, and toggle **Edit** to re-assign states/territories. Each view saves independently, per-user (`/api/store/territory_coverage_v1`). State shapes are pre-projected (Albers USA) in [`frontend/js/views/us-geo.js`](frontend/js/views/us-geo.js); seed coverage lives in [`territory-data.js`](frontend/js/views/territory-data.js).
 
 ### People
 Your personal connections CRM, full CRUD:
@@ -121,12 +121,29 @@ All your accounts as a color-coded honeycomb (blue → magenta spectrum: Closed 
 ### Resources
 An onboarding runbook, not a stub: quick start, go-to tools (Salesforce, SalesLoft, Seismic, TechZone, etc.), focus products, sales plays, core motions, GTM workflow, operating rhythm, a role guide (BTSS vs BSS vs BTS vs TSS), and team structure. Filterable from the sidebar.
 
-### Profile switcher
-The topnav user menu swaps the displayed name between Sydney Chin / Chris Kennedy / Admin — display-only today, it doesn't change which data loads.
+### Accounts & sign-in
+The app is gated behind a login screen. Create an account (username + password) or sign in; the topnav user menu shows who you're signed in as and offers **Log out**. Passwords are hashed with scrypt (Node's built-in `crypto`) — no plaintext, no external auth dependency.
+
+Each account gets its own **My Combs** graph, persisted server-side (SQLite `hive_state`) so it follows you across devices and reloads. A localStorage cache gives instant loads; any legacy anonymous `ibm_hive_combs_v1` data in the browser is migrated up to your account on first sign-in.
 
 ---
 
 ## API Reference
+
+### Auth & persistence
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/auth/register` | Create an account `{ username, password, display_name? }` → `{ token, user }` |
+| `POST` | `/api/auth/login` | Sign in `{ username, password }` → `{ token, user }` |
+| `POST` | `/api/auth/logout` | Invalidate the current session (Bearer token) |
+| `GET`  | `/api/auth/me` | Current user for the Bearer token |
+| `GET`  | `/api/hive` | This user's My Combs graph → `{ data, updated_at }` |
+| `PUT`  | `/api/hive` | Replace this user's My Combs graph `{ data }` |
+| `GET`  | `/api/store/:key` | Generic per-user JSON store (e.g. Territory Coverage) → `{ data, updated_at }` |
+| `PUT`  | `/api/store/:key` | Replace a per-user JSON blob `{ data }` |
+
+Send the token from register/login as `Authorization: Bearer <token>` on every authed request.
 
 ### People
 
@@ -183,6 +200,10 @@ network_connections  — Current user's personal connections with relationship m
 accounts             — Sales accounts with stage, value, owner
 account_collaborators — Many-to-many: people involved on an account
 notes                — Free-text notes on any person or account
+users                — Login accounts (scrypt-hashed passwords)
+sessions             — Bearer tokens issued at login
+hive_state           — Per-user "My Combs" graph, one JSON blob per user
+user_kv              — Generic per-user JSON store, keyed by string (e.g. Territory Coverage)
 ```
 
 `people.role_type` allows: `exec`, `director`, `manager`, `bss`, `bts`, `tse`, `csm`, `sdr`, `partner`, `intern`, `other`.
@@ -202,5 +223,5 @@ See [`db/schema.sql`](db/schema.sql) for the full DDL.
 ## Known gaps
 
 - Accounts has no delete route and no create/edit UI (Connections does — see People view for the reference CRUD pattern).
-- The topnav search box (`#globalSearch`) and the profile switcher are not wired to real filtering/data yet — both are present in the markup but currently decorative.
+- The topnav search box (`#globalSearch`) is present in the markup but not wired to real filtering yet.
 - `frontend/js/views/exec.js` exists but isn't imported by `app.js` — parked from an earlier iteration, not part of the current nav.
