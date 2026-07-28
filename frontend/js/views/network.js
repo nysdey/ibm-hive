@@ -799,12 +799,16 @@ function drawHive() {
   bees.forEach((b, i) => { posMap[b.id] = { cx: ox + positions[i].cx, cy: oy + positions[i].cy }; });
   posMap[SELF_ID] = { cx: ox, cy: oy };
 
-  // Render only real ties. Both use the shared Colonies connector color;
-  // direct ties are solid and indirect ties are dashed.
+  // Tie styling: a direct tie is a solid blue line, an indirect tie is a dashed
+  // purple line. Colors match the "You" hex (purple) and the selection blue.
+  const TIE_DIRECT   = '#4589ff';
+  const TIE_INDIRECT = '#a855f7';
+
   let lines = '';
   const member = new Set(bees.map(b => b.id));
   member.add(SELF_ID);
-  const drawnEdges = new Set();
+  const drawnEdges   = new Set();
+  const linkedToSelf = new Set();   // member bees with an explicit tie to You
   _data.connections.forEach(c => {
     if (!member.has(c.source) || !member.has(c.target)) return;
     const key = [c.source, c.target].sort().join('|') + '|' + c.type;
@@ -813,18 +817,31 @@ function drawHive() {
     const from = posMap[c.source];
     const to   = posMap[c.target];
     if (!from || !to) return;
-    if (c.type === 'indirect') {
-      lines += `<line data-edge-id="${c.id}" data-source="${c.source}" data-target="${c.target}"
-        x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
-        x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
-        stroke="rgba(255,255,255,0.48)" stroke-width="1.5" stroke-dasharray="7,6" stroke-linecap="round"/>`;
-    } else {
-      lines += `<line data-edge-id="${c.id}" data-source="${c.source}" data-target="${c.target}"
-        x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
-        x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
-        stroke="rgba(255,255,255,0.48)" stroke-width="1.5" stroke-linecap="round"/>`;
-    }
+    if (c.source === SELF_ID) linkedToSelf.add(c.target);
+    if (c.target === SELF_ID) linkedToSelf.add(c.source);
+    const dash  = c.type === 'indirect' ? ' stroke-dasharray="7,6"' : '';
+    const color = c.type === 'indirect' ? TIE_INDIRECT : TIE_DIRECT;
+    lines += `<line data-edge-id="${c.id}" data-source="${c.source}" data-target="${c.target}"
+      x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
+      x2="${to.cx.toFixed(1)}"   y2="${to.cy.toFixed(1)}"
+      stroke="${color}" stroke-width="1.2"${dash} stroke-linecap="round"/>`;
   });
+
+  // In the All Bees view every bee is tied back to You. Any bee without an
+  // explicit tie to You (e.g. imported from another view or legacy data) gets a
+  // default direct (solid blue) connector so none of them float loose.
+  if (comb.id === ALL_BEES_ID) {
+    const self = posMap[SELF_ID];
+    bees.forEach(b => {
+      if (linkedToSelf.has(b.id)) return;
+      const from = posMap[b.id];
+      if (!from || !self) return;
+      lines += `<line data-source="${b.id}" data-target="${SELF_ID}"
+        x1="${from.cx.toFixed(1)}" y1="${from.cy.toFixed(1)}"
+        x2="${self.cx.toFixed(1)}" y2="${self.cy.toFixed(1)}"
+        stroke="${TIE_DIRECT}" stroke-width="1.2" stroke-linecap="round"/>`;
+    });
+  }
 
   // "You" hex
   let hexes = `

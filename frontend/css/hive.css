@@ -4678,7 +4678,8 @@ body {
 .auth-switch-btn:hover { text-decoration: underline; }
 
 /* Logout button in the profile dropdown */
-.user-dropdown-logout {
+.user-dropdown-logout,
+.user-dropdown-action {
   display: block;
   width: 100%;
   text-align: left;
@@ -4692,7 +4693,9 @@ body {
   cursor: pointer;
   transition: color 0.1s, background 0.1s;
 }
-.user-dropdown-logout:hover { color: #fff; background: rgba(255,255,255,0.04); }
+.user-dropdown-logout:hover,
+.user-dropdown-action:hover { color: #fff; background: rgba(255,255,255,0.04); }
+.user-dropdown-action.active { color: #fff; }
 
 /* ════════════════════════════════════════════════════════════════
    Territory Coverage (My Team → Territory Coverage)

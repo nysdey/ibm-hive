@@ -1061,7 +1061,8 @@ function buildLayout() {
     id: 'root', label: _chartMode === 'products' ? 'IBM Products' : 'IBM Sales', sub: 'Colony',
     type: 'root', cx: svgCX, cy: curY,
     isSelected: _selectedId === 'root',
-    youAreHere: false, data: null,
+    // The colony root is highlighted purple — you sit inside it.
+    youAreHere: true, data: null,
   });
   pos['root'] = { cx: svgCX, cy: curY };
   curY += RS + GAP;

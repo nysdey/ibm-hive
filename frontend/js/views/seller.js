@@ -214,6 +214,17 @@ const MANAGEMENT_MANAGERS = [
   { name:'Rob Mason', role:'TSS Manager', groupId:'tss', reports:['Hayden King','Jackson France','Luke Chandler','Negusu Mulu','Patrick McBride','Rick Morse','Robert Brendle','Ross Holley','Ryan Hinegardner'] },
 ];
 
+// The signed-in user and everyone above them in the reporting line. These cells
+// are highlighted purple in the Management chart because you sit inside them:
+// you → your manager → the market leader (Kathleen Macchio, the chart root).
+const SELF_NAME = 'Sydney Chin';
+const YOUR_CHAIN = (() => {
+  const chain = new Set([SELF_NAME, 'Kathleen Macchio']);
+  const manager = MANAGEMENT_MANAGERS.find(m => (m.reports || []).includes(SELF_NAME));
+  if (manager) chain.add(manager.name);
+  return chain;
+})();
+
 /**
  * BTSS ↔ TSS territory pairings.
  * Derived from overlapping state coverage.
@@ -636,9 +647,9 @@ function managementTextLines(text, maxLength = 16) {
 
 function managementNodeSvg(node) {
   const selected = _managementSelected === node.id;
-  const isYou = node.name === 'Sydney Chin';
-  const stroke = isYou ? '#a56eff' : selected ? '#4589ff' : 'rgba(255,255,255,.72)';
-  const width = isYou || selected ? 3 : 1.5;
+  const inYourChain = YOUR_CHAIN.has(node.name);
+  const stroke = inYourChain ? '#a56eff' : selected ? '#4589ff' : 'rgba(255,255,255,.72)';
+  const width = inYourChain || selected ? 3 : 1.5;
   const nameLines = managementTextLines(node.name, 17);
   const roleLines = managementTextLines(node.role, 21).slice(0, 3);
   const nameStart = node.cy - 20 - (nameLines.length - 1) * 8;

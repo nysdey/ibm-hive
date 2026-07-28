@@ -224,6 +224,14 @@ function wireNav() {
   document.getElementById('topnavBrand')?.addEventListener('click', () => {
     activateView('org');
   });
+
+  // Workflow is not part of the main product surface — it lives in the profile
+  // dropdown. Selecting it activates the view and closes the menu.
+  document.getElementById('workflowNavBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    activateView('workflow');
+    document.getElementById('userDropdown')?.classList.remove('open');
+  });
 }
 
 // ── Init ──────────────────────────────────────────────────────────
