@@ -799,10 +799,10 @@ function drawHive() {
   bees.forEach((b, i) => { posMap[b.id] = { cx: ox + positions[i].cx, cy: oy + positions[i].cy }; });
   posMap[SELF_ID] = { cx: ox, cy: oy };
 
-  // Tie styling: a direct tie is a solid blue line, an indirect tie is a dashed
-  // purple line. Colors match the "You" hex (purple) and the selection blue.
+  // Tie styling: all ties use the same blue; line style alone distinguishes
+  // direct (solid) from indirect (dashed) relationships.
   const TIE_DIRECT   = '#4589ff';
-  const TIE_INDIRECT = '#a855f7';
+  const TIE_INDIRECT = TIE_DIRECT;
 
   let lines = '';
   const member = new Set(bees.map(b => b.id));

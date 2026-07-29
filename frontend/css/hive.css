@@ -2188,6 +2188,16 @@ body {
   stroke-linecap:round;
   pointer-events:none;
 }
+.mt-management-team-heading rect {
+  fill:#111;
+  stroke:rgba(69,137,255,.62);
+  stroke-width:1;
+}
+.mt-management-team-heading text {
+  fill:#d0e2ff;
+  font:500 12px "IBM Plex Sans",system-ui,sans-serif;
+  pointer-events:none;
+}
 .mt-management-node polygon { transition:stroke .14s ease,filter .14s ease; }
 .mt-management-node:hover polygon { stroke:#fff; filter:brightness(1.08); }
 .mt-management-node text { pointer-events:none; }
@@ -3164,14 +3174,14 @@ body {
 }
 .ohive-detail-welcome-body {
   font-size: 13px;
-  color: #6f6f6f;
+  color: #c6c6c6;
   line-height: 1.75;
   margin-bottom: 20px;
 }
 .ohive-detail-welcome-tip {
   font-size: 12px;
-  color: #a855f7;
-  opacity: 0.8;
+  color: #be95ff;
+  font-weight: 500;
 }
 
 /* Detail content */
@@ -4846,28 +4856,69 @@ body {
   .tc-legend { width: auto; border-left: none; border-top: 1px solid rgba(255,255,255,0.07); max-height: 200px; }
 }
 
-/* Preserve blue/purple accents; only low-contrast gray information becomes white. */
+/* Detail panels use color by meaning: blue identifies structure and fields,
+   purple identifies context and relationships, and neutral copy stays readable. */
 .ohive-detail-panel .odp-type-badge,
+.ohive-detail-panel .odp-field-label {
+  color: #78a9ff;
+  font-weight: 600;
+}
 .ohive-detail-panel .odp-sub,
+.ohive-detail-panel .odp-cat-heading {
+  color: #be95ff;
+  font-weight: 500;
+}
+.ohive-detail-panel .odp-section-title {
+  color: #f4f4f4;
+  border-left: 2px solid #4589ff;
+  padding-left: 8px;
+}
 .ohive-detail-panel .odp-desc,
-.ohive-detail-panel .odp-section-title,
 .ohive-detail-panel .odp-role-label,
-.ohive-detail-panel .odp-cat-heading,
+.ohive-detail-panel .odp-field-value {
+  color: #d6d6d6;
+}
 .ohive-detail-panel .odp-hint,
-.ohive-detail-panel .odp-works-tag,
-.ohive-detail-panel .odp-works-hint,
-.ohive-detail-panel .odp-field-label,
-.ohive-detail-panel .odp-field-value,
+.ohive-detail-panel .odp-works-hint {
+  color: #a8a8a8;
+}
+.ohive-detail-panel .odp-works-tag {
+  color: #d0e2ff;
+  border-color: rgba(120,169,255,.42);
+  background: rgba(69,137,255,.08);
+}
+.ohive-detail-panel .odp-you-badge {
+  color: #be95ff;
+  background: rgba(190,149,255,.1);
+  border-left: 2px solid #a56eff;
+}
+
 .nw-detail-panel .nw-dp-role,
+.mt-detail-panel .mt-dp-role,
+.mt-management-detail .mt-dp-role {
+  color: #78a9ff;
+}
 .nw-detail-panel .nw-dp-section-title,
 .nw-detail-panel .nw-dp-label,
+.mt-detail-panel .mt-dp-label,
+.mt-management-detail .mt-dp-label {
+  color: #78a9ff;
+  font-weight: 600;
+}
 .nw-detail-panel .nw-dp-value,
-.nw-detail-panel .nw-dp-notes-empty,
 .nw-detail-panel .nw-dp-note-text,
-.nw-detail-panel .nw-dp-note-date,
 .nw-detail-panel .nw-dp-conn-name,
-.nw-detail-panel .nw-dp-conn-type {
-  color: #fff;
+.mt-detail-panel .mt-dp-value,
+.mt-management-detail .mt-dp-value {
+  color: #e0e0e0;
+}
+.nw-detail-panel .nw-dp-conn-type,
+.nw-detail-panel .nw-dp-rel {
+  color: #be95ff;
+}
+.nw-detail-panel .nw-dp-notes-empty,
+.nw-detail-panel .nw-dp-note-date {
+  color: #a8a8a8;
 }
 
 /* Visual-system cleanup: sentence case, restrained typography, and outlines
@@ -4928,10 +4979,11 @@ body * {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
-  color: #fff;
-  padding: 0 0 8px;
+  color: #f4f4f4;
+  padding: 0 0 8px 8px;
   margin: 0;
   border: 0;
+  border-left: 2px solid #4589ff;
 }
 .nw-dp-row,
 .mt-dp-row {
@@ -4951,7 +5003,7 @@ body * {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
-  color: #fff;
+  color: #78a9ff;
 }
 .nw-dp-value,
 .mt-dp-value,
@@ -4960,14 +5012,18 @@ body * {
   font-size: 13px;
   line-height: 1.55;
 }
+.nw-dp-value,
+.mt-dp-value { color: #e0e0e0; }
+.nw-dp-rel,
+.mt-dp-you-badge { color: #be95ff; }
 .nw-dp-note,
 .mt-note-item,
 .nw-dp-comb-badge {
   background: transparent;
 }
 .nw-dp-comb-badge {
-  color: #fff;
-  border-color: rgba(255,255,255,0.24);
+  color: #d0e2ff;
+  border-color: rgba(120,169,255,.42);
 }
 .nw-dp-note-input,
 .mt-note-input { background: transparent; }
@@ -5249,3 +5305,35 @@ body * {
   opacity:0; transition:opacity .2s ease, transform .2s ease;
 }
 .app-toast.show { opacity:1; transform:translate(-50%,0); }
+
+/* ── Semantic side-panel color system ──────────────────────────── */
+.hmap-detail .hdp-role,
+.wf-detail .wf-detail-type {
+  color:#be95ff;
+  font-weight:500;
+}
+.hmap-detail .hdp-label,
+.tc-legend .tc-territory-code {
+  color:#78a9ff;
+}
+.hmap-detail .hdp-val { color:#e0e0e0; }
+.hmap-detail .hdp-tag {
+  color:#d0e2ff;
+  border-color:rgba(120,169,255,.38);
+  background:rgba(69,137,255,.08);
+}
+.tc-legend-title,
+.tc-territory-people-title {
+  color:#be95ff;
+  font-weight:600;
+}
+.tc-legend-sub { color:#a8a8a8; }
+.wf-detail .wf-detail-section {
+  color:#f4f4f4;
+  border-top-color:rgba(69,137,255,.42);
+}
+.wf-detail .wf-detail-tags span {
+  color:#d0e2ff;
+  border-color:rgba(120,169,255,.38);
+  background:rgba(69,137,255,.08);
+}

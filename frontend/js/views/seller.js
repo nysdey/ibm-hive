@@ -35,18 +35,18 @@ const DEFAULT_MANAGER_GROUPS = [
     accentColor: '#4589ff', // IBM blue
     members: [
       { name: 'John Tatum',           territory: 'CA South, AL, GA, MS, HI',          region: null },
-      { name: 'Emmanuel Garit',        territory: 'FL',                                 region: null },
-      { name: 'Jette Jones',           territory: 'KY, TN, NC, SC',                    region: null },
+      { name: 'OPEN — FL / PR',        territory: 'FL, PR',                             region: null },
+      { name: 'Annie Sanderson',       territory: 'KY, TN, NC, SC',                    region: null },
       { name: 'Morgan McKeithan',      territory: 'VA, WV, MD, DC',                    region: null },
-      { name: 'Tyler Reinsmith',       territory: 'MI, IN, OH, PA',                    region: null },
-      { name: 'Roshan Dave',           territory: 'New York State',                     region: null },
+      { name: 'OPEN — Great Lakes',    territory: 'MI, IN, OH, PA West',               region: null },
+      { name: 'Roshan Dave',           territory: 'NY, NJ, PA East',                    region: null },
       { name: 'Mark Hoffman',          territory: 'New York City, CT, MA, NH, ME',      region: null },
       { name: 'Demetrius Bell Jr',     territory: 'TX, LA',                             region: null },
-      { name: 'Mark James',            territory: 'WI, IL',                             region: null },
+      { name: 'OPEN — WI / IL',        territory: 'WI, IL',                             region: null },
       { name: 'Armada Veraepalli',     territory: 'WA, OR, ID, MT, ND, SD, MN',       region: null },
       { name: 'John Haschke',          territory: 'Northern California',               region: null },
       { name: 'Jacob Kim',             territory: 'NE, KS, OK, IA, MO, AR',           region: null },
-      { name: 'Lydia Zhong',           territory: 'NV, UT, CO, WY, AZ, NM',           region: null },
+      { name: 'OPEN — Mountain West',  territory: 'NV, UT, CO, WY, AZ, NM',           region: null },
       { name: 'Sydney Chin',           territory: null,                                region: null },
     ],
   },
@@ -61,14 +61,14 @@ const DEFAULT_MANAGER_GROUPS = [
     members: [
       { name: 'Ryan Hlinegarder', territory: 'NY, NJ, PA',                              region: null },
       { name: 'Ross Holley',      territory: 'ME, NH, MA, CT, RI',                       region: null },
-      { name: 'Chloe Cree',       territory: 'MI, IN, OH',                               region: null },
+      { name: 'Robert Brendle',   territory: 'MI, IN, OH, PA',                           region: null },
       { name: 'Negusu Mulu',      territory: 'WI, IL',                                   region: null },
       { name: 'Jackson France',   territory: 'VA, WV, KY, TN, NC, SC, MD, DC, DE',      region: null },
       { name: 'Rick Morse',       territory: 'FL, GA, AL, MS',                           region: null },
-      { name: 'Luke Chandler',    territory: 'California',                               region: null },
-      { name: 'Archit Myadam',    territory: 'ND, SD, NE, KS, OK, MN, IA, MO, AR',     region: null },
+      { name: 'OPEN — California', territory: 'California',                              region: null },
+      { name: 'OPEN — Plains',     territory: 'ND, SD, NE, KS, OK, MN, IA, MO, AR',    region: null },
       { name: 'Hayden King',      territory: 'NV, UT, CO, WY, AZ, NM, TX, LA',         region: null },
-      { name: 'Jason Grant',      territory: 'WA, OR, ID, MT, AK, HI',                  region: null },
+      { name: 'Patrick McBride',  territory: 'WA, OR, ID, MT, AK, HI',                  region: null },
     ],
   },
   {
@@ -206,12 +206,12 @@ function saveTeamGroups() { localStorage.setItem(TEAM_KEY, JSON.stringify(MANAGE
 let MANAGER_GROUPS = loadTeamGroups();
 
 const MANAGEMENT_MANAGERS = [
+  { name:'Chris Kennedy', role:'BTSS Manager', groupId:'btss', reports:['Annie Sanderson','Armada Veraepalli','Demetrius Bell Jr','Jacob Kim','John Haschke','John Tatum','Mark Hoffman','Morgan McKeithan','Roshan Dave','Sydney Chin'] },
+  { name:'Rob Mason', role:'TSS Manager', groupId:'tss', reports:['Hayden King','Jackson France','Negusu Mulu','Patrick McBride','Rick Morse','Robert Brendle','Ross Holley','Ryan Hinegardner'] },
+  { name:'Cale Webster', role:'BTSS Manager', groupId:'btss-fss', reports:['Aditya Phadke','Anjali James','Ari Benoit','Cary Slaker','Diamond Charlotin','Jack Mathison','Marques Walker','Steven Gasinski','Sherman Brewster','Spencer Fenelon','Toby LaCoste'] },
   { name:'Aaron Carman', role:'TSS Manager', groupId:'tss-fss', reports:['Amber Cowan','Camden Webster','Delisha Alexander','Herman Leonard','Joe Broadway','Joer Bombase','LB Butler','Nick Hoang','Rick Monroy','Robert Battrick','Ryan Keegan','Tim Zhou'] },
   { name:'Alan Kidd', role:'BTSS Manager', groupId:'btss-industrial', reports:['Anish Omprakash','Chad Benton','Christopher Murphy','Dana Clark','Frank Tringali','Jeff Burnett','Ken Williams','Matt Panora','Meredith McCurdy','Michael Moreno','Nana Kwame Afriyie Peasah','Thorston Thorpe','Yonis Saleh','Aiden Lundy'] },
-  { name:'Cale Webster', role:'BTSS Manager', groupId:'btss-fss', reports:['Aditya Phadke','Anjali James','Ari Benoit','Cary Slaker','Diamond Charlotin','Jack Mathison','Marques Walker','Steven Gasinski','Sherman Brewster','Spencer Fenelon','Toby LaCoste'] },
-  { name:'Chris Kennedy', role:'BTSS Manager', groupId:'btss', reports:['Annie Sanderson','Armada Veraepalli','Demetrius Bell Jr','Jacob Kim','John Haschke','John Tatum','Mark Hoffman','Mark James','Morgan McKeithan','Roshan Dave','Sydney Chin','Tyler Reinsmith'] },
   { name:'Michael Slade', role:'TSS Manager', groupId:'tss-industrial', reports:['Alfredo Salman','Barry Long','Eddie Finnell','Gary Motmans','Gavin Moore','Greg Harris','Joel Mwesigwa','John Poulos','Kelsey Zehnder','Mark Arnold','Neal Echols','Rezell Simmons','Robert Bailey Sr','Skylar Solga','Travis Jones'] },
-  { name:'Rob Mason', role:'TSS Manager', groupId:'tss', reports:['Hayden King','Jackson France','Luke Chandler','Negusu Mulu','Patrick McBride','Rick Morse','Robert Brendle','Ross Holley','Ryan Hinegardner'] },
 ];
 
 // The signed-in user and everyone above them in the reporting line. These cells
@@ -231,19 +231,19 @@ const YOUR_CHAIN = (() => {
  * label: short region name shown on the connecting line.
  */
 const COMMS_PAIRINGS = [
-  { btss: 'Roshan Dave',       tss: 'Ryan Hlinegarder', label: 'New York / NJ / PA'   },
+  { btss: 'Roshan Dave',       tss: 'Ryan Hlinegarder', label: 'NY / NJ / PA East'    },
   { btss: 'Mark Hoffman',      tss: 'Ross Holley',       label: 'New England'          },
-  { btss: 'Tyler Reinsmith',   tss: 'Chloe Cree',        label: 'Great Lakes'          },
-  { btss: 'Mark James',        tss: 'Negusu Mulu',       label: 'WI / IL'              },
-  { btss: 'Jette Jones',       tss: 'Jackson France',    label: 'Carolinas / Appalachia' },
+  { btss: 'OPEN — Great Lakes', tss: 'Robert Brendle',   label: 'Great Lakes'          },
+  { btss: 'OPEN — WI / IL',    tss: 'Negusu Mulu',       label: 'WI / IL'              },
+  { btss: 'Annie Sanderson',   tss: 'Jackson France',    label: 'Carolinas / Appalachia' },
   { btss: 'Morgan McKeithan',  tss: 'Jackson France',    label: 'Mid-Atlantic'         },
-  { btss: 'Emmanuel Garit',    tss: 'Rick Morse',        label: 'Florida / Southeast'  },
-  { btss: 'John Tatum',        tss: 'Luke Chandler',     label: 'S. California'        },
-  { btss: 'John Haschke',      tss: 'Luke Chandler',     label: 'N. California'        },
+  { btss: 'OPEN — FL / PR',    tss: 'Rick Morse',        label: 'Florida / Southeast'  },
+  { btss: 'John Tatum',        tss: 'OPEN — California', label: 'S. California'        },
+  { btss: 'John Haschke',      tss: 'OPEN — California', label: 'N. California'        },
   { btss: 'Demetrius Bell Jr', tss: 'Hayden King',       label: 'Texas / Louisiana'    },
-  { btss: 'Jacob Kim',         tss: 'Archit Myadam',     label: 'Plains'               },
-  { btss: 'Lydia Zhong',       tss: 'Hayden King',       label: 'Mountain West'        },
-  { btss: 'Armada Veraepalli', tss: 'Jason Grant',       label: 'Pacific Northwest'    },
+  { btss: 'Jacob Kim',         tss: 'OPEN — Plains',     label: 'Plains'               },
+  { btss: 'OPEN — Mountain West', tss: 'Hayden King',    label: 'Mountain West'        },
+  { btss: 'Armada Veraepalli', tss: 'Patrick McBride',   label: 'Pacific Northwest'    },
 ];
 
 function overlappingPairings(btssSourceId, tssSourceId) {
@@ -652,12 +652,27 @@ function managementNodeSvg(node) {
   const width = inYourChain || selected ? 3 : 1.5;
   const nameLines = managementTextLines(node.name, 17);
   const roleLines = managementTextLines(node.role, 21).slice(0, 3);
-  const nameStart = node.cy - 20 - (nameLines.length - 1) * 8;
-  const roleStart = node.cy + 23;
+  const marketLines = node.type === 'manager' && node.market
+    ? managementTextLines(node.market, 18).slice(0, 2)
+    : [];
+  const blocks = [
+    { lines:nameLines, lineHeight:17, color:'#fff', size:12.5, weight:600 },
+    { lines:roleLines, lineHeight:14, color:node.type === 'leader' ? '#78a9ff' : '#fff', size:10.5, weight:400 },
+    { lines:marketLines, lineHeight:12, color:'#78a9ff', size:9.5, weight:400 },
+  ].filter(block => block.lines.length);
+  const totalTextHeight = blocks.reduce((height, block) => height + block.lines.length * block.lineHeight, 0)
+    + Math.max(0, blocks.length - 1) * 5;
+  let textCursor = node.cy - totalTextHeight / 2;
+  const textSvg = blocks.map(block => {
+    const svg = block.lines.map((line,index) =>
+      `<text x="${node.cx}" y="${textCursor + index * block.lineHeight + block.lineHeight / 2}" text-anchor="middle" dominant-baseline="central" fill="${block.color}" font-size="${block.size}" font-weight="${block.weight}" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(line)}</text>`
+    ).join('');
+    textCursor += block.lines.length * block.lineHeight + 5;
+    return svg;
+  }).join('');
   return `<g class="mt-management-node" data-management-id="${node.id}" style="cursor:pointer">
     <polygon points="${managementHexPoints(node.cx,node.cy)}" fill="#292929" stroke="${stroke}" stroke-width="${width}"/>
-    ${nameLines.map((line,index) => `<text x="${node.cx}" y="${nameStart + index * 17}" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="600" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(line)}</text>`).join('')}
-    ${roleLines.map((line,index) => `<text x="${node.cx}" y="${roleStart + index * 14}" text-anchor="middle" fill="#fff" font-size="10.5" font-family="IBM Plex Sans,system-ui,sans-serif">${esc(line)}</text>`).join('')}
+    ${textSvg}
   </g>`;
 }
 
@@ -679,35 +694,41 @@ function renderManagementChart() {
   const expandedManager = MANAGEMENT_MANAGERS.find(manager => managementId(manager.name) === _managementExpanded);
   const widths = MANAGEMENT_MANAGERS.map(manager => {
     if (manager !== expandedManager || !manager.reports?.length) return MGMT_STEP_X;
-    return Math.max(MGMT_STEP_X, Math.min(6, manager.reports.length) * MGMT_STEP_X);
+    return Math.max(MGMT_STEP_X, Math.min(5, manager.reports.length) * MGMT_STEP_X);
   });
-  const totalWidth = widths.reduce((sum,width) => sum + width,0) + 32 * (widths.length - 1);
+  const gaps = MANAGEMENT_MANAGERS.slice(1).map((_, index) => index % 2 === 0 ? 20 : 68);
+  const totalWidth = widths.reduce((sum,width) => sum + width,0) + gaps.reduce((sum,gap) => sum + gap,0);
   const svgWidth = Math.max(1100,totalWidth + 180);
   const rootX = svgWidth / 2;
   const rootY = 105;
   let cursor = (svgWidth - totalWidth) / 2;
   const managerNodes = MANAGEMENT_MANAGERS.map((manager,index) => {
     const cx = cursor + widths[index] / 2;
-    cursor += widths[index] + 32;
-    return { ...manager, id:managementId(manager.name), cx, cy:315, type:'manager' };
+    cursor += widths[index] + (gaps[index] || 0);
+    return {
+      ...manager,
+      market:managementGroup(manager)?.market || null,
+      id:managementId(manager.name),
+      cx,
+      cy:315,
+      type:'manager',
+    };
   });
   const reportNodes = [];
   if (expandedManager) {
     const anchor = managerNodes.find(node => node.id === _managementExpanded);
     const reports = expandedManager.reports || [];
-    const cols = Math.min(6,reports.length);
-    const rows = Math.ceil(reports.length / cols);
+    const cols = Math.min(5,reports.length);
     reports.forEach((name,index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
       const rowCount = Math.min(cols,reports.length - row * cols);
       const rowWidth = (rowCount - 1) * MGMT_STEP_X;
-      const offset = row % 2 ? MGMT_STEP_X / 2 : 0;
       reportNodes.push({
         ...managementMemberDetails(expandedManager,name),
         id:`${anchor.id}-${managementId(name)}`,
-        cx:anchor.cx - rowWidth / 2 + col * MGMT_STEP_X + offset,
-        cy:535 + row * MGMT_STEP_Y,
+        cx:anchor.cx - rowWidth / 2 + col * MGMT_STEP_X,
+        cy:550 + row * MGMT_STEP_Y,
         type:'report',
       });
     });
@@ -716,10 +737,19 @@ function renderManagementChart() {
   const allNodes = [root,...managerNodes,...reportNodes];
   const managerLines = managerNodes.map(node => `<line x1="${rootX}" y1="${rootY + MGMT_R}" x2="${node.cx}" y2="${node.cy - MGMT_R}"/>`).join('');
   const reportAnchor = expandedManager ? managerNodes.find(node => node.id === _managementExpanded) : null;
-  const reportLines = reportAnchor ? reportNodes.map(node => `<line x1="${reportAnchor.cx}" y1="${reportAnchor.cy + MGMT_R}" x2="${node.cx}" y2="${node.cy - MGMT_R}"/>`).join('') : '';
+  const reportLines = reportAnchor
+    ? `<line x1="${reportAnchor.cx}" y1="${reportAnchor.cy + MGMT_R}" x2="${reportAnchor.cx}" y2="448"/>`
+    : '';
+  const reportHeading = reportAnchor
+    ? `<g class="mt-management-team-heading">
+        <rect x="${reportAnchor.cx - 116}" y="438" width="232" height="34" rx="17"/>
+        <text x="${reportAnchor.cx}" y="455" text-anchor="middle" dominant-baseline="central">${esc(expandedManager.name)}’s team · ${reportNodes.length}</text>
+      </g>`
+    : '';
   const svgHeight = reportNodes.length ? Math.max(...reportNodes.map(node => node.cy)) + MGMT_R + 90 : 450;
   canvas.innerHTML = `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
     <g class="mt-management-lines">${managerLines}${reportLines}</g>
+    ${reportHeading}
     <g>${allNodes.map(managementNodeSvg).join('')}</g>
   </svg>`;
   canvas.style.transform = `scale(${_managementZoom})`;

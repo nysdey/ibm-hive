@@ -19,14 +19,14 @@ export const TERRITORY_VIEWS = [
   V('tss-comms', 'Rob Mason', 'TSS Manager', 'Comms / Distribution', [
     R('Ryan Hinegarder', '#4a4a4a', 'NY NJ'),
     R('Ross Holley',     '#5bc2b6', 'ME NH VT MA CT RI'),
-    R('Chloe Cree',      '#e0342c', 'MI IN OH PA'),
+    R('Robert Brendle',  '#e0342c', 'MI IN OH PA'),
     R('Negusu Mulu',     '#7a2fa0', 'WI IL'),
     R('Jackson France',  '#9dc3e6', 'VA WV KY TN NC SC MD DC DE'),
     R('Rick Morse',      '#f2e400', 'FL GA AL MS PR'),
-    R('Luke Chandler',   '#2f6db5', 'CA'),
-    R('Archit Myadam',   '#e8b98f', 'ND SD NE KS OK MN IA MO AR'),
+    R('OPEN — California', '#2f6db5', 'CA'),
+    R('OPEN — Plains',     '#e8b98f', 'ND SD NE KS OK MN IA MO AR'),
     R('Hayden King',     '#92d050', 'NV UT CO WY AZ NM TX LA'),
-    R('Jason Grant',     '#f6c6da', 'WA OR ID MT AK HI GU MP AS'),
+    R('Patrick McBride', '#f6c6da', 'WA OR ID MT AK HI GU MP AS'),
   ]),
 
   V('tss-fss', 'Aaron Carman', 'TSS Manager', 'FSS / Public', [
@@ -46,17 +46,17 @@ export const TERRITORY_VIEWS = [
 
   V('btss-comms', 'Chris Kennedy', 'BTSS Manager', 'Comms / Distribution', [
     R('John Tatum',        '#c0392b', 'CA AL GA MS HI'),
-    R('Emmanuel Garit',    '#1f3a93', 'FL PR'),
-    R('Jetta Jones',       '#4db8d4', 'KY TN NC SC'),
+    R('OPEN — FL / PR',    '#1f3a93', 'FL PR'),
+    R('Annie Sanderson',   '#4db8d4', 'KY TN NC SC'),
     R('Morgan Mckeithan',  '#e5533c', 'VA WV MD DC DE'),
-    R('Tyler Reinsmith',   '#f0c987', 'MI IN OH PA'),
-    R('Roshan Dave',       '#f2e400', 'NY',  'NY State'),
+    R('OPEN — Great Lakes','#f0c987', 'MI IN OH PA', 'MI / IN / OH / PA West'),
+    R('Roshan Dave',       '#f2e400', 'NY NJ PA', 'NY / NJ / PA East'),
     R('Mark Hoffman',      '#2e9c3c', 'CT MA NH ME VT RI NJ', 'NY City'),
     R('Demetrius Bell Jr', '#f5f0a0', 'TX LA'),
-    R('Mark James',        '#808080', 'WI IL'),
+    R('OPEN — WI / IL',    '#808080', 'WI IL'),
     R('Armada Veraepalli', '#d6d6d6', 'WA OR ID MT ND SD MN AK'),
     R('Jacob Kim',         '#d94a6a', 'NE KS OK IA MO AR'),
-    R('Lydia Zhong',       '#7a1f3d', 'NV UT CO WY AZ NM'),
+    R('OPEN — Mountain West', '#7a1f3d', 'NV UT CO WY AZ NM'),
   ]),
 
   V('btss-fss', 'Cale Webster', 'BTSS Manager', 'FSS / Public', [
