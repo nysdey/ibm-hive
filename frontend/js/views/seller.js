@@ -736,20 +736,28 @@ function renderManagementChart() {
   const root = { id:'mgmt-kathleen', name:'Kathleen Macchio', role:'Select T Activate Infrastructure Market Leader', cx:rootX, cy:rootY, type:'leader' };
   const allNodes = [root,...managerNodes,...reportNodes];
   const managerLines = managerNodes.map(node => `<line x1="${rootX}" y1="${rootY + MGMT_R}" x2="${node.cx}" y2="${node.cy - MGMT_R}"/>`).join('');
+  // Instead of a name tag over the team, a bracket connects the manager to
+  // the team: a stem down from the manager, then a horizontal bar spanning
+  // the full width of the expanded team, with short ticks at each end.
   const reportAnchor = expandedManager ? managerNodes.find(node => node.id === _managementExpanded) : null;
-  const reportLines = reportAnchor
-    ? `<line x1="${reportAnchor.cx}" y1="${reportAnchor.cy + MGMT_R}" x2="${reportAnchor.cx}" y2="448"/>`
-    : '';
-  const reportHeading = reportAnchor
-    ? `<g class="mt-management-team-heading">
-        <rect x="${reportAnchor.cx - 116}" y="438" width="232" height="34" rx="17"/>
-        <text x="${reportAnchor.cx}" y="455" text-anchor="middle" dominant-baseline="central">${esc(expandedManager.name)}’s team · ${reportNodes.length}</text>
-      </g>`
-    : '';
+  let reportConnector = '';
+  if (reportAnchor && reportNodes.length) {
+    const bracketY = 460;
+    const tickLen = 14;
+    const xs = reportNodes.map(node => node.cx);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    reportConnector = `<g class="mt-management-team-bracket">
+      <line x1="${reportAnchor.cx}" y1="${reportAnchor.cy + MGMT_R}" x2="${reportAnchor.cx}" y2="${bracketY}"/>
+      <line x1="${minX}" y1="${bracketY}" x2="${maxX}" y2="${bracketY}"/>
+      <line x1="${minX}" y1="${bracketY}" x2="${minX}" y2="${bracketY + tickLen}"/>
+      <line x1="${maxX}" y1="${bracketY}" x2="${maxX}" y2="${bracketY + tickLen}"/>
+    </g>`;
+  }
   const svgHeight = reportNodes.length ? Math.max(...reportNodes.map(node => node.cy)) + MGMT_R + 90 : 450;
   canvas.innerHTML = `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
-    <g class="mt-management-lines">${managerLines}${reportLines}</g>
-    ${reportHeading}
+    <g class="mt-management-lines">${managerLines}</g>
+    ${reportConnector}
     <g>${allNodes.map(managementNodeSvg).join('')}</g>
   </svg>`;
   canvas.style.transform = `scale(${_managementZoom})`;
@@ -808,11 +816,14 @@ function showManagementDetail(node) {
 }
 
 function wireManagementView() {
-  _managementExpanded = null;
+  // Default to your own team already expanded, instead of making people
+  // click their manager to see it.
+  const yourManager = MANAGEMENT_MANAGERS.find(manager => (manager.reports || []).includes(SELF_NAME));
+  _managementExpanded = yourManager ? managementId(yourManager.name) : null;
   _managementSelected = null;
   _managementZoom = 1;
   renderManagementChart();
-  centerManagementNode('mgmt-kathleen',true);
+  centerManagementNode(_managementExpanded || 'mgmt-kathleen',true);
   showManagementSummary();
   document.getElementById('mtManagementDetailToggle')?.addEventListener('click',() => {
     _managementPanelCollapsed = !_managementPanelCollapsed;

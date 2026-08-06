@@ -5,6 +5,7 @@ import { renderOrg }    from './views/org.js';
 import { renderWorkflow } from './views/workflow.js';
 import { renderSeller } from './views/seller.js';
 import { renderNetwork} from './views/network.js';
+import { renderResources } from './views/resources.js';
 import {
   getToken, setToken, clearToken,
   getMe, login, register, logout,
@@ -176,6 +177,7 @@ const VIEW_RENDERERS = {
   workflow: renderWorkflow,
   cell:    renderSeller,
   network: renderNetwork,
+  resources: renderResources,
 };
 
 const rendered = new Set();

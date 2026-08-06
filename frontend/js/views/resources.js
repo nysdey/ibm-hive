@@ -85,7 +85,7 @@ function pills(items, color) {
   ).join('')}</div>`;
 }
 function infoBox(text) {
-  return `<div style="font-size:12px;color:#525252;line-height:1.7;margin-top:12px">${text}</div>`;
+  return `<div style="font-size:12px;color:#8d8d8d;line-height:1.7;margin-top:12px">${text}</div>`;
 }
 function checkList(items) {
   return `<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
@@ -101,8 +101,8 @@ function motionCard(num, title, desc, actions, tools) {
       <div class="res-motion-desc">${desc}</div>
       <ul class="res-motion-actions">${actions.map(a => `<li>${a}</li>`).join('')}</ul>
       <div class="res-motion-tools">
-        <span style="color:#525252;font-size:10px;text-transform:uppercase;letter-spacing:.4px">Tools: </span>
-        <span style="color:#525252;font-size:11px">${tools}</span>
+        <span style="color:#8d8d8d;font-size:10px;text-transform:uppercase;letter-spacing:.4px">Tools: </span>
+        <span style="color:#8d8d8d;font-size:11px">${tools}</span>
       </div>
     </div>
   </div>`;
@@ -122,7 +122,7 @@ function quickStart() {
   return section('Quick start — Day One', `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,0.06);margin-bottom:20px">
       <div style="background:#0d0d0d;padding:18px 20px">
-        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#525252;margin-bottom:12px">Top 5 actions</div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:12px">Top 5 actions</div>
         <ol style="margin:0;padding-left:18px;color:#c6c6c6;font-size:13px;line-height:1.8">
           <li><strong style="color:#f4f4f4">Get to know your territory</strong> — access assigned accounts in Salesforce, prioritize using RevTech propensity scores.</li>
           <li><strong style="color:#f4f4f4">Draft your territory plan</strong> — use the provided template; identify whitespace, key contacts, and Business Partner coverage.</li>
@@ -132,7 +132,7 @@ function quickStart() {
         </ol>
       </div>
       <div style="background:#0d0d0d;padding:18px 20px">
-        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#525252;margin-bottom:12px">Success metrics</div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:12px">Success metrics</div>
         ${checkList([
           'Pipeline created and progressed (weekly)',
           'Win rate and deal velocity',
@@ -142,8 +142,8 @@ function quickStart() {
           'Deal volume, average deal size',
           'Client satisfaction and NPS improvement',
         ])}
-        <div style="margin-top:16px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#525252;margin-bottom:8px">Who to contact</div>
-        <div style="font-size:12px;color:#525252;line-height:1.9">First Line Manager (FLM) · SDR · TSS · Tech SME · Business Partners · Enablement</div>
+        <div style="margin-top:16px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:8px">Who to contact</div>
+        <div style="font-size:12px;color:#8d8d8d;line-height:1.9">First Line Manager (FLM) · SDR · TSS · Tech SME · Business Partners · Enablement</div>
       </div>
     </div>
     <div style="padding:14px 16px;background:rgba(77,123,255,0.07);border-left:2px solid #4d7bff;font-size:12px;color:#a8a8a8;line-height:1.7">
@@ -160,6 +160,7 @@ function goToTools() {
     { name:'Salesloft',             href:'https://salesloft.com',                linkLabel:'salesloft.com',       desc:'Outbound cadences and conversation capture. Connect to email and Teams to capture client conversations for AI automation.' },
     { name:'Seismic (IBM)',         href:'https://ibm.seismic.com',              linkLabel:'ibm.seismic.com',     desc:'Sales content management. Find decks, battle cards, sales kits, and product pages for all Focus Products.' },
     { name:'TechZone',              href:'https://techzone.ibm.com',             linkLabel:'techzone.ibm.com',    desc:'Demo and POC environment provisioning. Use for demos, trials, POVs/POXs, and technical fit validation.' },
+    { name:'RevTech',               href:'https://ibm.salesforce.com',           linkLabel:'RevTech dashboards',  desc:'IBM\'s AI-powered revenue tech stack — propensity scores, buying signals, and account prioritization. Use daily to decide who to call; core to territory planning, lead scoring, and data-hygiene KPIs.' },
     { name:'ZoomInfo / Sales Nav',  href:'https://www.zoominfo.com',             linkLabel:'zoominfo.com',        desc:'Contact discovery and buyer intent signals. Pair with RevTech dashboards for account prioritization.' },
     { name:'Partner Plus',          href:'https://www.ibm.com/partnerplus',      linkLabel:'ibm.com/partnerplus', desc:'BP programs, incentives, deal registration, and partner enablement assets.' },
     { name:'IBM w3 Intranet',       href:'https://w3.ibm.com',                   linkLabel:'w3.ibm.com',          desc:"IBM's internal hub for HR, benefits, tools, and announcements." },
@@ -173,29 +174,55 @@ function goToTools() {
 
 // ── 3. Focus Products ─────────────────────────────────────────────
 function focusProducts() {
-  return section('Focus products — Infrastructure', `
-    ${pills(['IBM PowerVS','IBM FlashSystem','IBM Fusion','IBM z16','IBM LinuxONE','IBM Spectrum', 'Red Hat OpenShift'], '#a855f7')}
-    ${infoBox('Infrastructure BTSSs cover <strong style="color:#a8a8a8">1–12 Focus and Key Core Products</strong> within the Infrastructure specialty. We sell to <strong style="color:#a8a8a8">300+ Select Activate accounts</strong> across all US markets, blending deep technical expertise with commercial sales execution.')}
+  return section('Focus products — Select Territory', `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.06);margin-bottom:20px">
+      <div style="background:#0d0d0d;padding:16px 18px">
+        <div style="font-size:22px;font-weight:300;color:#4d7bff">21</div>
+        <div style="font-size:12px;color:#c6c6c6">Focus Products — 18 Software (incl. Confluent) + 3 Infrastructure</div>
+      </div>
+      <div style="background:#0d0d0d;padding:16px 18px">
+        <div style="font-size:22px;font-weight:300;color:#a855f7">5</div>
+        <div style="font-size:12px;color:#c6c6c6">"Hero" Products every seller should know cold</div>
+      </div>
+      <div style="background:#0d0d0d;padding:16px 18px">
+        <div style="font-size:22px;font-weight:300;color:#6c63ff">~80%</div>
+        <div style="font-size:12px;color:#c6c6c6">Of Select-Territory revenue from Focus + Key Core products</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:8px">Infrastructure Focus (all sellers)</div>
+    ${pills(['IBM PowerVS','IBM FlashSystem','IBM Fusion'], '#a855f7')}
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin:16px 0 8px">Hero Products</div>
+    ${pills(['IBM Bob','watsonx Orchestrate','Confluent','Vault','FlashSystem'], '#f1c21b')}
+    ${infoBox('Infrastructure BTSSs cover <strong style="color:#a8a8a8">1–12 Focus and Key Core Products</strong> within the Infrastructure specialty. We sell to <strong style="color:#a8a8a8">300+ Select Activate accounts</strong> across all US markets. All sellers own the <strong style="color:#a8a8a8">3 Key Products</strong> — Fusion, FlashSystem, PowerVS; Select Activate sellers add the brand core products — <strong style="color:#a8a8a8">Power11, Cloud, and Tape</strong>. IBM Z and LinuxONE run through a separate Special Teams motion. Territory growth target: <strong style="color:#a8a8a8">+20% by territory</strong>, with new-client focus on FlashSystem and IaaS.<br><br>Source: Rob Thomas’s Mid-year Broadcast (July 6, 2026) and the 2H26 Select-Territory Essentials Guide.')}
+
     <div style="margin-top:20px">
-      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#525252;margin-bottom:12px">2026 Seismic links by product</div>
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:12px">2026 Seismic links by product</div>
       <table class="res-team-table">
-        <thead><tr><th>Brand</th><th>Product</th><th>Key Seismic resources</th></tr></thead>
+        <thead><tr><th>Theme</th><th>Product</th><th>Key Seismic resources</th></tr></thead>
         <tbody>
-          <tr><td style="color:#a855f7">Infra</td><td style="color:#f4f4f4">Power VS</td><td style="color:#525252">Sales kit</td></tr>
-          <tr><td style="color:#a855f7">Infra</td><td style="color:#f4f4f4">Fusion</td><td style="color:#525252">Sales kit, solution brief</td></tr>
-          <tr><td style="color:#a855f7">Infra</td><td style="color:#f4f4f4">FlashSystem</td><td style="color:#525252">Product page, FAQs, demo</td></tr>
-          <tr><td style="color:#0f62fe">Data</td><td style="color:#f4f4f4">watsonx Orchestrate</td><td style="color:#525252">Sales kit, product page</td></tr>
-          <tr><td style="color:#0f62fe">Data</td><td style="color:#f4f4f4">watsonx.data</td><td style="color:#525252">Sales kit, product page, demos</td></tr>
-          <tr><td style="color:#0f62fe">Data</td><td style="color:#f4f4f4">watsonx.governance</td><td style="color:#525252">Sales kit, demo</td></tr>
-          <tr><td style="color:#0f62fe">Data</td><td style="color:#f4f4f4">Guardium</td><td style="color:#525252">Sales kit, packaging overview</td></tr>
-          <tr><td style="color:#6c63ff">Auto</td><td style="color:#f4f4f4">Terraform</td><td style="color:#525252">Sales kit, product page, pitch deck</td></tr>
-          <tr><td style="color:#6c63ff">Auto</td><td style="color:#f4f4f4">Instana</td><td style="color:#525252">Sales kit, solution brief, battlecard</td></tr>
-          <tr><td style="color:#6c63ff">Auto</td><td style="color:#f4f4f4">Concert</td><td style="color:#525252">Sales kit, demo, client engagement best practices</td></tr>
-          <tr><td style="color:#6c63ff">Auto</td><td style="color:#f4f4f4">webMethods / Hybrid Integration</td><td style="color:#525252">Sales kit, intro video, seller presentation</td></tr>
-          <tr><td style="color:#6c63ff">Auto</td><td style="color:#f4f4f4">Maximo</td><td style="color:#525252">Sales kit, prospecting playbook, demo</td></tr>
-          <tr><td style="color:#6c63ff">Auto</td><td style="color:#f4f4f4">Vault / Verify / NS1</td><td style="color:#525252">Sales kit, product page, pitch deck / product playbook / solution brief</td></tr>
+          <tr><td style="color:#0f62fe">Boost productivity with AI agents</td><td style="color:#f4f4f4">watsonx Orchestrate ★</td><td style="color:#8d8d8d">Sales kit, product page</td></tr>
+          <tr><td style="color:#0f62fe">Boost productivity with AI agents</td><td style="color:#f4f4f4">watsonx.governance</td><td style="color:#8d8d8d">Sales kit, demo</td></tr>
+          <tr><td style="color:#0f62fe">Boost productivity with AI agents</td><td style="color:#f4f4f4">IBM Bob ★</td><td style="color:#8d8d8d">Sales kit, demo</td></tr>
+          <tr><td style="color:#0f62fe">Maximize the value of enterprise data</td><td style="color:#f4f4f4">watsonx.data</td><td style="color:#8d8d8d">Sales kit, product page, demos</td></tr>
+          <tr><td style="color:#0f62fe">Maximize the value of enterprise data</td><td style="color:#f4f4f4">Guardium</td><td style="color:#8d8d8d">Sales kit, packaging overview</td></tr>
+          <tr><td style="color:#0f62fe">Maximize the value of enterprise data</td><td style="color:#f4f4f4">watsonx.data integration</td><td style="color:#8d8d8d">Sales kit, product page</td></tr>
+          <tr><td style="color:#0f62fe">Maximize the value of enterprise data</td><td style="color:#f4f4f4">Planning Analytics</td><td style="color:#8d8d8d">Sales kit, product page</td></tr>
+          <tr><td style="color:#0f62fe">Maximize the value of enterprise data</td><td style="color:#f4f4f4">Confluent ★</td><td style="color:#8d8d8d">Sales kit, solution brief</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">Terraform</td><td style="color:#8d8d8d">Sales kit, product page, pitch deck</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">Instana</td><td style="color:#8d8d8d">Sales kit, solution brief, battlecard</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">Concert</td><td style="color:#8d8d8d">Sales kit, demo, client engagement best practices</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">Kubecost</td><td style="color:#8d8d8d">Sales kit, product page</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">Cloudability</td><td style="color:#8d8d8d">Sales kit, product page</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">webMethods / Hybrid Integration</td><td style="color:#8d8d8d">Sales kit, intro video, seller presentation</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">Vault ★ / Verify / NS1</td><td style="color:#8d8d8d">Sales kit, product page, pitch deck / product playbook / solution brief</td></tr>
+          <tr><td style="color:#6c63ff">Automate technology and operations</td><td style="color:#f4f4f4">Maximo</td><td style="color:#8d8d8d">Sales kit, prospecting playbook, demo</td></tr>
+          <tr><td style="color:#a855f7">Work across environments with hybrid cloud</td><td style="color:#f4f4f4">PowerVS</td><td style="color:#8d8d8d">Sales kit</td></tr>
+          <tr><td style="color:#a855f7">Work across environments with hybrid cloud</td><td style="color:#f4f4f4">Fusion</td><td style="color:#8d8d8d">Sales kit, solution brief</td></tr>
+          <tr><td style="color:#a855f7">Work across environments with hybrid cloud</td><td style="color:#f4f4f4">FlashSystem ★</td><td style="color:#8d8d8d">Product page, FAQs, demo</td></tr>
         </tbody>
       </table>
+      <div style="font-size:11px;color:#8d8d8d;margin-top:8px">★ = Hero Product. eCommerce Focus Products: Bob, MaaS360, Cognos, Aspera, NS1, SPSS.</div>
     </div>
   `);
 }
@@ -217,7 +244,7 @@ function salesPlays() {
     { theme:'Maximize the Value of Enterprise Data', play:'Discover, Govern, and Protect Data at the Speed of AI',                 products:'watsonx.data intelligence' },
   ];
   return section('2026 Sales plays', `
-    <div style="margin-bottom:12px;font-size:12px;color:#525252;line-height:1.6">
+    <div style="margin-bottom:12px;font-size:12px;color:#8d8d8d;line-height:1.6">
       Full index at <a href="https://ibm.biz/sales-plays" target="_blank" style="color:#4d7bff">ibm.biz/sales-plays ↗</a>.
       Infra-relevant plays highlighted.
     </div>
@@ -352,8 +379,8 @@ function operatingRhythm() {
             <span style="font-size:20px;font-weight:300;color:#4d7bff">${a.pct}</span>
             <span style="font-size:12px;font-weight:500;color:#c6c6c6">${a.name}</span>
           </div>
-          <div style="font-size:10px;color:#525252;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">${a.freq}</div>
-          <ul style="margin:0;padding-left:14px;color:#525252;font-size:11px;line-height:1.75">
+          <div style="font-size:10px;color:#8d8d8d;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">${a.freq}</div>
+          <ul style="margin:0;padding-left:14px;color:#8d8d8d;font-size:11px;line-height:1.75">
             ${a.actions.map(x => `<li>${x}</li>`).join('')}
           </ul>
         </div>`).join('')}
@@ -371,15 +398,15 @@ function roleGuide() {
     <table class="res-team-table" style="margin-bottom:20px">
       <thead><tr><th></th><th style="color:#0f62fe">BSS</th><th style="color:#24a148">BTS</th><th style="color:#a855f7">BTSS</th><th style="color:#6c63ff">TSS</th></tr></thead>
       <tbody>
-        <tr><td style="color:#525252">Sub-segment</td><td>Growth &amp; Activate</td><td>Growth &amp; Activate</td><td><strong style="color:#a855f7">Activate</strong></td><td>Growth &amp; Activate</td></tr>
-        <tr><td style="color:#525252">Product coverage</td><td>1–5 Focus Products</td><td>1–5 Focus Products</td><td><strong style="color:#a855f7">1–12 Focus + Key Core</strong></td><td>Entire portfolio (1 of 3 brands)</td></tr>
-        <tr><td style="color:#525252">Client coverage</td><td>~50 high-potential</td><td>~100 high-potential</td><td><strong style="color:#a855f7">300+ accounts</strong></td><td>200+ accounts</td></tr>
-        <tr><td style="color:#525252">Function</td><td>Sales</td><td>Tech</td><td><strong style="color:#a855f7">Sales &amp; tech sales</strong></td><td>Sales</td></tr>
-        <tr><td style="color:#525252">Deployment</td><td>Field</td><td>Field / Center</td><td>Center</td><td>Center</td></tr>
-        <tr><td style="color:#525252">Geo</td><td>AM &amp; EMEA only</td><td>AM &amp; EMEA only</td><td>All geos</td><td>All geos</td></tr>
+        <tr><td style="color:#8d8d8d">Sub-segment</td><td>Growth &amp; Activate</td><td>Growth &amp; Activate</td><td><strong style="color:#a855f7">Activate</strong></td><td>Growth &amp; Activate</td></tr>
+        <tr><td style="color:#8d8d8d">Product coverage</td><td>1–5 Focus Products</td><td>1–5 Focus Products</td><td><strong style="color:#a855f7">1–12 Focus + Key Core</strong></td><td>Entire portfolio (1 of 3 brands)</td></tr>
+        <tr><td style="color:#8d8d8d">Client coverage</td><td>~50 high-potential</td><td>~100 high-potential</td><td><strong style="color:#a855f7">300+ accounts</strong></td><td>200+ accounts</td></tr>
+        <tr><td style="color:#8d8d8d">Function</td><td>Sales</td><td>Tech</td><td><strong style="color:#a855f7">Sales &amp; tech sales</strong></td><td>Sales</td></tr>
+        <tr><td style="color:#8d8d8d">Deployment</td><td>Field</td><td>Field / Center</td><td>Center</td><td>Center</td></tr>
+        <tr><td style="color:#8d8d8d">Geo</td><td>AM &amp; EMEA only</td><td>AM &amp; EMEA only</td><td>All geos</td><td>All geos</td></tr>
       </tbody>
     </table>
-    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#525252;margin-bottom:12px">KPIs you may be evaluated on</div>
+    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:12px">KPIs you may be evaluated on</div>
     ${checkList([
       'Annualized Revenue and Signings (perpetual, subscription, and SaaS licenses)',
       'Deal volume (number of deals and average deal size)',
@@ -389,17 +416,26 @@ function roleGuide() {
       'Win rate',
       'Client satisfaction and NPS improvement',
     ])}
-    <div style="margin-top:20px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#525252;margin-bottom:12px">Role interaction frequency</div>
+    <div style="margin-top:20px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:12px">Role interaction frequency</div>
     <table class="res-team-table">
       <thead><tr><th>Role</th><th>Frequency</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td style="color:#f4f4f4">FLM</td><td><span class="res-role-pill">Regular</span></td><td style="color:#525252">Report directly; periodic touchpoints with TSS FLMs to ensure coordination on shared accounts.</td></tr>
-        <tr><td style="color:#f4f4f4">SDR</td><td><span class="res-role-pill">Regular</span></td><td style="color:#525252">Warm transfers of leads; refine technical qualification and improve conversion.</td></tr>
-        <tr><td style="color:#f4f4f4">TPS</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#525252">Joint support for deal progression (proposal terms, negotiation, closing) on strategic deals.</td></tr>
-        <tr><td style="color:#f4f4f4">PTS</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#525252">Technical insight on products/solutions for strategic deals or stalled progression.</td></tr>
-        <tr><td style="color:#f4f4f4">TSS</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#525252">Coordinate general portfolio sales; weekly joint portfolio review calls on shared accounts.</td></tr>
-        <tr><td style="color:#f4f4f4">Tech SMEs</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#525252">Technical demos, fit validation, POCs/POXs.</td></tr>
-        <tr><td style="color:#f4f4f4">CSM</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#525252">Post-close context handoff; re-engage for expansion (up-sell and cross-sell) opportunities.</td></tr>
+        <tr><td style="color:#f4f4f4">FLM</td><td><span class="res-role-pill">Regular</span></td><td style="color:#8d8d8d">Report directly; periodic touchpoints with TSS FLMs to ensure coordination on shared accounts.</td></tr>
+        <tr><td style="color:#f4f4f4">SDR</td><td><span class="res-role-pill">Regular</span></td><td style="color:#8d8d8d">Warm transfers of leads; refine technical qualification and improve conversion.</td></tr>
+        <tr><td style="color:#f4f4f4">TPS</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#8d8d8d">Joint support for deal progression (proposal terms, negotiation, closing) on strategic deals.</td></tr>
+        <tr><td style="color:#f4f4f4">PTS</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#8d8d8d">Technical insight on products/solutions for strategic deals or stalled progression.</td></tr>
+        <tr><td style="color:#f4f4f4">TSS</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#8d8d8d">Coordinate general portfolio sales; weekly joint portfolio review calls on shared accounts.</td></tr>
+        <tr><td style="color:#f4f4f4">Tech SMEs</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#8d8d8d">Technical demos, fit validation, POCs/POXs.</td></tr>
+        <tr><td style="color:#f4f4f4">CSM</td><td><span class="res-role-pill">Ad hoc</span></td><td style="color:#8d8d8d">Post-close context handoff; re-engage for expansion (up-sell and cross-sell) opportunities.</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:20px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#8d8d8d;margin-bottom:12px">Combined roles (where needed) — Select-T Growth &amp; Activate</div>
+    <table class="res-team-table">
+      <thead><tr><th>Role</th><th>Coverage</th></tr></thead>
+      <tbody>
+        <tr><td style="color:#f4f4f4">Territory Sales Specialist</td><td style="color:#8d8d8d">All Data Products, All Automation Products, All Infra Products — except IBM Z &amp; TLS (Special Teams).</td></tr>
+        <tr><td style="color:#f4f4f4">Platform Architect</td><td style="color:#8d8d8d">Paired with Territory Sales Specialist — same all-product coverage except IBM Z &amp; TLS Special Teams.</td></tr>
+        <tr><td style="color:#f4f4f4">Brand Technical Sales SPS</td><td style="color:#8d8d8d">Data Focus + Key Core; Automation Focus + Key Core (Small Country only); BTS/BSS Power/Cloud or Storage for Infra.</td></tr>
       </tbody>
     </table>
   `);
@@ -411,13 +447,13 @@ function myTeam() {
     <table class="res-team-table" style="margin-bottom:20px">
       <thead><tr><th>Name</th><th>Role</th><th>Function</th><th>Counterpart</th></tr></thead>
       <tbody>
-        <tr><td><strong style="color:#f4f4f4">Chris Kennedy</strong></td><td><span class="res-role-pill">Manager</span></td><td style="color:#525252">BTSS Manager</td><td style="color:#525252">—</td></tr>
-        <tr><td><strong style="color:#f4f4f4">Rob Hanes</strong></td><td><span class="res-role-pill">Manager</span></td><td style="color:#525252">TSS Manager</td><td style="color:#525252">—</td></tr>
-        <tr><td><strong style="color:#f4f4f4">Mark Hoffman</strong></td><td><span class="res-role-pill">BTSS</span></td><td style="color:#525252">Brand Technical Sales Specialist</td><td style="color:#60a5fa">Ross Holley (TSS)</td></tr>
-        <tr><td><strong style="color:#f4f4f4">Armada Veraepalli</strong></td><td><span class="res-role-pill">BTSS</span></td><td style="color:#525252">Brand Technical Sales Specialist</td><td style="color:#60a5fa">Patrick McBride (TSS)</td></tr>
-        <tr><td><strong style="color:#f4f4f4">Ross Holley</strong></td><td><span class="res-role-pill">TSS</span></td><td style="color:#525252">Territory Sales Specialist</td><td style="color:#a78bfa">Mark Hoffman (BTSS)</td></tr>
-        <tr><td><strong style="color:#f4f4f4">Patrick McBride</strong></td><td><span class="res-role-pill">TSS</span></td><td style="color:#525252">Territory Sales Specialist</td><td style="color:#a78bfa">Armada Veraepalli (BTSS)</td></tr>
-        <tr><td><strong style="color:#4d7bff">Sydney Chin (you)</strong></td><td><span class="res-role-pill">Intern</span></td><td style="color:#525252">BTSS Intern</td><td style="color:#525252">—</td></tr>
+        <tr><td><strong style="color:#f4f4f4">Chris Kennedy</strong></td><td><span class="res-role-pill">Manager</span></td><td style="color:#8d8d8d">BTSS Manager</td><td style="color:#8d8d8d">—</td></tr>
+        <tr><td><strong style="color:#f4f4f4">Rob Hanes</strong></td><td><span class="res-role-pill">Manager</span></td><td style="color:#8d8d8d">TSS Manager</td><td style="color:#8d8d8d">—</td></tr>
+        <tr><td><strong style="color:#f4f4f4">Mark Hoffman</strong></td><td><span class="res-role-pill">BTSS</span></td><td style="color:#8d8d8d">Brand Technical Sales Specialist</td><td style="color:#60a5fa">Ross Holley (TSS)</td></tr>
+        <tr><td><strong style="color:#f4f4f4">Armada Veraepalli</strong></td><td><span class="res-role-pill">BTSS</span></td><td style="color:#8d8d8d">Brand Technical Sales Specialist</td><td style="color:#60a5fa">Patrick McBride (TSS)</td></tr>
+        <tr><td><strong style="color:#f4f4f4">Ross Holley</strong></td><td><span class="res-role-pill">TSS</span></td><td style="color:#8d8d8d">Territory Sales Specialist</td><td style="color:#a78bfa">Mark Hoffman (BTSS)</td></tr>
+        <tr><td><strong style="color:#f4f4f4">Patrick McBride</strong></td><td><span class="res-role-pill">TSS</span></td><td style="color:#8d8d8d">Territory Sales Specialist</td><td style="color:#a78bfa">Armada Veraepalli (BTSS)</td></tr>
+        <tr><td><strong style="color:#4d7bff">Sydney Chin (you)</strong></td><td><span class="res-role-pill">Intern</span></td><td style="color:#8d8d8d">BTSS Intern</td><td style="color:#8d8d8d">—</td></tr>
       </tbody>
     </table>
     ${infoBox('We sell <strong style="color:#a8a8a8">IBM Infrastructure</strong> to <strong style="color:#a8a8a8">all US enterprise accounts</strong> — focusing on hybrid cloud workloads using IBM Power, Storage, and Fusion platforms. BTSS provides deep technical sales expertise to complement TSS commercial coverage.')}

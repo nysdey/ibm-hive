@@ -246,7 +246,7 @@ const SEGMENTS = [
               {
                 id:'specialty-infra-modernization', label:'Infrastructure Modernization', sub:'Specialty', kind:'Specialty', youAreHere:true,
                 desc:'Modernize servers, storage, data resilience, and hybrid infrastructure. Your BTSS focus is PowerVS, FlashSystem, and Fusion.',
-                products:'PowerVS, FlashSystem, IBM Fusion, IBM Power, Storage Defender, Storage Insights, IBM Z, LinuxONE',
+                products:'Focus: PowerVS, FlashSystem, IBM Fusion. Key Core / brand-core: Power11, Cloud Platform, Tape. IBM Z and LinuxONE run through a separate Special Teams motion.',
                 children:[
                   {
                     id:'infra-sales-roles', label:'Sales', kind:'Role Group', youAreHere:true,
@@ -303,8 +303,65 @@ const SEGMENTS = [
           },
         ],
       },
+      {
+        id:'select-territory-roles', label:'Select Territory Roles', sub:'Role Tree', kind:'Role Group',
+        desc:'How Select Territory work is organized by role instead of by client or product — Sales, Technical, and Ecosystem roles, plus the Combined Roles that span every brand "where needed." Connected to both Select T Growth and Select T Activate, since it applies to both.',
+        children:[
+          {
+            id: 'roletree-sales', label: 'Sales Roles', kind: 'Role Group',
+            children: [
+              { id: 'roletree-bss', label: 'BSS', sub: 'Brand Sales Specialist', kind: 'Role',
+                desc: 'Sub-segment: Growth & Activate. Covers 1–5 Focus Products across ~50 high-potential accounts. Function: Sales. Deployment: Field. Geo: AM & EMEA only.' },
+              { id: 'roletree-bts', label: 'BTS', sub: 'Brand Technical Sales', kind: 'Role',
+                desc: 'Sub-segment: Growth & Activate. Covers 1–5 Focus Products across ~100 high-potential accounts. Function: Tech. Deployment: Field / Center. Geo: AM & EMEA only.' },
+              { id: 'roletree-btss', label: 'BTSS', sub: 'Brand Technical Sales Specialist', kind: 'Role', youAreHere: true,
+                desc: 'Sub-segment: Activate. Covers Infrastructure’s 3 Focus Products (PowerVS, FlashSystem, Fusion) plus Key Core (Power11, Cloud Platform, Tape) across 300+ accounts. Function: Sales & tech sales. Deployment: Center. Geo: All geos.' },
+              { id: 'roletree-tss', label: 'TSS', sub: 'Territory Sales Specialist (Brand)', kind: 'Role',
+                desc: 'Sub-segment: Growth & Activate. Covers the entire portfolio of one brand across 200+ accounts. Function: Sales. Deployment: Center. Geo: All geos. Distinct from the cross-brand Territory Sales Specialist Combined Role below.' },
+              { id: 'roletree-sdr', label: 'SDR', sub: 'Sales Development Rep', kind: 'Role',
+                desc: 'Pipeline generation through outbound prospecting; qualifies leads and books discovery calls for TSS and BTSS. Focused on all of Select Territory.' },
+            ],
+          },
+          {
+            id: 'roletree-technical', label: 'Technical Roles', kind: 'Role Group',
+            children: [
+              { id: 'roletree-csm', label: 'CSM', sub: 'Customer Success Manager', kind: 'Role',
+                desc: 'Drives post-sale adoption and value realization; monitors account health, flags renewal risk, and routes expansion signals to BTSS/TSS.' },
+              { id: 'roletree-sme', label: 'Tech SME', sub: 'Technical Subject Matter Expert', kind: 'Role',
+                desc: 'Deep specialist on a specific technology domain; engaged on-demand for complex technical questions beyond BTSS depth.' },
+              { id: 'roletree-ce', label: 'CE', sub: 'Client Engineering', kind: 'Role',
+                desc: 'Cross-functional technical squad that rapidly builds pilots, proofs, and production-ready solutions alongside clients.' },
+            ],
+          },
+          {
+            id: 'roletree-ecosystem', label: 'Ecosystem Roles', kind: 'Role Group',
+            children: [
+              { id: 'roletree-tps', label: 'TPS', sub: 'Technology Partner Specialist', kind: 'Role',
+                desc: 'Manages and enables Business Partner relationships for a technology domain; drives partner-sourced pipeline and co-sell execution.' },
+              { id: 'roletree-pts', label: 'PTS', sub: 'Partner Technical Specialist', kind: 'Role',
+                desc: 'Provides technical enablement and pre-sales support to Business Partners; runs demos and POCs with partners on IBM’s behalf.' },
+              { id: 'roletree-bp', label: 'BP', sub: 'Business Partners', kind: 'Role',
+                desc: 'Ecosystem partners (ISVs, resellers, distributors) who sell IBM technology to clients — a major growth lever for Select Territory. Ecosystem covers all Products, with TPS/PTS working alongside Partners across Select-Territory.' },
+            ],
+          },
+          {
+            id: 'roletree-combined', label: 'Combined Roles', kind: 'Role Group',
+            desc: 'Cross-brand roles layered on top of the standard structure "where needed," across both Select-T Growth and Select-T Activate.',
+            children: [
+              { id: 'roletree-territory-sales-specialist', label: 'Territory Sales Specialist', kind: 'Role',
+                desc: 'Combined role, Select-T Growth & Activate. Covers All Data Products, All Automation Products, and All Infra Products — except IBM Z & TLS, which run through Special Teams.' },
+              { id: 'roletree-platform-architect', label: 'Platform Architect', kind: 'Role',
+                desc: 'Combined role, Select-T Growth & Activate, paired with the Territory Sales Specialist. Same coverage: All Data, All Automation, All Infra except IBM Z & TLS Special Teams.' },
+              { id: 'roletree-brand-technical-sales-sps', label: 'Brand Technical Sales SPS', kind: 'Role',
+                desc: 'Combined role, Select-T Growth & Activate (Small Country only for Data/Automation). Covers Data Focus Products & Key Core, Automation Focus Products & Key Core, and BTS/BSS Power/Cloud or Storage for Infra.' },
+            ],
+          },
+        ],
+      },
     ],
     crossLinks:[
+      ['select-t-growth','select-territory-roles'],
+      ['select-t-activate','select-territory-roles'],
       ['market-commercial-btss','market-commercial-tss'],
       ['market-fss-btss','market-fss-tss'],
       ['market-industrial-btss','market-industrial-tss'],
@@ -319,12 +376,12 @@ const SEGMENTS = [
         salesMotion: 'Technical Discovery → Demo → POC → Solution Validation → Deal Progression',
         segment: 'Select Territory',
         youAreHere: true,
-        products: 'Focused on 1–12 products within a specialty (e.g. PowerVS, FlashSystem, Fusion, z16, LinuxONE)',
+        products: 'Infrastructure’s 3 Focus Products (PowerVS, FlashSystem, Fusion) plus Key Core (Power11, Cloud Platform, Tape) — up to 12 Focus + Key Core products total. IBM Z and LinuxONE run through a separate Special Teams motion, not standard BTSS coverage.',
         category: 'Sales Roles',
       },
       {
-        id: 'tss-t', abbr: 'TSS', label: 'Territory Sales Specialist',
-        purpose: 'Cross-brand sales across a defined territory. Paired with BTSS for joint technical and commercial coverage. Owns territory quota.',
+        id: 'tss-t', abbr: 'TSS', label: 'Territory Sales Specialist (Brand)',
+        purpose: 'Sales across the entire portfolio of one brand (Data, Automation, or Infrastructure) within a defined territory. Paired with BTSS for joint technical and commercial coverage on that brand; owns territory quota. Distinct from the cross-brand "Territory Sales Specialist" Combined Role, which spans all three brands where needed — see Combined Roles.',
         worksWith: ['BTSS', 'SDR', 'Business Partners'],
         reportsThrough: 'TSS Manager → Colony VP',
         ownsAccounts: true,
@@ -395,218 +452,565 @@ const SEGMENTS = [
     ],
   },
 ];
+// "My Colony" — your own shortcut tab. Same content as Sales \u2192 Select
+// Territory \u2192 Select T Activate, but promoted to its own top-level chart
+// so you can jump straight to Data / Automation / Infrastructure without
+// drilling through Sales first. Each brand below is a root hex, same as the
+// Product Brands chart.
+const MY_COLONY_GROUPS =
+  [
+    {
+      "id": "mycolony-activate-data",
+      "label": "Data",
+      "sub": "Brand",
+      "desc": "Data and AI offerings organized around productivity, trusted data, governance, analytics, and planning.",
+      "youAreHere": false,
+      "functions": [],
+      "hierarchy": [
+        {
+          "id": "mycolony-specialty-ai-productivity",
+          "label": "AI-Powered Productivity",
+          "sub": "Specialty",
+          "kind": "Specialty",
+          "desc": "AI products that help employees and business teams automate work, build assistants, and apply trusted generative AI.",
+          "products": "watsonx.ai, watsonx Orchestrate, IBM Granite, watsonx Code Assistant, IBM AI assistants"
+        },
+        {
+          "id": "mycolony-specialty-data-trust",
+          "label": "Data Trust & Planning",
+          "sub": "Specialty",
+          "kind": "Specialty",
+          "desc": "Products for trusted data foundations, governance, analytics, integration, and enterprise planning.",
+          "products": "watsonx.data, watsonx.governance, Cloud Pak for Data, DataStage, Knowledge Catalog, Cognos Analytics, Planning Analytics"
+        }
+      ]
+    },
+    {
+      "id": "mycolony-activate-automation",
+      "label": "Automation",
+      "sub": "Brand",
+      "desc": "Automation software spanning application delivery, integration, identity, observability, and operational optimization.",
+      "youAreHere": false,
+      "functions": [],
+      "hierarchy": [
+        {
+          "id": "mycolony-specialty-devops",
+          "label": "DevOps",
+          "sub": "Specialty",
+          "kind": "Specialty",
+          "desc": "Products for application delivery, observability, cost management, and software lifecycle optimization.",
+          "products": "Instana, Turbonomic, Apptio, Cloudability, Concert, UrbanCode"
+        },
+        {
+          "id": "mycolony-specialty-integration",
+          "label": "Integration",
+          "sub": "Specialty",
+          "kind": "Specialty",
+          "desc": "Connect applications, APIs, events, files, and data across hybrid environments.",
+          "products": "webMethods, API Connect, IBM MQ, Event Automation, App Connect, Sterling"
+        },
+        {
+          "id": "mycolony-specialty-secure-access",
+          "label": "Secure Access & Identity",
+          "sub": "Specialty",
+          "kind": "Specialty",
+          "desc": "Identity, access, authentication, and privileged-access capabilities for employees and consumers.",
+          "products": "IBM Security Verify, Verify Governance, Verify Privilege, MaaS360"
+        },
+        {
+          "id": "mycolony-specialty-assistant-ops",
+          "label": "Assistant & Op Optimization",
+          "sub": "Specialty",
+          "kind": "Specialty",
+          "desc": "AI assistants and operational automation that improve decisions, workflows, asset performance, and service delivery.",
+          "products": "watsonx Orchestrate, Maximo Application Suite, Business Automation Workflow, Operational Decision Manager, Process Mining"
+        }
+      ]
+    },
+    {
+      "id": "mycolony-activate-infrastructure",
+      "label": "Infrastructure",
+      "sub": "Brand",
+      "desc": "Infrastructure offerings for modernization, hybrid cloud, resilient data, enterprise compute, and AI-ready platforms.",
+      "youAreHere": true,
+      "functions": [],
+      "hierarchy": [
+        {
+          "id": "mycolony-specialty-infra-modernization",
+          "label": "Infrastructure Modernization",
+          "sub": "Specialty",
+          "kind": "Specialty",
+          "youAreHere": true,
+          "desc": "Modernize servers, storage, data resilience, and hybrid infrastructure. Your BTSS focus is PowerVS, FlashSystem, and Fusion.",
+          "products": "Focus: PowerVS, FlashSystem, IBM Fusion. Key Core / brand-core: Power11, Cloud Platform, Tape. IBM Z and LinuxONE run through a separate Special Teams motion.",
+          "children": [
+            {
+              "id": "mycolony-infra-sales-roles",
+              "label": "Sales",
+              "kind": "Role Group",
+              "youAreHere": true,
+              "children": [
+                {
+                  "id": "mycolony-infra-sdr",
+                  "label": "SDR",
+                  "sub": "Sales Development Representative",
+                  "kind": "Role",
+                  "desc": "Generates and qualifies infrastructure pipeline, then hands opportunities into the territory coverage team."
+                },
+                {
+                  "id": "mycolony-infra-csm",
+                  "label": "CSM",
+                  "sub": "Customer Success Manager",
+                  "kind": "Role",
+                  "desc": "Guides adoption, value realization, renewal readiness, and growth after a solution is purchased."
+                },
+                {
+                  "id": "mycolony-infra-markets",
+                  "label": "Markets",
+                  "sub": "Market Coverage",
+                  "kind": "Market",
+                  "youAreHere": true,
+                  "desc": "Aligns infrastructure coverage and opportunity execution to the applicable client market.",
+                  "children": [
+                    {
+                      "id": "mycolony-market-commercial",
+                      "label": "Commercial & Distribution",
+                      "kind": "Market",
+                      "youAreHere": true,
+                      "children": [
+                        {
+                          "id": "mycolony-market-commercial-btss",
+                          "label": "BTSS",
+                          "sub": "Brand Technical Sales Specialist",
+                          "kind": "Role",
+                          "youAreHere": true,
+                          "desc": "Hybrid sales and technical role covering 1-12 Focus and Key Core products across approximately 300+ Select Activate accounts."
+                        },
+                        {
+                          "id": "mycolony-market-commercial-tss",
+                          "label": "TSS",
+                          "sub": "Territory Sales Specialist",
+                          "kind": "Role",
+                          "desc": "Sales role covering the broader portfolio within one brand across approximately 200+ Select Territory accounts."
+                        }
+                      ]
+                    },
+                    {
+                      "id": "mycolony-market-fss",
+                      "label": "FSS / Public",
+                      "kind": "Market",
+                      "children": [
+                        {
+                          "id": "mycolony-market-fss-btss",
+                          "label": "BTSS",
+                          "sub": "Brand Technical Sales Specialist",
+                          "kind": "Role",
+                          "desc": "Hybrid sales and technical role covering 1-12 Focus and Key Core products across approximately 300+ Select Activate accounts."
+                        },
+                        {
+                          "id": "mycolony-market-fss-tss",
+                          "label": "TSS",
+                          "sub": "Territory Sales Specialist",
+                          "kind": "Role",
+                          "desc": "Sales role covering the broader portfolio within one brand across approximately 200+ Select Territory accounts."
+                        }
+                      ]
+                    },
+                    {
+                      "id": "mycolony-market-industrial",
+                      "label": "Industrial",
+                      "kind": "Market",
+                      "children": [
+                        {
+                          "id": "mycolony-market-industrial-btss",
+                          "label": "BTSS",
+                          "sub": "Brand Technical Sales Specialist",
+                          "kind": "Role",
+                          "desc": "Hybrid sales and technical role covering 1-12 Focus and Key Core products across approximately 300+ Select Activate accounts."
+                        },
+                        {
+                          "id": "mycolony-market-industrial-tss",
+                          "label": "TSS",
+                          "sub": "Territory Sales Specialist",
+                          "kind": "Role",
+                          "desc": "Sales role covering the broader portfolio within one brand across approximately 200+ Select Territory accounts."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "mycolony-infra-technical-roles",
+              "label": "Technical",
+              "kind": "Role Group",
+              "children": [
+                {
+                  "id": "mycolony-infra-sme",
+                  "label": "SME",
+                  "sub": "Technical Specialist",
+                  "kind": "Role",
+                  "desc": "Provides deep product or architecture expertise for complex infrastructure opportunities."
+                },
+                {
+                  "id": "mycolony-infra-ce",
+                  "label": "CE",
+                  "sub": "Client Engineering",
+                  "kind": "Role",
+                  "desc": "Builds and validates client solutions through co-creation, pilots, and proofs."
+                },
+                {
+                  "id": "mycolony-infra-bts",
+                  "label": "BTS",
+                  "sub": "Brand Technical Specialist",
+                  "kind": "Role",
+                  "desc": "Technical role covering 1-5 Focus Products across approximately 100 high-potential accounts, leading technical discovery, demos, trials, POCs, and solution validation.",
+                  "children": [
+                    {
+                      "id": "mycolony-infra-power-cloud-bts",
+                      "label": "Power/Cloud BTS",
+                      "sub": "Power and Cloud Brand Technical Specialist",
+                      "kind": "Role",
+                      "desc": "Covers PowerVS and related Power and hybrid-cloud technical motions."
+                    },
+                    {
+                      "id": "mycolony-infra-storage-bts",
+                      "label": "Storage BTS",
+                      "sub": "Storage Brand Technical Specialist",
+                      "kind": "Role",
+                      "desc": "Covers FlashSystem, Fusion, and related storage modernization motions."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "mycolony-infra-ecosystem-roles",
+              "label": "Ecosystem",
+              "kind": "Role Group",
+              "children": [
+                {
+                  "id": "mycolony-infra-tps",
+                  "label": "TPS",
+                  "sub": "Technology Partner Specialist",
+                  "kind": "Role",
+                  "desc": "Drives partner strategy, enablement, and co-sell execution for infrastructure."
+                },
+                {
+                  "id": "mycolony-infra-pts",
+                  "label": "PTS",
+                  "sub": "Partner Technical Specialist",
+                  "kind": "Role",
+                  "desc": "Provides technical enablement, demos, and solution support for Business Partners."
+                },
+                {
+                  "id": "mycolony-infra-distributors",
+                  "label": "Distributors",
+                  "kind": "Ecosystem",
+                  "desc": "Channel distributors that support partner coverage, enablement, fulfillment, and scale.",
+                  "children": [
+                    {
+                      "id": "mycolony-infra-bp",
+                      "label": "BPs",
+                      "sub": "Business Partners",
+                      "kind": "Ecosystem",
+                      "desc": "Partner organizations that source, influence, resell, and implement IBM infrastructure solutions."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "crossLinks": [
+        [
+          "mycolony-market-commercial-btss",
+          "mycolony-market-commercial-tss"
+        ],
+        [
+          "mycolony-market-fss-btss",
+          "mycolony-market-fss-tss"
+        ],
+        [
+          "mycolony-market-industrial-btss",
+          "mycolony-market-industrial-tss"
+        ]
+      ]
+    }
+  ];
 
 // Product-centric companion chart. It uses the same group/item shape as the
 // client-segment chart so both maps share one interaction and layout system.
+//
+// Source: 2H26 Select-Territory Essentials Guide, slides 10 ("Infrastructure —
+// What success looks like in Systems"), 13 ("Select T: Portfolio and
+// Product-led Growth Motion"), 14 ("Select-Territory Focus Products"), and 16
+// ("Select-Territory Focus Products & Roles"). 21 total Focus Products
+// (18 Software incl. Confluent + 3 Infrastructure), 5 "Hero" Products
+// (Bob, Orchestrate, Confluent, Vault, Flash), plus the Key Core products
+// that round out each specialty — Focus + Key Core together make up ~80% of
+// Select-Territory revenue.
 const PRODUCT_CATEGORIES = [
   {
     id: 'portfolio-ai-data', label: 'AI & Data', sub: 'Software Portfolio',
     desc: 'Products for building, governing, and scaling enterprise AI and trusted data foundations.',
     functions: [
-      { id:'product-watsonx', abbr:'watsonx', label:'AI and Data Platform', purpose:'Build, deploy, govern, and scale trusted enterprise AI.', worksWith:['Granite','DataStage','Cloud Pak for Data'], products:'watsonx.ai, watsonx.data, watsonx.governance, watsonx Orchestrate' },
-      { id:'product-granite', abbr:'Granite', label:'IBM Foundation Models', purpose:'Open, enterprise-ready models optimized for business use cases.', worksWith:['watsonx','Red Hat AI'], products:'Granite language, code, vision, and embedding models' },
-      { id:'product-cp4d', abbr:'CP4D', label:'Cloud Pak for Data', purpose:'Unify data management, governance, analytics, and AI services.', worksWith:['watsonx','DataStage','Db2'], products:'Cloud Pak for Data, Knowledge Catalog' },
-      { id:'product-datastage', abbr:'DataStage', label:'Data Integration', purpose:'Design and run resilient data pipelines across hybrid environments.', worksWith:['Cloud Pak for Data','Db2','watsonx'], products:'DataStage, Data Replication' },
+      // ── AI-Powered Productivity (3 Focus) — Hero: Orchestrate, Bob ──
+      { id:'product-orchestrate', abbr:'Orchestrate', label:'watsonx Orchestrate', specialty:'AI-Powered Productivity', tier:'Focus', hero:true,
+        purpose:'Build, govern, and automate work with AI assistants and agents.',
+        worksWith:['Bob','watsonx.gov','Confluent'], products:'IBM watsonx Orchestrate' },
+      { id:'product-bob', abbr:'Bob', label:'IBM Bob (watsonx Code Assistant)', specialty:'AI-Powered Productivity', tier:'Focus', hero:true,
+        purpose:'IBM’s AI coding assistant — one of the 5 Hero Products every Select-Territory seller is expected to know cold. Also part of the AI-infra push behind Destination Power11 and an eCommerce Focus Product.',
+        worksWith:['Orchestrate','watsonx.gov'], products:'IBM Bob / watsonx Code Assistant' },
+      { id:'product-watsonx-gov', abbr:'watsonx.gov', label:'watsonx.governance', specialty:'AI-Powered Productivity', tier:'Focus',
+        purpose:'Govern AI models, agents, risk, and regulatory obligations. Includes watsonx.ai SaaS.',
+        worksWith:['Orchestrate','Bob'], products:'IBM watsonx.governance' },
+      { id:'product-cp-ba', abbr:'CP for BA', label:'Cloud Pak for Business Automation', specialty:'AI-Powered Productivity', tier:'Key Core',
+        purpose:'Key Core platform for business-process and content-centric automation.', products:'IBM Cloud Pak for Business Automation' },
+      { id:'product-cognos', abbr:'Cognos', label:'Cognos Analytics', specialty:'AI-Powered Productivity', tier:'Key Core',
+        purpose:'Key Core self-service BI and reporting. Also an eCommerce Focus Product.', products:'IBM Cognos Analytics' },
+      { id:'product-decision-opt', abbr:'Decision Opt.', label:'Decision Optimization', specialty:'AI-Powered Productivity', tier:'Key Core',
+        purpose:'Key Core prescriptive analytics for optimization decisions.', products:'IBM Decision Optimization' },
+      { id:'product-filenet', abbr:'FileNet', label:'FileNet Content Manager', specialty:'AI-Powered Productivity', tier:'Key Core',
+        purpose:'Key Core enterprise content management.', products:'IBM FileNet Content Manager' },
+
+      // ── Confluent (1 Focus) — its own line, Hero Product ──
+      { id:'product-confluent', abbr:'Confluent', label:'Confluent', specialty:'Confluent', tier:'Focus', hero:true,
+        purpose:'Real-time data streaming platform. One of the 21 Focus Products and one of the 5 Hero Products — sold as its own line here, and also core to the Automation brand’s Integration specialty.',
+        worksWith:['watsonx.data','webMethods'], products:'Confluent Platform, Confluent Cloud' },
+
+      // ── Data Trust & Planning (4 Focus) ──
+      { id:'product-guardium', abbr:'Guardium', label:'Guardium', specialty:'Data Trust & Planning', tier:'Focus',
+        purpose:'Discover, protect, and govern sensitive enterprise data.', worksWith:['watsonx.data','Verify'], products:'IBM Guardium Data Protection, Guardium Insights' },
+      { id:'product-watsonx-data', abbr:'watsonx.data', label:'watsonx.data', specialty:'Data Trust & Planning', tier:'Focus',
+        purpose:'Create an AI-ready hybrid data foundation.', worksWith:['Guardium','Confluent'], products:'IBM watsonx.data' },
+      { id:'product-wx-data-integration', abbr:'Data Integr.', label:'watsonx.data integration', specialty:'Data Trust & Planning', tier:'Focus',
+        purpose:'Integrate and deliver trusted data across hybrid environments.', worksWith:['watsonx.data'], products:'IBM watsonx.data integration' },
+      { id:'product-planning-analytics', abbr:'Planning Analytics', label:'Planning Analytics', specialty:'Data Trust & Planning', tier:'Focus',
+        purpose:'Support integrated business planning, forecasting, and scenario analysis.', products:'IBM Planning Analytics' },
+      { id:'product-db2', abbr:'Db2', label:'Db2', specialty:'Data Trust & Planning', tier:'Key Core',
+        purpose:'Key Core relational database.', products:'IBM Db2' },
+      { id:'product-informix', abbr:'Informix', label:'Informix', specialty:'Data Trust & Planning', tier:'Key Core',
+        purpose:'Key Core embeddable database for edge and hybrid workloads.', products:'IBM Informix' },
+      { id:'product-netezza', abbr:'Netezza', label:'Netezza', specialty:'Data Trust & Planning', tier:'Key Core',
+        purpose:'Key Core cloud data warehouse for analytics at scale.', products:'IBM Netezza' },
+      { id:'product-cp-data', abbr:'CP for Data', label:'Cloud Pak for Data', specialty:'Data Trust & Planning', tier:'Key Core',
+        purpose:'Key Core unified data and AI platform.', products:'IBM Cloud Pak for Data' },
+      { id:'product-datastage', abbr:'DataStage', label:'DataStage', specialty:'Data Trust & Planning', tier:'Key Core',
+        purpose:'Key Core data integration and ETL pipelines.', products:'IBM DataStage' },
+      { id:'product-data-replication', abbr:'Data Replic.', label:'Data Replication', specialty:'Data Trust & Planning', tier:'Key Core',
+        purpose:'Key Core real-time data replication.', products:'IBM Data Replication' },
+      { id:'product-spss', abbr:'SPSS', label:'SPSS', specialty:'Data Trust & Planning', tier:'Key Core', special:true,
+        purpose:'Key Core statistical analysis suite. Special Teams motion — also an eCommerce Focus Product.', products:'IBM SPSS Statistics' },
     ],
   },
   {
     id: 'portfolio-automation', label: 'Automation', sub: 'Software Portfolio',
     desc: 'AI-powered automation for applications, IT operations, integration, workflows, and business decisions.',
     functions: [
-      { id:'product-instana', abbr:'Instana', label:'Observability', purpose:'Monitor applications and infrastructure with automated discovery and context.', worksWith:['Turbonomic','Concert','Red Hat'], products:'Instana Observability' },
-      { id:'product-turbonomic', abbr:'Turbonomic', label:'Application Resource Management', purpose:'Continuously optimize application performance, cost, and resource use.', worksWith:['Instana','Apptio','Red Hat'], products:'Turbonomic ARM' },
-      { id:'product-apptio', abbr:'Apptio', label:'Technology Financial Management', purpose:'Connect technology investment decisions to business value and cloud economics.', worksWith:['Turbonomic','Cloudability'], products:'ApptioOne, Cloudability, Targetprocess' },
-      { id:'product-baw', abbr:'BAW', label:'Business Automation', purpose:'Automate workflows, decisions, documents, and content-intensive processes.', worksWith:['watsonx','webMethods'], products:'Business Automation Workflow, Operational Decision Manager' },
-      { id:'product-webmethods', abbr:'webMethods', label:'Integration', purpose:'Connect applications, APIs, events, and data across hybrid environments.', worksWith:['BAW','Red Hat'], products:'webMethods Hybrid Integration' },
-    ],
-  },
-  {
-    id: 'portfolio-hybrid-cloud', label: 'Hybrid Cloud', sub: 'Platform Portfolio',
-    desc: 'Open hybrid-cloud platforms and services for building, modernizing, and operating applications anywhere.',
-    functions: [
-      { id:'product-openshift', abbr:'OpenShift', label:'Hybrid Cloud Application Platform', purpose:'Build and run applications consistently across on-premises and public clouds.', worksWith:['RHEL','Ansible','IBM Cloud'], products:'Red Hat OpenShift' },
-      { id:'product-rhel', abbr:'RHEL', label:'Enterprise Linux', purpose:'Provide a stable, secure operating foundation for hybrid-cloud workloads.', worksWith:['OpenShift','Ansible','IBM Z'], products:'Red Hat Enterprise Linux' },
-      { id:'product-ansible', abbr:'Ansible', label:'IT Automation Platform', purpose:'Automate infrastructure, networks, cloud, security, and application operations.', worksWith:['RHEL','OpenShift','IBM Z'], products:'Red Hat Ansible Automation Platform' },
-      { id:'product-ibm-cloud', abbr:'IBM Cloud', label:'Cloud Platform', purpose:'Run regulated and enterprise workloads on a secure, hybrid-ready cloud.', worksWith:['OpenShift','Power','IBM Z'], products:'IBM Cloud, Satellite, Virtual Servers' },
-    ],
-  },
-  {
-    id: 'portfolio-security', label: 'Security', sub: 'Software Portfolio',
-    desc: 'Security products for identity, data, applications, threat detection, and hybrid-cloud risk.',
-    functions: [
-      { id:'product-qradar', abbr:'QRadar', label:'Threat Detection and Response', purpose:'Detect, investigate, and respond to threats across hybrid environments.', worksWith:['Guardium','Verify'], products:'QRadar SIEM, SOAR, EDR' },
-      { id:'product-guardium', abbr:'Guardium', label:'Data Security', purpose:'Discover, monitor, protect, and govern sensitive data across environments.', worksWith:['QRadar','Verify','watsonx'], products:'Guardium Data Protection, Guardium Insights' },
-      { id:'product-verify', abbr:'Verify', label:'Identity and Access Management', purpose:'Manage workforce and consumer identity across cloud and on-premises applications.', worksWith:['QRadar','Guardium'], products:'IBM Security Verify' },
-      { id:'product-secrets', abbr:'Secrets', label:'Secrets and Key Management', purpose:'Protect credentials, keys, and privileged access for critical workloads.', worksWith:['IBM Z','IBM Cloud','Verify'], products:'Hyper Protect Crypto Services, zSecure' },
+      // ── DevOps (5 Focus) ──
+      { id:'product-terraform', abbr:'Terraform', label:'Terraform', specialty:'DevOps', tier:'Focus',
+        purpose:'Provision and manage infrastructure through consistent workflows.', worksWith:['Instana','Concert'], products:'HashiCorp Terraform' },
+      { id:'product-instana', abbr:'Instana', label:'Instana Observability', specialty:'DevOps', tier:'Focus',
+        purpose:'Observe application performance and dependencies in real time, zero-config, full context.', worksWith:['Terraform','Concert'], products:'IBM Instana Observability' },
+      { id:'product-concert', abbr:'Concert', label:'Concert', specialty:'DevOps', tier:'Focus',
+        purpose:'Use AI-driven insights to manage application resilience and risk — automate IT resiliency.', worksWith:['Instana'], products:'IBM Concert' },
+      { id:'product-kubecost', abbr:'Kubecost', label:'Kubecost', specialty:'DevOps', tier:'Focus',
+        purpose:'Understand and optimize Kubernetes cost and usage.', worksWith:['Cloudability'], products:'IBM Kubecost' },
+      { id:'product-cloudability', abbr:'Cloudability', label:'Cloudability', specialty:'DevOps', tier:'Focus',
+        purpose:'Manage and optimize cloud financial performance.', worksWith:['Kubecost'], products:'IBM Cloudability' },
+      { id:'product-cp-aiops', abbr:'CP for AIOps', label:'Cloud Pak for AIOps', specialty:'DevOps', tier:'Key Core',
+        purpose:'Key Core AI-driven IT operations.', products:'IBM Cloud Pak for AIOps' },
+      { id:'product-cp-app', abbr:'CP for App', label:'Cloud Pak for Applications', specialty:'DevOps', tier:'Key Core',
+        purpose:'Key Core application modernization platform.', products:'IBM Cloud Pak for Applications' },
+      { id:'product-elm', abbr:'ELM Suite', label:'Engineering Lifecycle Management', specialty:'DevOps', tier:'Key Core',
+        purpose:'Key Core engineering lifecycle management suite.', products:'IBM Engineering Lifecycle Management Suite' },
+      { id:'product-was', abbr:'WAS', label:'WebSphere Application Server', specialty:'DevOps', tier:'Key Core',
+        purpose:'Key Core enterprise application server.', products:'IBM WebSphere Application Server' },
+      { id:'product-apptio', abbr:'Apptio', label:'Apptio', specialty:'DevOps', tier:'Key Core',
+        purpose:'Key Core technology financial management.', products:'ApptioOne, Targetprocess' },
+      { id:'product-spectrum-lsf', abbr:'Spectrum LSF', label:'Spectrum LSF', specialty:'DevOps', tier:'Key Core',
+        purpose:'Key Core workload scheduling for high-performance computing.', products:'IBM Spectrum LSF' },
+
+      // ── Integration (1 Focus) ──
+      { id:'product-webmethods', abbr:'webMethods', label:'webMethods / Hybrid Integration', specialty:'Integration', tier:'Focus',
+        purpose:'Connect applications, APIs, events, files, and data across hybrid environments. Confluent (Data brand) is also core to this specialty.',
+        worksWith:['Confluent'], products:'IBM webMethods Hybrid Integration' },
+      { id:'product-app-connect', abbr:'App Connect', label:'App Connect', specialty:'Integration', tier:'Key Core',
+        purpose:'Key Core application and API connectivity.', products:'IBM App Connect' },
+      { id:'product-mq', abbr:'MQ', label:'MQ', specialty:'Integration', tier:'Key Core',
+        purpose:'Key Core enterprise messaging.', products:'IBM MQ' },
+      { id:'product-cp-integration', abbr:'CP for Integr.', label:'Cloud Pak for Integration', specialty:'Integration', tier:'Key Core',
+        purpose:'Key Core unified integration platform.', products:'IBM Cloud Pak for Integration' },
+      { id:'product-aspera', abbr:'Aspera', label:'Aspera', specialty:'Integration', tier:'Key Core',
+        purpose:'Key Core high-speed file transfer. Also an eCommerce Focus Product.', products:'IBM Aspera' },
+      { id:'product-sterling-b2bi', abbr:'Sterling B2Bi', label:'Sterling B2B Integrator', specialty:'Integration', tier:'Key Core',
+        purpose:'Key Core B2B integration and EDI.', products:'IBM Sterling B2B Integrator' },
+
+      // ── Secure Access & Identity (3 Focus) ──
+      { id:'product-vault', abbr:'Vault', label:'Vault', specialty:'Secure Access & Identity', tier:'Focus', hero:true,
+        purpose:'Secure secrets, identities, and privileged access. One of the 5 Hero Products.', worksWith:['Verify'], products:'HashiCorp Vault' },
+      { id:'product-verify', abbr:'Verify', label:'Security Verify', specialty:'Secure Access & Identity', tier:'Focus',
+        purpose:'Manage workforce and customer identity and access.', worksWith:['Vault','Guardium'], products:'IBM Security Verify' },
+      { id:'product-ns1', abbr:'NS1', label:'NS1 Connect', specialty:'Secure Access & Identity', tier:'Focus',
+        purpose:'Provide resilient, intelligent DNS and traffic steering. Also an eCommerce Focus Product.', products:'IBM NS1 Connect' },
+      { id:'product-maas360', abbr:'MaaS360', label:'MaaS360', specialty:'Secure Access & Identity', tier:'Key Core', special:true,
+        purpose:'Key Core unified endpoint management. Special Teams motion — also an eCommerce Focus Product.', products:'IBM MaaS360' },
+
+      // ── Asset & Op Optimization (1 Focus) ──
+      { id:'product-maximo', abbr:'Maximo', label:'Maximo Application Suite', specialty:'Asset & Op Optimization', tier:'Focus',
+        purpose:'Optimize asset performance, maintenance, reliability, and operations — streamline asset and facility operations.', products:'IBM Maximo Application Suite' },
+      { id:'product-envizi', abbr:'Envizi', label:'Envizi', specialty:'Asset & Op Optimization', tier:'Key Core',
+        purpose:'Key Core ESG and sustainability data management.', products:'IBM Envizi' },
+      { id:'product-sterling', abbr:'Sterling', label:'Sterling Supply Chain', specialty:'Asset & Op Optimization', tier:'Key Core',
+        purpose:'Key Core supply chain visibility and fulfillment.', products:'IBM Sterling Supply Chain' },
     ],
   },
   {
     id: 'portfolio-infrastructure', label: 'Infrastructure', sub: 'Systems Portfolio',
-    desc: 'Secure, AI-ready servers, storage, and infrastructure software for hybrid-cloud environments. In Select Territory, BTSS sells the Focus Products, TSS covers the broader portfolio, and IBM Z follows a specialist motion.',
+    desc: 'Secure, AI-ready servers, storage, and infrastructure software for hybrid-cloud environments. BTSS sells the 3 Focus Products (PowerVS, FlashSystem, Fusion); Select Activate sellers add the Power11 / Cloud / Tape brand-core products; TSS covers the broader portfolio; IBM Z and LinuxONE run through a separate Special Teams motion.',
     youAreHere: true,
-    groupByCategory: true,
     functions: [
-      {
-        id:'product-powervs', abbr:'PowerVS', label:'Power Virtual Server', category:'BTSS Brand Products',
-        youAreHere: true,
-        purpose:'Configurable, multitenant virtual IBM Power servers connected to IBM Cloud services. PowerVS extends Power workloads into cloud consumption and hybrid operating models.',
-        worksWith:['Power','FlashSystem','Fusion','IBM Cloud'], products:'IBM Power Virtual Server, Power Virtual Server Hybrid Package',
-        seller:'Infrastructure BTSS leads technical discovery, demos, solution validation, and progression. TSS coordinates the broader territory and commercial motion.',
+      // ── Infrastructure Modernization (3 Focus — "All Sellers" Key Products) ──
+      { id:'product-powervs', abbr:'PowerVS', label:'Power Virtual Server', specialty:'Infrastructure Modernization', tier:'Focus', youAreHere:true,
+        purpose:'Configurable, multitenant virtual IBM Power servers connected to IBM Cloud services. 2H26 priority use cases: (1) PowerVS DR and modernization, (2) build and run AI with GPUs, (3) transform virtualization by migrating VMware to Red Hat OpenShift Virtualization.',
+        worksWith:['Power11','Flash','Fusion'], products:'IBM Power Virtual Server, Power Virtual Server Hybrid Package',
+        seller:'Infrastructure BTSS leads technical discovery, demos, solution validation, and progression; TSS coordinates the broader territory and commercial motion. New/LTV client strategy focuses on AI and VMware clients — transforming the Power install base and shifting from a cyclical model to monthly recurring revenue (MRR).',
         salesMotion:'Workload discovery → sizing → architecture → migration plan → cloud consumption',
-        buyer:'Power, AIX, IBM i, SAP, and hybrid-cloud infrastructure teams',
-      },
-      {
-        id:'product-flashsystem', abbr:'FlashSystem', label:'Primary Storage', category:'BTSS Brand Products',
-        youAreHere: true,
-        purpose:'AI-assisted enterprise flash storage for application performance, operational simplicity, data modernization, and cyber resilience.',
-        worksWith:['Fusion','Storage Defender','Storage Insights','Power','IBM Z'], products:'IBM FlashSystem family, FlashCore Modules',
-        seller:'Infrastructure BTSS leads storage discovery, sizing, demos, technical validation, and competitive positioning. TSS owns the wider account and territory motion.',
+        buyer:'Power, AIX, IBM i, SAP, and hybrid-cloud infrastructure teams' },
+      { id:'product-flashsystem', abbr:'Flash', label:'FlashSystem (Primary Storage)', specialty:'Infrastructure Modernization', tier:'Focus', hero:true, youAreHere:true,
+        purpose:'AI-assisted enterprise flash storage for application performance, operational simplicity, data modernization, and cyber resilience. 2H26 priority use cases: AI-driven cyber defense & resilience, and secure data-centric AI infrastructure. New product announcement in 1Q26 — lead with the momentum and an NCA (net-new-competitive-add) focus.',
+        worksWith:['Fusion','Power11'], products:'IBM FlashSystem family, FlashCore Modules',
+        seller:'Infrastructure BTSS leads storage discovery, sizing, demos, technical validation, and competitive positioning. TSS owns the wider account and territory motion. New client focus is on FlashSystem and IaaS as part of the +20% territory growth target.',
         salesMotion:'Capacity and workload discovery → sizing → resilience design → proposal → deployment',
-        buyer:'Storage, infrastructure, database, virtualization, and cyber-resilience teams',
-      },
-      {
-        id:'product-fusion', abbr:'Fusion', label:'Container and AI Infrastructure', category:'BTSS Brand Products',
-        youAreHere: true,
-        purpose:'Turnkey infrastructure that brings data, AI, containers, and applications together for production-ready hybrid and AI outcomes.',
-        worksWith:['FlashSystem','OpenShift','watsonx','Storage Defender'], products:'IBM Fusion, Fusion software and appliances',
+        buyer:'Storage, infrastructure, database, virtualization, and cyber-resilience teams' },
+      { id:'product-fusion', abbr:'Fusion', label:'Fusion (Container & AI Infrastructure)', specialty:'Infrastructure Modernization', tier:'Focus', youAreHere:true,
+        purpose:'Turnkey infrastructure that brings data, AI, containers, and applications together for production-ready hybrid and AI outcomes. 2H26 focus: specific target-account segmentation alongside Key Partners, with particular attention to VMware environments.',
+        worksWith:['Flash','watsonx.data'], products:'IBM Fusion, Fusion software and appliances',
         seller:'Infrastructure BTSS leads the technical motion around OpenShift, data services, AI readiness, demos, and solution validation. TSS supports territory progression.',
         salesMotion:'Platform discovery → OpenShift and data architecture → workshop or demo → validation → expansion',
-        buyer:'Platform engineering, OpenShift, data, AI, and application modernization teams',
-      },
-      {
-        id:'product-power', abbr:'Power', label:'Enterprise Compute', category:'TSS Portfolio Coverage',
-        purpose:'High-performance, scalable, and reliable servers for mission-critical applications, databases, and AI workloads.',
-        worksWith:['PowerVS','FlashSystem','IBM Cloud'], products:'IBM Power servers, AIX, IBM i, Power Linux',
-        seller:'TSS leads the Select Territory commercial coverage and brings in Power or technical specialists when deeper architecture expertise is required.',
+        buyer:'Platform engineering, OpenShift, data, AI, and application modernization teams' },
+
+      // ── Key Core / brand-core products for Select Activate sellers ──
+      { id:'product-power11', abbr:'Power11', label:'Power11 (Destination Power11)', specialty:'Infrastructure Modernization', tier:'Key Core',
+        purpose:'Key Core enterprise compute and a brand-core product for Select Activate sellers. "Destination Power11" priorities: competitive winbacks against Oracle DB and open-source databases, AI infrastructure with Spyre and Project Bob, and modernizing SAP on Power / PowerVS.',
+        worksWith:['PowerVS','Flash'], products:'IBM Power11 servers, AIX, IBM i, Power Linux',
+        seller:'TSS leads Select Territory commercial coverage and brings in Power specialists for deeper architecture work; Select Activate sellers carry Power11 alongside the 3 Focus Products.',
         salesMotion:'Installed-base and workload review → refresh or expansion → configuration → commercial close',
-        buyer:'Infrastructure, SAP, Oracle, AIX, IBM i, and line-of-business application teams',
-      },
-      {
-        id:'product-storage-defender', abbr:'Defender', label:'Storage Defender', category:'TSS Portfolio Coverage',
-        purpose:'Data-resilience software that helps clients detect threats early and prove that recoveries are clean, secure, and reliable.',
-        worksWith:['FlashSystem','Storage Insights','Fusion'], products:'IBM Storage Defender',
-        seller:'TSS carries the broader commercial motion and engages Storage specialists or BTSS support when technical validation is needed.',
-        salesMotion:'Cyber-resilience assessment → recovery requirements → solution design → validation → close',
-        buyer:'Security, backup, storage, risk, and business-continuity teams',
-      },
-      {
-        id:'product-storage-insights', abbr:'Insights', label:'Storage Insights and Spectrum Control', category:'TSS Portfolio Coverage',
-        purpose:'Visibility, analytics, monitoring, and management software for optimizing heterogeneous storage infrastructure.',
-        worksWith:['FlashSystem','Storage Defender','Fusion'], products:'IBM Storage Insights, IBM Spectrum Control',
-        seller:'TSS positions the portfolio value and coordinates specialist support for assessments, monitoring strategy, or complex estates.',
-        salesMotion:'Estate discovery → visibility assessment → monitoring design → trial or proposal → adoption',
-        buyer:'Storage operations, infrastructure operations, capacity planning, and FinOps teams',
-      },
-      {
-        id:'product-z', abbr:'IBM Z', label:'Enterprise Mainframe', category:'IBM Z Specialist Motion',
+        buyer:'Infrastructure, SAP, Oracle, AIX, IBM i, and line-of-business application teams' },
+      { id:'product-cloud-platform', abbr:'Cloud', label:'IBM Cloud Platform', specialty:'Infrastructure Modernization', tier:'Key Core',
+        purpose:'Key Core cloud platform and a brand-core product for Select Activate sellers, alongside the 3 Focus Products.',
+        products:'IBM Cloud, Satellite, Virtual Servers',
+        seller:'TSS and Select Activate sellers position Cloud Platform as part of the broader Power11 / Cloud / Tape brand-core coverage.',
+        buyer:'Cloud platform, infrastructure, and operations teams' },
+      { id:'product-tape', abbr:'Tape', label:'Tape', specialty:'Infrastructure Modernization', tier:'Key Core',
+        purpose:'Key Core, low-cost archival storage and a brand-core product for Select Activate sellers, alongside the 3 Focus Products.',
+        products:'IBM Tape systems',
+        seller:'TSS and Select Activate sellers position Tape as part of the broader Power11 / Cloud / Tape brand-core coverage.',
+        buyer:'Backup, archive, compliance, and data-resilience teams' },
+
+      // ── IBM Z Specialist Motion (excluded from combined-role "all products" coverage) ──
+      { id:'product-z', abbr:'IBM Z', label:'Enterprise Mainframe', specialty:'IBM Z', tier:'Specialist',
         purpose:'Telum-powered enterprise infrastructure for high-volume transactions, trusted AI, security, and mission-critical operating systems and software.',
-        worksWith:['LinuxONE','FlashSystem','Storage Defender','Red Hat'], products:'IBM z17, z/OS, IBM Z software',
-        seller:'Specialized IBM Z sellers and technical specialists lead this motion. Select Territory TSS identifies opportunities and coordinates the specialist team rather than treating Z as ordinary cross-brand coverage.',
+        worksWith:['LinuxONE','Flash'], products:'IBM z17, z/OS, IBM Z software',
+        seller:'A Special Teams / specialist motion — excluded from the standard Territory Sales Specialist and Platform Architect "all products" combined-role coverage. Specialized IBM Z sellers and technical specialists lead this motion; TSS identifies opportunities and hands off to the specialist team rather than treating Z as ordinary cross-brand coverage.',
         salesMotion:'Installed-base strategy → capacity and workload planning → architecture → financing and migration planning → specialist close',
-        buyer:'Mainframe, core systems, payments, security, operations, and enterprise architecture leaders',
-      },
-      {
-        id:'product-linuxone', abbr:'LinuxONE', label:'Enterprise Linux Server', category:'IBM Z Specialist Motion',
+        buyer:'Mainframe, core systems, payments, security, operations, and enterprise architecture leaders' },
+      { id:'product-linuxone', abbr:'LinuxONE', label:'Enterprise Linux Server', specialty:'IBM Z', tier:'Specialist',
         purpose:'Enterprise-grade Linux infrastructure powered by IBM Telum technology for secure, consolidated, cloud-native, and AI workloads.',
-        worksWith:['IBM Z','OpenShift','FlashSystem','Red Hat'], products:'IBM LinuxONE',
-        seller:'IBM Z and LinuxONE specialists lead architecture and technical validation. TSS discovers demand and brings the specialist team into the account.',
+        worksWith:['IBM Z','Flash'], products:'IBM LinuxONE',
+        seller:'Special Teams motion alongside IBM Z. IBM Z and LinuxONE specialists lead architecture and technical validation; TSS discovers demand and brings the specialist team into the account.',
         salesMotion:'Linux estate discovery → consolidation or modernization case → architecture → workload validation → specialist close',
-        buyer:'Linux platform, cloud platform, security, infrastructure, and application modernization teams',
-      },
+        buyer:'Linux platform, cloud platform, security, infrastructure, and application modernization teams' },
     ],
   },
 ];
 
-// The 2026 BTSS Runbook defines Select Territory around three brands and seven
-// specialties. Keep the chart faithful to that seller-facing model.
-const productNode = (id, label, fullName, purpose) => ({
-  id, label, sub:fullName, kind:'Product', purpose, products:fullName,
-});
+// The 2H26 Select-Territory Essentials Guide (slides 10, 13, 14, 16) defines
+// Select Territory around three brands (Data, Automation, Infrastructure),
+// each broken into specialties. Every specialty shows its Focus Products
+// first, with a "Key Core" group underneath (Focus + Key Core ≈ 80% of
+// Select-Territory revenue). Hero Products (Bob, Orchestrate, Confluent,
+// Vault, Flash) are flagged wherever they appear.
+function productNode(fn) {
+  return {
+    id: fn.id, label: fn.abbr, sub: fn.label, kind: 'Product',
+    purpose: fn.purpose, products: fn.products,
+    hero: fn.hero || false, special: fn.special || false, youAreHere: fn.youAreHere || false,
+  };
+}
+function keyCoreGroup(idPrefix, items) {
+  if (!items.length) return [];
+  return [{
+    id: `${idPrefix}-key-core`, label: 'Key Core', kind: 'Product Group',
+    desc: 'Key Core products this specialty also covers, beyond the Focus Products above. Focus + Key Core together make up roughly 80% of Select-Territory revenue.',
+    children: items.map(productNode),
+  }];
+}
+function slugify(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+function buildSpecialtyHierarchy(functions, specialtyDescs = {}) {
+  const order = [];
+  const bySpecialty = {};
+  functions.forEach(fn => {
+    const key = fn.specialty || 'Other';
+    if (!bySpecialty[key]) { bySpecialty[key] = []; order.push(key); }
+    bySpecialty[key].push(fn);
+  });
+  return order.map(specialty => {
+    const items = bySpecialty[specialty];
+    const focus = items.filter(f => f.tier === 'Focus');
+    const keyCore = items.filter(f => f.tier === 'Key Core');
+    return {
+      id: `product-specialty-${slugify(specialty)}`,
+      label: specialty, kind: 'Specialty',
+      desc: specialtyDescs[specialty] || '',
+      youAreHere: items.some(f => f.youAreHere),
+      children: [...focus.map(productNode), ...keyCoreGroup(`product-${slugify(specialty)}`, keyCore)],
+    };
+  });
+}
+
 const dataBrand = PRODUCT_CATEGORIES.find(category => category.id === 'portfolio-ai-data');
 const automationBrand = PRODUCT_CATEGORIES.find(category => category.id === 'portfolio-automation');
 const infrastructureBrand = PRODUCT_CATEGORIES.find(category => category.id === 'portfolio-infrastructure');
 
 if (dataBrand) {
   dataBrand.label = 'Data';
-  dataBrand.desc = 'Select Territory Data offerings are organized into AI-Powered Productivity and Data Trust & Planning specialties.';
-  dataBrand.hierarchy = [
-    {
-      id:'product-specialty-ai-productivity', label:'AI-Powered Productivity', kind:'Specialty',
-      desc:'Focus products for AI assistants, agentic productivity, development acceleration, and governed AI.',
-      children:[
-        productNode('product-orchestrate','watsonx Orchestrate','IBM watsonx Orchestrate','Build, govern, and automate work with AI assistants and agents.'),
-        productNode('product-bob','Project Bob','IBM Project Bob / watsonx Code Assistant','Accelerate software development with IBM AI coding assistance.'),
-        productNode('product-watsonx-gov','watsonx.governance','IBM watsonx.governance','Govern AI models, agents, risk, and regulatory obligations.'),
-      ],
-    },
-    {
-      id:'product-specialty-data-trust', label:'Data Trust & Planning', kind:'Specialty',
-      desc:'Focus products for trusted data, governance, integration, security, analytics, and enterprise planning.',
-      children:[
-        productNode('product-guardium-focus','Guardium','IBM Guardium','Discover, protect, and govern sensitive enterprise data.'),
-        productNode('product-watsonx-data','watsonx.data','IBM watsonx.data','Create an AI-ready hybrid data foundation.'),
-        productNode('product-watsonx-integration','Data Integration','IBM watsonx.data integration','Integrate and deliver trusted data across hybrid environments.'),
-        productNode('product-planning-analytics','Planning Analytics','IBM Planning Analytics','Support integrated business planning, forecasting, and scenario analysis.'),
-      ],
-    },
-  ];
+  dataBrand.desc = '3 of the 21 Focus Products and 3 of the 5 Hero Products (Bob, Orchestrate, Confluent) live in Data, spanning AI-Powered Productivity, Confluent, and Data Trust & Planning.';
+  dataBrand.hierarchy = buildSpecialtyHierarchy(dataBrand.functions, {
+    'AI-Powered Productivity': 'Focus products for AI assistants, agentic productivity, development acceleration, and governed AI.',
+    'Confluent': 'Real-time data streaming — its own Select-T focus line and a Hero Product, also central to Automation’s Integration specialty.',
+    'Data Trust & Planning': 'Focus products for trusted data, governance, integration, security, analytics, and enterprise planning.',
+  });
 }
 
 if (automationBrand) {
-  automationBrand.desc = 'Select Territory Automation offerings span DevOps, Integration, Secure Access & Identity, and Asset & Operations Optimization.';
-  automationBrand.hierarchy = [
-    {
-      id:'product-specialty-devops', label:'DevOps', kind:'Specialty',
-      children:[
-        productNode('product-terraform-focus','Terraform','HashiCorp Terraform','Provision and manage infrastructure through consistent workflows.'),
-        productNode('product-instana-focus','Instana','IBM Instana Observability','Observe application performance and dependencies in real time.'),
-        productNode('product-concert-focus','Concert','IBM Concert','Use AI-driven insights to manage application resilience and risk.'),
-        productNode('product-kubecost-focus','Kubecost','IBM Kubecost','Understand and optimize Kubernetes cost and usage.'),
-        productNode('product-cloudability-focus','Cloudability','IBM Cloudability','Manage and optimize cloud financial performance.'),
-      ],
-    },
-    {
-      id:'product-specialty-integration', label:'Integration', kind:'Specialty',
-      children:[productNode('product-webmethods-focus','webMethods','IBM webMethods Hybrid Integration','Connect applications, APIs, events, files, and data across hybrid environments.')],
-    },
-    {
-      id:'product-specialty-access', label:'Secure Access & Identity', kind:'Specialty',
-      children:[
-        productNode('product-vault-focus','Vault','HashiCorp Vault','Secure secrets, identities, and privileged access.'),
-        productNode('product-verify-focus','Verify','IBM Security Verify','Manage workforce and customer identity and access.'),
-        productNode('product-ns1-focus','NS1','IBM NS1 Connect','Provide resilient, intelligent DNS and traffic steering.'),
-      ],
-    },
-    {
-      id:'product-specialty-asset-ops', label:'Asset & Operations Optimization', kind:'Specialty',
-      children:[productNode('product-maximo-focus','Maximo','IBM Maximo Application Suite','Optimize asset performance, maintenance, reliability, and operations.')],
-    },
-  ];
+  automationBrand.desc = 'Select Territory Automation spans DevOps (5 Focus), Integration (1 Focus), Secure Access & Identity (3 Focus, incl. Hero Product Vault), and Asset & Operations Optimization (1 Focus).';
+  automationBrand.hierarchy = buildSpecialtyHierarchy(automationBrand.functions, {
+    'DevOps': '5 Focus products for application delivery, observability, cost management, and resilience.',
+    'Integration': '1 Focus product connecting applications, APIs, events, and data across hybrid environments.',
+    'Secure Access & Identity': '3 Focus products for identity, access, and secrets management.',
+    'Asset & Op Optimization': '1 Focus product for asset performance and operations.',
+  });
 }
 
 if (infrastructureBrand) {
-  const asProductNode = product => ({ ...product, label:product.abbr, sub:product.label, kind:'Product' });
-  const focusProducts = infrastructureBrand.functions.filter(product => product.category === 'BTSS Brand Products');
-  const territoryProducts = infrastructureBrand.functions.filter(product => product.category === 'TSS Portfolio Coverage');
-  const zProducts = infrastructureBrand.functions.filter(product => product.category === 'IBM Z Specialist Motion');
-  infrastructureBrand.hierarchy = [{
-    id:'product-specialty-infrastructure-modernization', label:'Infrastructure Modernization', kind:'Specialty', youAreHere:true,
-    desc:'The infrastructure specialty combines BTSS Focus Products, broader non-Focus TSS coverage, and a distinct IBM Z specialist motion.',
-    children:[
-      {
-        id:'product-group-focus', label:'Focus Products', kind:'Product Group', youAreHere:true,
-        desc:'BTSS sells and technically validates PowerVS, FlashSystem, and Fusion as part of a focused 1-12 product assignment across approximately 300+ Select Activate accounts.',
-        children:focusProducts.map(asProductNode),
-      },
-      ...territoryProducts.map(asProductNode),
-      {
-        id:'product-group-z', label:'IBM Z', kind:'Product Group',
-        desc:'Specialist-led IBM Z and LinuxONE offerings. TSS can identify demand and coordinate the specialist team.',
-        children:zProducts.map(asProductNode),
-      },
-    ],
-  }];
-  infrastructureBrand.groupByCategory = false;
+  const nonZFunctions = infrastructureBrand.functions.filter(fn => fn.specialty !== 'IBM Z');
+  const zFunctions = infrastructureBrand.functions.filter(fn => fn.specialty === 'IBM Z');
+  infrastructureBrand.hierarchy = [
+    ...buildSpecialtyHierarchy(nonZFunctions, {
+      'Infrastructure Modernization': 'BTSS sells and technically validates the 3 Focus Products (PowerVS, FlashSystem, Fusion) as part of a focused 1-12 product assignment across approximately 300+ Select Activate accounts. Power11, Cloud Platform, and Tape are Key Core / brand-core products for Select Activate sellers.',
+    }),
+    {
+      id: 'product-specialty-ibm-z', label: 'IBM Z', kind: 'Specialty',
+      desc: 'Special Teams / specialist-led IBM Z and LinuxONE offerings — excluded from standard BTSS/TSS coverage and from the combined Territory Sales Specialist / Platform Architect "all products" coverage.',
+      children: zFunctions.map(productNode),
+    },
+  ];
 }
 
 // Hybrid Cloud and Security remain important IBM portfolios, but the runbook
@@ -636,14 +1040,43 @@ let _expandedSegments  = new Set();
 let _selectedId        = null;   // currently selected node id
 let _panelCollapsed    = false;
 let _zoom              = 1;
-let _chartMode         = 'segments'; // 'segments' | 'products'
+let _chartMode         = 'segments'; // 'mycolony' | 'segments' | 'products'
 let _hierarchyLoaded   = false;
 const ZOOM_STEP        = 0.15;
 const ZOOM_MIN         = 0.4;
 const ZOOM_MAX         = 2.5;
 
 function activeGroups() {
-  return _chartMode === 'products' ? PRODUCT_CATEGORIES : SEGMENTS;
+  if (_chartMode === 'mycolony') return MY_COLONY_GROUPS;
+  if (_chartMode === 'products') return PRODUCT_CATEGORIES;
+  return SEGMENTS;
+}
+
+// Copy that varies by chart mode — kept in one place so the three tabs
+// (My Colony, Sales, Product Brands) stay easy to extend.
+function chartModeLabels() {
+  if (_chartMode === 'products') {
+    return {
+      root: 'IBM Products', groupBadge: 'Brand',
+      welcomeTitle: 'IBM Product Brands',
+      welcomeBody: 'Explore IBM product brands, their Focus and Key Core products, and the specialized sales motions that connect them.',
+      welcomeTip: 'Select a brand to reveal its products.',
+    };
+  }
+  if (_chartMode === 'mycolony') {
+    return {
+      root: 'My Colony', groupBadge: 'Brand',
+      welcomeTitle: 'My Colony',
+      welcomeBody: 'Your shortcut view — the same Data, Automation, and Infrastructure content that lives under Sales → Select Territory → Select T Activate, promoted to the front.',
+      welcomeTip: 'Select a brand to reveal its specialties and roles.',
+    };
+  }
+  return {
+    root: 'IBM Sales', groupBadge: 'Client Segment',
+    welcomeTitle: 'IBM Colonies',
+    welcomeBody: 'Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM\'s go-to-market motion.',
+    welcomeTip: 'Your current role is highlighted in purple.',
+  };
 }
 
 const HIERARCHY_STORAGE_KEY = 'ibm-hive-colonies-hierarchy-v1';
@@ -763,6 +1196,7 @@ export async function renderOrg(container) {
     <div class="ohive-layout">
       <div class="ohive-hive-area" id="ohiveHiveArea">
         <div class="ohive-chart-switch" aria-label="Colony chart">
+          <button class="ohive-chart-switch-btn" data-chart-mode="mycolony">My Colony</button>
           <button class="ohive-chart-switch-btn active" data-chart-mode="segments">Sales</button>
           <button class="ohive-chart-switch-btn" data-chart-mode="products">Product Brands</button>
         </div>
@@ -1058,7 +1492,7 @@ function buildLayout() {
   // Root
   let curY = PAD_Y + R;
   nodes.push({
-    id: 'root', label: _chartMode === 'products' ? 'IBM Products' : 'IBM Sales', sub: 'Colony',
+    id: 'root', label: chartModeLabels().root, sub: 'Colony',
     type: 'root', cx: svgCX, cy: curY,
     isSelected: _selectedId === 'root',
     // The colony root is highlighted purple — you sit inside it.
@@ -1073,7 +1507,7 @@ function buildLayout() {
     const cx = segStartX + si * (CS + GAP);
     const cy = curY;
     nodes.push({
-      id: seg.id, label: seg.label, sub: _chartMode === 'products' ? 'Brand' : 'Client Segment',
+      id: seg.id, label: seg.label, sub: chartModeLabels().groupBadge,
       type: 'segment', cx, cy,
       isSelected: _selectedId === seg.id,
       youAreHere: seg.youAreHere || false,
@@ -1263,11 +1697,16 @@ function redraw() {
   const hasSelection = selected.size > 0;
 
   // Lines
+  // Direct hierarchy lines (root→segment, segment→role, parent→child) are
+  // solid; cross-role lines represent an indirect tie (e.g. a BTSS↔TSS
+  // pairing that isn't a reporting relationship) and render dashed.
   const lines = lines_data.map(l => {
+    const isIndirect = l.kind === 'cross-role';
+    const dash = isIndirect ? ' stroke-dasharray="6,5"' : '';
     return `<line data-line-kind="${l.kind}" x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}"
       x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}"
-      stroke="rgba(255,255,255,0.48)"
-      stroke-width="1.5" stroke-linecap="round" pointer-events="none"/>`;
+      stroke="rgba(198,198,198,0.55)"
+      stroke-width="1.2"${dash} stroke-linecap="round" pointer-events="none"/>`;
   }).join('');
 
   let hexes = '';
@@ -1452,15 +1891,13 @@ function showDetail(id, type, data) {
   if (!panel) return;
 
   if (!id || !data) {
-    const isProducts = _chartMode === 'products';
+    const copy = chartModeLabels();
     panel.innerHTML = `
       <div class="ohive-detail-empty">
         <div class="ohive-detail-welcome">
-          <div class="ohive-detail-welcome-title">${isProducts ? 'IBM Product Brands' : 'IBM Colonies'}</div>
-          <div class="ohive-detail-welcome-body">${isProducts
-            ? 'Explore IBM product brands, their products, and the specialized sales motions that connect them.'
-            : 'Understand how IBM works, where your role fits, and who you need to succeed.<br><br>Explore client segments, discover key roles, and visualize the connections that drive IBM\'s go-to-market motion.'}</div>
-          <div class="ohive-detail-welcome-tip">${isProducts ? 'Select a brand to reveal its products.' : 'Your current role is highlighted in purple.'}</div>
+          <div class="ohive-detail-welcome-title">${copy.welcomeTitle}</div>
+          <div class="ohive-detail-welcome-body">${copy.welcomeBody}</div>
+          <div class="ohive-detail-welcome-tip">${copy.welcomeTip}</div>
         </div>
       </div>`;
     return;
@@ -1507,6 +1944,7 @@ function showDetail(id, type, data) {
 
   if (type === 'segment') {
     const isProducts = _chartMode === 'products';
+    const groupBadge = chartModeLabels().groupBadge;
     let rolesHtml = '';
     if (data.hierarchy) {
       rolesHtml = `<div class="odp-role-list">${data.hierarchy.map(item => `
@@ -1541,7 +1979,7 @@ function showDetail(id, type, data) {
     }
     panel.innerHTML = `
       <div class="odp-content">
-        <div class="odp-type-badge">${isProducts ? 'Brand' : 'Client Segment'}</div>
+        <div class="odp-type-badge">${groupBadge}</div>
         <div class="odp-title">${data.label}</div>
         <div class="odp-sub">${data.clientCount || data.sub}</div>
         <div class="odp-desc">${data.desc}</div>
