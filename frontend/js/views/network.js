@@ -675,7 +675,10 @@ function renderSidebar() {
 
 // ── Canvas router ─────────────────────────────────────────────────
 function renderCanvas() {
-  if (_activeComb === ALL_BEES_ID && _allBeesView === 'list') {
+  const isListMode = _activeComb === ALL_BEES_ID && _allBeesView === 'list';
+  const zoomBar = document.getElementById('nwZoomIn')?.closest('.nw-zoom-bar');
+  if (zoomBar) zoomBar.style.display = isListMode ? 'none' : '';
+  if (isListMode) {
     drawListView();
   } else {
     drawHive();
@@ -944,7 +947,6 @@ function drawListView() {
         const combNames = combsForBee(b.id).map(c => esc(c.name)).join(', ');
         return `
           <div class="nw-list-row" data-bid="${b.id}">
-            <img class="nw-list-bee-img" src="/img/bee.png" alt="bee"/>
             <div class="nw-list-info">
               <div class="nw-list-name">${esc(b.name)}</div>
               <div class="nw-list-meta">${[b.role, b.company].filter(Boolean).map(esc).join(' · ') || '—'}</div>

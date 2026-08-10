@@ -220,6 +220,69 @@ See [`db/schema.sql`](db/schema.sql) for the full DDL.
 
 ---
 
+## Deployment & Handoff
+
+### 1. Enable real authentication (one line)
+
+The entire auth system is built and working — it's just switched off. The app currently calls `bootGuest()` at the bottom of [`frontend/js/app.js`](frontend/js/app.js), which skips the login screen and hardcodes the user as Sydney Chin. To turn real accounts on:
+
+```js
+// frontend/js/app.js — last line, replace:
+bootGuest();
+// with:
+startAuth();
+```
+
+That's the only code change needed. The login/register overlay, token storage, per-user data sync, and logout are all fully wired.
+
+### 2. Make the database path configurable
+
+`better-sqlite3` writes to a local file. Platforms that use persistent volumes (Render, Fly.io) need the path pointed at the mounted disk. In [`backend/db.js`](backend/db.js), change the path line to:
+
+```js
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'db', 'hive.db');
+```
+
+Then set the `DB_PATH` environment variable on the platform (e.g. `DB_PATH=/data/hive.db`).
+
+### 3. Add session expiry (recommended before real users)
+
+Sessions currently live forever. In [`backend/routes/auth.js`](backend/routes/auth.js) inside `requireAuth`, add a time bound to the query:
+
+```js
+WHERE s.token = ? AND s.created_at > datetime('now', '-30 days')
+```
+
+### 4. Choose a hosting platform
+
+SQLite needs a filesystem that persists across restarts — avoid platforms with ephemeral disks (Heroku free tier, Vercel, Netlify). Good options:
+
+| Platform | How |
+|---|---|
+| **Railway** | Connect GitHub repo → set start command to `npm start` → deploy. Volumes persist by default. |
+| **Render** | Create a Web Service → add a Disk mounted at `/data` → set `DB_PATH=/data/hive.db` env var. |
+| **Fly.io** | `fly launch` → `fly volumes create hive_data` → mount at `/data` in `fly.toml`. |
+| **VPS (DigitalOcean, Linode, etc.)** | `git clone` → `npm install` → `npm run seed` → `npm start` behind nginx + pm2. Most control, most setup. |
+
+### 5. First-deploy checklist
+
+```bash
+# On the server / in the platform's build step — run once:
+npm install
+npm run seed   # creates db/hive.db (or $DB_PATH) with schema + demo data
+
+# Start:
+npm start      # listens on $PORT or 3000
+```
+
+After that, every user who registers gets their own isolated row in `users`, `hive_state`, and `user_kv`. No further setup is needed per user.
+
+### 6. Seed data note
+
+`npm run seed` wipes and rebuilds the database from scratch each time. Run it only once on first deploy. For subsequent deploys, the schema is also applied lazily in [`backend/db.js`](backend/db.js) via `ensureAuthTables()`, so new auth tables are created automatically on startup even on an existing database — you do not need to re-seed to pick up schema additions.
+
+---
+
 ## Known gaps
 
 - Accounts has no delete route and no create/edit UI (Connections does — see People view for the reference CRUD pattern).
